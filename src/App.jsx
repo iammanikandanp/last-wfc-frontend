@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 
 // Pages
 import Login from "./pages/Login";
-import Register from "./compontes/Register";
+import UserRegister from "./pages/Register";
+import AdminRegister from "./compontes/Register";
 import Dashboard from "./pages/Dashboard";
 import Members from "./pages/Members";
 import AddMember from "./pages/AddMember";
@@ -38,12 +39,13 @@ function App() {
       <Routes>
         {/* Auth Routes */}
         <Route path="/login"    element={<Login />} />
+        <Route path="/signup"   element={<UserRegister />} />
 
         {/* Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
         {/* Members */}
-        <Route path="/register"      element={<ProtectedRoute><Register /></ProtectedRoute>} />
+        <Route path="/register"      element={<ProtectedRoute><AdminRegister /></ProtectedRoute>} />
         <Route path="/members"       element={<ProtectedRoute><Members /></ProtectedRoute>} />
         <Route path="/members/new"   element={<ProtectedRoute><AddMember /></ProtectedRoute>} />
         <Route path="/members/:id"   element={<ProtectedRoute><MemberProfile /></ProtectedRoute>} />

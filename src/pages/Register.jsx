@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, Lock, Check } from 'lucide-react';
+import { User, Mail, Lock, Check, Phone } from 'lucide-react';
 import axios from 'axios';
 
 const Register = () => {
@@ -9,7 +9,6 @@ const Register = () => {
     email: '',
     phone: '',
     password: '',
-    role: 'member',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +28,13 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('https://wfc-backend-server.onrender.com/api/v1/auth/register', formData);
+      const payload = {
+        ...formData,
+        role: 'member',
+        isActive: true,
+      };
+
+      const response = await axios.post('https://wfc-backend-server.onrender.com/api/v1/auth/register', payload);
 
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
@@ -79,7 +84,7 @@ const Register = () => {
                   onChange={handleChange}
                   placeholder='Enter your name'
                   className='w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500'
-                  required
+                  
                 />
               </div>
             </div>
@@ -115,7 +120,7 @@ const Register = () => {
                   name='phone'
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder='Enter your phone'
+                  placeholder='Enter your phone number'
                   className='w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500'
                   required
                 />
@@ -140,23 +145,6 @@ const Register = () => {
                   minLength={6}
                 />
               </div>
-            </div>
-
-            {/* Role */}
-            <div>
-              <label className='block text-sm font-medium text-slate-700 mb-2'>
-                Role
-              </label>
-              <select
-                name='role'
-                value={formData.role}
-                onChange={handleChange}
-                className='w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500'
-              >
-                <option value='member'>Member</option>
-                <option value='trainer'>Trainer</option>
-                <option value='staff'>Staff</option>
-              </select>
             </div>
 
             {/* Submit Button */}

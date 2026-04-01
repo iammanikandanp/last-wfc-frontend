@@ -4,7 +4,7 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -17,10 +17,13 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('https://wfc-backend-server.onrender.com/api/v1/auth/login', {
-        email,
+      const payload = {
         password,
-      });
+        email: identifier,
+        username: identifier,
+      };
+
+      const response = await axios.post('https://wfc-backend-server.onrender.com/api/v1/auth/login', payload);
 
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
@@ -59,15 +62,15 @@ const Login = () => {
             {/* Email */}
             <div>
               <label className='block text-sm font-medium text-slate-700 mb-2'>
-                Email Address
+                Username or Email
               </label>
               <div className='relative'>
                 <Mail className='absolute left-3 top-3 text-slate-400' size={20} />
                 <input
-                  type='email'
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder='Enter your email'
+                  type='text'
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder='Enter your username or email'
                   className='w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500'
                   required
                 />
@@ -119,7 +122,7 @@ const Login = () => {
           {/* Footer */}
           <div className='mt-6 text-center text-sm text-slate-600'>
             Don't have an account?{' '}
-            <Link to='/register' className='text-red-600 font-semibold hover:text-red-700'>
+            <Link to='/signup' className='text-red-600 font-semibold hover:text-red-700'>
               Register now
             </Link>
           </div>
