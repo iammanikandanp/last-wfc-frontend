@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import {
   ArrowLeft, Search, X, Plus, Minus, Flame, Droplets,
@@ -155,7 +155,7 @@ const AddDietPlan = () => {
 
   const fetchMembers = async () => {
     try {
-      const res = await axios.get(`https://wfc-backend-server.onrender.com/api/v1/fetch`);
+      const res = await CustomBaseUrl.get(`/fetch`);
       setMembers(res.data.data || []);
     } catch (e) { console.error(e); }
   };
@@ -177,9 +177,9 @@ const AddDietPlan = () => {
       const payload = { registrationId: selectedMember._id, ...form };
 
       if (editPlan) {
-        await axios.put(`https://wfc-backend-server.onrender.com/api/v1/reg-diet-plans/${editPlan._id}`, payload);
+        await CustomBaseUrl.put(`/reg-diet-plans/${editPlan._id}`, payload);
       } else {
-        await axios.post(`https://wfc-backend-server.onrender.com/api/v1/reg-diet-plans`, payload);
+        await CustomBaseUrl.post(`/reg-diet-plans`, payload);
       }
       navigate('/diet-plans');
     } catch (e) {

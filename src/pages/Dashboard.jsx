@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import {
   Users, TrendingUp, AlertTriangle, Clock, CreditCard,
@@ -280,10 +280,10 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const [mR,pR,dR,lR] = await Promise.allSettled([
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/fetch`),
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/reg-payments`),
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/reg-diet-plans`),
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/leads/stats`),
+        CustomBaseUrl.get(`/fetch`),
+        CustomBaseUrl.get(`/reg-payments`),
+        CustomBaseUrl.get(`/reg-diet-plans`),
+        CustomBaseUrl.get(`/leads/stats`),
       ]);
       if(mR.status==='fulfilled') setMembers(mR.value.data?.data||[]);
       if(pR.status==='fulfilled') setPayments(pR.value.data?.payments||[]);

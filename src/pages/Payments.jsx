@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import {
   CreditCard, Plus, Search, X, Filter, Mail, CheckCircle,
@@ -24,7 +24,7 @@ const EmailModal = ({ payment, onClose }) => {
     setStatus('sending');
     setErrMsg('');
     try {
-      const res = await axios.post(`https://wfc-backend-server.onrender.com/api/v1/send-email`, {
+      const res = await CustomBaseUrl.post(`/send-email`, {
         to:            payment.memberEmail,
         memberName:    payment.memberName,
         invoiceNo:     payment.invoiceNo,
@@ -198,7 +198,7 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
   const handleSave = async () => {
     setSaving(true); setErrMsg('');
     try {
-      await axios.put(`https://wfc-backend-server.onrender.com/api/v1/reg-payments/${payment._id}`, form);
+      await CustomBaseUrl.put(`/reg-payments/${payment._id}`, form);
       onSave();
       onClose();
     } catch(e) {
@@ -325,8 +325,8 @@ const Payments = () => {
     setFetchError('');
     try {
       const [pRes, mRes] = await Promise.allSettled([
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/reg-payments`),
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/fetch`),
+        CustomBaseUrl.get(`/reg-payments`),
+        CustomBaseUrl.get(`/fetch`),
       ]);
 
       if (pRes.status === 'fulfilled') {
@@ -355,7 +355,7 @@ const Payments = () => {
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     try {
-      await axios.delete(`https://wfc-backend-server.onrender.com/api/v1/reg-payments/${deleteTarget._id}`);
+      await CustomBaseUrl.delete(`/reg-payments/${deleteTarget._id}`);
       setPayments(prev => prev.filter(p => p._id !== deleteTarget._id));
       setDeleteTarget(null);
     } catch(e) {

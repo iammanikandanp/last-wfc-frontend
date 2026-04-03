@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import {
   ArrowLeft, Edit3, Heart, Activity, Calendar, CreditCard,
@@ -593,11 +593,11 @@ const MemberProfile = () => {
     setLoading(true);
     try {
       const [mR, dR, wR, aR, pR] = await Promise.allSettled([
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/fetchone/${id}`),
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/reg-diet-plans/member/${id}`),
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/reg-workout-plans/member/${id}`),
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/xls-attendance/member/${id}`),
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/reg-payments/member/${id}`),
+        CustomBaseUrl.get(`/fetchone/${id}`),
+        CustomBaseUrl.get(`/reg-diet-plans/member/${id}`),
+        CustomBaseUrl.get(`/reg-workout-plans/member/${id}`),
+        CustomBaseUrl.get(`/xls-attendance/member/${id}`),
+        CustomBaseUrl.get(`/reg-payments/member/${id}`),
       ]);
       if(mR.status==='fulfilled') setMember(mR.value.data?.data);
       if(dR.status==='fulfilled'&&dR.value.data?.success) setDietPlan(dR.value.data.plan);
@@ -614,9 +614,9 @@ const MemberProfile = () => {
   // ── Diet import handler ─────────────────────────────────────────────────────
   const handleDietImport = async (rows) => {
     const payload = csvRowToDietPayload(rows[0], id);
-    const url    = dietPlan ? `https://wfc-backend-server.onrender.com/api/v1/reg-diet-plans/${dietPlan._id}` : `https://wfc-backend-server.onrender.com/api/v1/reg-diet-plans`;
     const method = dietPlan ? 'put' : 'post';
-    const res = await axios[method](url, payload);
+    const endpoint = dietPlan ? `/reg-diet-plans/${dietPlan._id}` : `/reg-diet-plans`;
+    const res = await CustomBaseUrl[method](endpoint, payload);
     if (!res.data.success) throw new Error(res.data.message || 'Import failed');
     setDietPlan(res.data.plan);
   };
@@ -624,29 +624,29 @@ const MemberProfile = () => {
   // ── Workout import handler ──────────────────────────────────────────────────
   const handleWorkoutImport = async (rows) => {
     const payload = csvRowsToWorkoutPayload(rows, id);
-    const url    = workoutPlan ? `https://wfc-backend-server.onrender.com/api/v1/reg-workout-plans/${workoutPlan._id}` : `https://wfc-backend-server.onrender.com/api/v1/reg-workout-plans`;
     const method = workoutPlan ? 'put' : 'post';
-    const res = await axios[method](url, payload);
+    const endpoint = workoutPlan ? `/reg-workout-plans/${workoutPlan._id}` : `/reg-workout-plans`;
+    const res = await CustomBaseUrl[method](endpoint, payload);
     if (!res.data.success) throw new Error(res.data.message || 'Import failed');
     setWorkoutPlan(res.data.plan);
   };
 
   const handleDeleteDiet = async () => {
     if(!dietPlan||!window.confirm('Delete diet plan?')) return;
-    await axios.delete(`https://wfc-backend-server.onrender.com/api/v1/reg-diet-plans/${dietPlan._id}`);
+    await CustomBaseUrl.delete(`/reg-diet-plans/${dietPlan._id}`);
     setDietPlan(null);
   };
 
   const handleDeleteWorkout = async () => {
     if(!workoutPlan||!window.confirm('Delete workout plan?')) return;
-    await axios.delete(`https://wfc-backend-server.onrender.com/api/v1/reg-workout-plans/${workoutPlan._id}`);
+    await CustomBaseUrl.delete(`/reg-workout-plans/${workoutPlan._id}`);
     setWorkoutPlan(null);
   };
 
   const handleSaveMeasurements = async (form) => {
     const bmi=(parseFloat(form.weight)&&parseFloat(form.height))
       ?(parseFloat(form.weight)/Math.pow(parseFloat(form.height)/100,2)).toFixed(1):member.bmi;
-    await axios.post(`https://wfc-backend-server.onrender.com/api/v1/update/${id}`,{
+    await CustomBaseUrl.post(`/update/${id}`,{
       ...member,...form,bmi,name:member.name,age:member.age,gender:member.gender,
       emails:member.emails,phone:member.phone,address:member.address,pincode:member.pincode,
       packages:member.packages,duration:member.duration,services:member.services,

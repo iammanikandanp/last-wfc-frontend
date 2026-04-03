@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import {
   Plus, Search, X, User,
@@ -133,8 +133,8 @@ const CSVImportModal = ({ onClose, onDone }) => {
         const { fd, startDate, endDate } = rowToMemberPayload(row);
 
         // 1. Register the member
-        const regRes = await axios.post(
-          'https://wfc-backend-server.onrender.com/api/v1/register',
+        const regRes = await CustomBaseUrl.post(
+          '/register',
           fd,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
@@ -149,7 +149,7 @@ const CSVImportModal = ({ onClose, onDone }) => {
         // 2. Create payment record (only if we got an id)
         if (registrationId) {
           const payloadPay = rowToPaymentPayload(row, registrationId, startDate, endDate);
-          await axios.post('https://wfc-backend-server.onrender.com/api/v1/reg-payments', payloadPay);
+          await CustomBaseUrl.post('/reg-payments', payloadPay);
         }
 
         res.push({ name: row.memberName, admissionNo: row.admissionNo, status: 'ok' });
@@ -470,7 +470,7 @@ const Members = () => {
 
   const fetchMembers = async () => {
     try {
-      const res = await axios.get(`https://wfc-backend-server.onrender.com/api/v1/fetch`);
+      const res = await CustomBaseUrl.get(`/fetch`);
       setMembers(res.data.data || []);
     } catch (err) {
       console.error('Error fetching members:', err);
@@ -484,7 +484,7 @@ const Members = () => {
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     try {
-      await axios.post(`https://wfc-backend-server.onrender.com/api/v1/delete/${deleteTarget._id}`);
+      await CustomBaseUrl.post(`/delete/${deleteTarget._id}`);
       setMembers(prev => prev.filter(m => m._id !== deleteTarget._id));
       setDeleteTarget(null);
     } catch (err) {

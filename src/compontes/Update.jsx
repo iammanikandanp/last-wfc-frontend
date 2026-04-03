@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import CustomBaseUrl from "../hooks/CustomBaseUrl";
 import toast, { Toaster } from "react-hot-toast";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -12,8 +12,8 @@ const Update = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(
-          `https://wfc-backend-server.onrender.com/api/v1/fetchone/${id}`
+        const response = await CustomBaseUrl.get(
+          `/fetchone/${id}`
         );
         setFormData(response.data.data);
         setLoading(false);
@@ -100,8 +100,8 @@ const Update = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(
-        `https://wfc-backend-server.onrender.com/api/v1/update/${formData._id}`,
+      const response = await CustomBaseUrl.post(
+        `/update/${formData._id}`,
         formData
       );
 

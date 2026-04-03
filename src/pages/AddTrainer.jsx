@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import { useNavigate } from 'react-router-dom';
 
@@ -46,11 +46,7 @@ const AddTrainer = () => {
           .filter(c => c),
       };
 
-      const response = await axios.post(
-        'https://wfc-backend-server.onrender.com/api/v1/trainers',
-        data,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await CustomBaseUrl.post('/trainers', data);
 
       if (response.data.success) {
         alert('Trainer created successfully!');

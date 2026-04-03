@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import CustomBaseUrl from "../hooks/CustomBaseUrl";
 import toast, { Toaster } from "react-hot-toast";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Upload, X, ArrowLeft, Check } from "lucide-react";
-
-const BASE_URL = "https://wfc-backend-server.onrender.com";
 
 // ── Reusable components ───────────────────────────────────────────────────────
 const Input = ({ label, required = false, isTextArea, ...props }) => (
@@ -276,11 +274,9 @@ export const Register = () => {
       if (imageFiles.sideBodyImage)  fd.append("sideBodyImage",  imageFiles.sideBodyImage);
       if (imageFiles.backBodyImage)  fd.append("backBodyImage",  imageFiles.backBodyImage);
 
-      const url = isEdit
-        ? `https://wfc-backend-server.onrender.com/api/v1/update/${editData._id}`
-        : `https://wfc-backend-server.onrender.com/api/v1/register`;
+      const url = isEdit ? `/update/${editData._id}` : `/register`;
 
-      await axios.post(url, fd, { headers: { "Content-Type": "multipart/form-data" } });
+      await CustomBaseUrl.post(url, fd, { headers: { "Content-Type": "multipart/form-data" } });
 
       toast.success(isEdit ? "Member updated!" : "Registered successfully!");
       setTimeout(() => navigate("/members"), 1200);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -51,9 +51,9 @@ const LeadModal = ({ lead, onSave, onClose }) => {
     setSaving(true); setErr('');
     try {
       if (isEdit) {
-        await axios.put(`https://wfc-backend-server.onrender.com/api/v1/leads/${lead._id}`, form);
+        await CustomBaseUrl.put(`/leads/${lead._id}`, form);
       } else {
-        await axios.post(`https://wfc-backend-server.onrender.com/api/v1/leads`, form);
+        await CustomBaseUrl.post(`/leads`, form);
       }
       onSave();
       onClose();
@@ -257,7 +257,7 @@ const Leads = () => {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`https://wfc-backend-server.onrender.com/api/v1/leads`);
+      const res = await CustomBaseUrl.get(`/leads`);
       setLeads(res.data?.leads || []);
     } catch(e) { console.error(e); }
     finally { setLoading(false); }
@@ -265,14 +265,14 @@ const Leads = () => {
 
   const handleUpdate = async (id, data) => {
     try {
-      await axios.put(`https://wfc-backend-server.onrender.com/api/v1/leads/${id}`, data);
+      await CustomBaseUrl.put(`/leads/${id}`, data);
       setLeads(prev => prev.map(l => l._id === id ? { ...l, ...data } : l));
     } catch { alert('Update failed'); }
   };
 
   const handleDelete = async () => {
     try {
-      await axios.delete(`https://wfc-backend-server.onrender.com/api/v1/leads/${delTarget._id}`);
+      await CustomBaseUrl.delete(`/leads/${delTarget._id}`);
       setLeads(prev => prev.filter(l => l._id !== delTarget._id));
       setDelTarget(null);
     } catch { alert('Delete failed'); }

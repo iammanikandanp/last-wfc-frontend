@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import {
   Plus, Search, X, Flame, Droplets, Target,
@@ -164,7 +164,7 @@ const DietPlans = () => {
 
   const fetchPlans = async () => {
     try {
-      const res = await axios.get(`https://wfc-backend-server.onrender.com/api/v1/reg-diet-plans`);
+      const res = await CustomBaseUrl.get(`/reg-diet-plans`);
       if (res.data.success) setPlans(res.data.plans);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -173,7 +173,7 @@ const DietPlans = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this diet plan?')) return;
     try {
-      await axios.delete(`https://wfc-backend-server.onrender.com/api/v1/reg-diet-plans/${id}`);
+      await CustomBaseUrl.delete(`/reg-diet-plans/${id}`);
       setPlans(p => p.filter(x => x._id !== id));
     } catch (e) { alert('Delete failed'); }
   };

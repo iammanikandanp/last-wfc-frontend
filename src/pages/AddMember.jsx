@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import { useNavigate } from 'react-router-dom';
 
@@ -38,7 +38,7 @@ const AddMember = () => {
 
   const fetchPlans = async () => {
     try {
-      const response = await axios.get('https://wfc-backend-server.onrender.com/api/v1/plans');
+      const response = await CustomBaseUrl.get('/plans');
       if (response.data.success) {
         setPlans(response.data.plans);
       }
@@ -62,11 +62,7 @@ const AddMember = () => {
     setError('');
 
     try {
-      const response = await axios.post(
-        'https://wfc-backend-server.onrender.com/api/v1/members',
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await CustomBaseUrl.post('/members', formData);
 
       if (response.data.success) {
         alert('Member created successfully!');

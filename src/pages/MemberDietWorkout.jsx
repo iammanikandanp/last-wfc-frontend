@@ -7,7 +7,7 @@
 //   <MemberDietWorkout memberId={member._id} memberName={member.name} />
 
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import CustomBaseUrl from "../hooks/CustomBaseUrl";
 import {
   Apple, Dumbbell, Upload, RefreshCw, Edit3, Save, X,
   CheckCircle, AlertCircle, ChevronDown, ChevronUp,
@@ -104,7 +104,7 @@ const DietSection = ({ memberId, memberName }) => {
   const fetchDiet = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`https://wfc-backend-server.onrender.com/member-diet/member/${memberId}`);
+      const res = await CustomBaseUrl.get(`member-diet/member/${memberId}`);
       setDiet(res.data.diet);
     } catch {
       setDiet(null);
@@ -121,7 +121,7 @@ const DietSection = ({ memberId, memberName }) => {
       fd.append("file", file);
       fd.append("registrationId", memberId);
       fd.append("planName", planName);
-      const res = await axios.post(`https://wfc-backend-server.onrender.com/member-diet/import`, fd, {
+      const res = await CustomBaseUrl.post(`member-diet/import`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setDiet(res.data.diet);
@@ -143,8 +143,8 @@ const DietSection = ({ memberId, memberName }) => {
   const saveEditDay = async () => {
     if (!editingDay) return;
     try {
-      const res = await axios.put(
-        `https://wfc-backend-server.onrender.com/member-diet/${editingDay.dietId}/day/${editingDay.dayId}`,
+      const res = await CustomBaseUrl.put(
+        `member-diet/${editingDay.dietId}/day/${editingDay.dayId}`,
         editingDay.data
       );
       setDiet(res.data.diet);
@@ -158,7 +158,7 @@ const DietSection = ({ memberId, memberName }) => {
   const deleteDiet = async () => {
     if (!window.confirm("Remove this diet plan?")) return;
     try {
-      await axios.delete(`https://wfc-backend-server.onrender.com/member-diet/${diet._id}`);
+      await CustomBaseUrl.delete(`member-diet/${diet._id}`);
       setDiet(null);
       showToast("Diet plan removed");
     } catch {
@@ -367,7 +367,7 @@ const WorkoutSection = ({ memberId, memberName }) => {
   const fetchWorkout = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`https://wfc-backend-server.onrender.com/member-workout/member/${memberId}`);
+      const res = await CustomBaseUrl.get(`member-workout/member/${memberId}`);
       setWorkout(res.data.workout);
     } catch {
       setWorkout(null);
@@ -384,7 +384,7 @@ const WorkoutSection = ({ memberId, memberName }) => {
       fd.append("file", file);
       fd.append("registrationId", memberId);
       fd.append("planName", planName);
-      const res = await axios.post(`https://wfc-backend-server.onrender.com/member-workout/import`, fd, {
+      const res = await CustomBaseUrl.post(`member-workout/import`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setWorkout(res.data.workout);
@@ -405,8 +405,8 @@ const WorkoutSection = ({ memberId, memberName }) => {
   const saveEditDay = async () => {
     if (!editingDay) return;
     try {
-      const res = await axios.put(
-        `https://wfc-backend-server.onrender.com/member-workout/${editingDay.workoutId}/day/${editingDay.dayId}`,
+      const res = await CustomBaseUrl.put(
+        `member-workout/${editingDay.workoutId}/day/${editingDay.dayId}`,
         editingDay.data
       );
       setWorkout(res.data.workout);
@@ -420,7 +420,7 @@ const WorkoutSection = ({ memberId, memberName }) => {
   const deleteWorkout = async () => {
     if (!window.confirm("Remove this workout plan?")) return;
     try {
-      await axios.delete(`https://wfc-backend-server.onrender.com/member-workout/${workout._id}`);
+      await CustomBaseUrl.delete(`member-workout/${workout._id}`);
       setWorkout(null);
       showToast("Workout plan removed");
     } catch {

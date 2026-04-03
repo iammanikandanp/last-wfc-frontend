@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
-
-const BASE = 'https://wfc-backend-server.onrender.com/api/v1';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const rupee  = n => '₹' + Number(n || 0).toLocaleString('en-IN');
@@ -227,8 +225,8 @@ export default function Reports() {
       setLoading(true); setError('');
       try {
         const [pRes, mRes] = await Promise.allSettled([
-          axios.get(`${BASE}/reg-payments`),
-          axios.get(`${BASE}/fetch`),
+          CustomBaseUrl.get(`/reg-payments`),
+          CustomBaseUrl.get(`/fetch`),
         ]);
         if (pRes.status === 'fulfilled') {
           const d = pRes.value.data;

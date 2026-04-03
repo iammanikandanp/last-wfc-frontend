@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 
 const Login = () => {
   const [identifier, setIdentifier] = useState('');
@@ -23,7 +23,7 @@ const Login = () => {
         username: identifier,
       };
 
-      const response = await axios.post('https://wfc-backend-server.onrender.com/api/v1/auth/login', payload);
+      const response = await CustomBaseUrl.post('/auth/login', payload);
 
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);

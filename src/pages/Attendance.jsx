@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import {
   Upload, Search, X, Download, Users, Clock,
   CheckCircle, XCircle, Link, AlertCircle,
@@ -156,8 +156,8 @@ const Attendance = () => {
     setLoading(true);
     try {
       const [mRes, regRes] = await Promise.allSettled([
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/xls-attendance/months`),
-        axios.get(`https://wfc-backend-server.onrender.com/api/v1/fetch`),
+        CustomBaseUrl.get(`/xls-attendance/months`),
+        CustomBaseUrl.get(`/fetch`),
       ]);
       if (mRes.status==='fulfilled') {
         const ms = mRes.value.data?.months || [];
@@ -174,7 +174,7 @@ const Attendance = () => {
       const params = {};
       if (activeMonth) params.month = activeMonth;
       if (activeDept !== 'ALL') params.dept = activeDept;
-      const res = await axios.get(`https://wfc-backend-server.onrender.com/api/v1/xls-attendance`, { params });
+      const res = await CustomBaseUrl.get(`/xls-attendance`, { params });
       setRecords(res.data?.records || []);
     } catch(e) { console.error(e); }
   };
@@ -187,7 +187,7 @@ const Attendance = () => {
         const text = await file.text();
         const parsed = parseMonthXLS(text);
         if (!parsed) { logs.push({ t:'warn', m:`⚠️ ${file.name} — not a Month report` }); continue; }
-        const res = await axios.post(`https://wfc-backend-server.onrender.com/api/v1/xls-attendance/import`, {
+        const res = await CustomBaseUrl.post(`/xls-attendance/import`, {
           month: parsed.month, sourceFile: file.name, records: parsed.records,
         });
         logs.push({ t:'success', m:`✅ ${file.name} — ${res.data.inserted} saved (${MONTH_LABELS[parsed.month]||parsed.month})` });
@@ -204,7 +204,7 @@ const Attendance = () => {
 
   const handleLink = async (registrationId, attendanceId) => {
     try {
-      await axios.post(`https://wfc-backend-server.onrender.com/api/v1/xls-attendance/link`, { registrationId, attendanceId });
+      await CustomBaseUrl.post(`/xls-attendance/link`, { registrationId, attendanceId });
       setLinkTarget(null);
       await fetchData();
       await fetchRecords();

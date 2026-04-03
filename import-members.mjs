@@ -12,7 +12,7 @@
 import axios from 'axios';
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-const BASE_URL = 'https://wfc-backend-server.onrender.com';         // change to prod URL if needed
+const BASE_URL = 'http://localhost:5000';         // change to prod URL if needed
 const TOKEN    = '';                              // paste your JWT token here
 const DELAY_MS = 400;                             // ms between requests (avoid overload)
 

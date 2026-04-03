@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import {
   Search, X, ChevronDown, Calendar, CreditCard, Smartphone,
@@ -324,11 +324,7 @@ const InvoiceModal = ({ data, onClose }) => {
       // Patch the saved payment with the PDF URL
       if (data.savedPaymentId && url) {
         try {
-          await fetch(`https://wfc-backend-server.onrender.com/api/v1/reg-payments/pdf/${data.savedPaymentId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pdfUrl: url }),
-          });
+          await CustomBaseUrl.patch(`/reg-payments/pdf/${data.savedPaymentId}`, { pdfUrl: url });
         } catch (patchErr) {
           console.warn('Could not update PDF URL on server:', patchErr);
         }
@@ -396,29 +392,24 @@ const InvoiceModal = ({ data, onClose }) => {
     setEmailSending(true);
     setEmailError('');
     try {
-      const res = await fetch(`https://wfc-backend-server.onrender.com/api/v1/send-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to:            email,
-          memberName:    member.name,
-          invoiceNo,
-          amount:        amount,
-          finalAmount:   finalAmount,
-          balanceAmount: isPartly ? balAmt : 0,
-          packageName:   pkg,
-          startDate,
-          endDate,
-          paymentMode:   paymentMethod,
-          pdfUrl:        cloudUrl || '',   // backend will also check DB if this is empty
-          isReminder:    false,
-        }),
+      const res = await CustomBaseUrl.post(`/send-email`, {
+        to:            email,
+        memberName:    member.name,
+        invoiceNo,
+        amount:        amount,
+        finalAmount:   finalAmount,
+        balanceAmount: isPartly ? balAmt : 0,
+        packageName:   pkg,
+        startDate,
+        endDate,
+        paymentMode:   paymentMethod,
+        pdfUrl:        cloudUrl || '',
+        isReminder:    false,
       });
-      const data = await res.json();
-      if (data.success) {
+      if (res.data.success) {
         setEmailSent(true);
       } else {
-        setEmailError(data.message || 'Email failed to send.');
+        setEmailError(res.data.message || 'Email failed to send.');
       }
     } catch (e) {
       setEmailError('Network error — could not reach server.');
@@ -642,7 +633,7 @@ const AddPayment = () => {
 
   const fetchMembers = async () => {
     try {
-      const res = await axios.get(`https://wfc-backend-server.onrender.com/api/v1/fetch`);
+      const res = await CustomBaseUrl.get(`/fetch`);
       setMembers(res.data.data || []);
     } catch (e) { console.error(e); }
   };
@@ -735,7 +726,7 @@ const AddPayment = () => {
         pdfUrl: '',
       };
 
-      const res = await axios.post(`https://wfc-backend-server.onrender.com/api/v1/reg-payments`, payload);
+      const res = await CustomBaseUrl.post(`/reg-payments`, payload);
 
       if (!res.data.success) {
         throw new Error(res.data.message || 'Failed to save payment');

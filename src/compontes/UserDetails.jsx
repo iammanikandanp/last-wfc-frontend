@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import CustomBaseUrl from "../hooks/CustomBaseUrl";
 import { Link } from "react-router-dom";
 import { FaEdit } from "react-icons/fa";
 
@@ -10,8 +10,8 @@ export const UserDetails = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(
-          "https://wfc-backend-server.onrender.com/api/v1/fetch"
+        const response = await CustomBaseUrl.get(
+          "/fetch"
         );
         const rawData = response.data.data || [];
         const processedData = rawData.map((user) => {
@@ -46,9 +46,7 @@ export const UserDetails = () => {
 
   const handleDelete = async (id) => {
     try {
-      await axios.post(
-        `https://wfc-backend-server.onrender.com/api/v1/delete/${id}`
-      );
+      await CustomBaseUrl.post(`/delete/${id}`);
       setUserData(userData.filter((user) => user._id !== id));
       console.log("Deleted user ID:", id);
     } catch (error) {

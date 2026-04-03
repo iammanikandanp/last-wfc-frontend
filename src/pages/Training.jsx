@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dumbbell, Plus, Edit, Trash2 } from 'lucide-react';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,7 +16,7 @@ const Training = () => {
 
   const fetchTrainers = async () => {
     try {
-      const response = await axios.get('https://wfc-backend-server.onrender.com/api/v1/trainers', {
+      const response = await CustomBaseUrl.get('/trainers', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.data.success) {
@@ -32,10 +32,7 @@ const Training = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this trainer?')) {
       try {
-        const response = await axios.delete(
-          `https://wfc-backend-server.onrender.com/api/v1/trainers/${id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const response = await CustomBaseUrl.delete(`/trainers/${id}`);
         if (response.data.success) {
           setTrainers(trainers.filter(t => t._id !== id));
           alert('Trainer deleted successfully');

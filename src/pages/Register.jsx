@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, Check, Phone } from 'lucide-react';
-import axios from 'axios';
+import CustomBaseUrl from '../hooks/CustomBaseUrl';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -34,7 +34,7 @@ const Register = () => {
         isActive: true,
       };
 
-      const response = await axios.post('https://wfc-backend-server.onrender.com/api/v1/auth/register', payload);
+      const response = await CustomBaseUrl.post('/auth/register', payload);
 
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
