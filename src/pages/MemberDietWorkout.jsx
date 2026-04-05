@@ -12,7 +12,7 @@ import {
   Apple, Dumbbell, Upload, RefreshCw, Edit3, Save, X,
   CheckCircle, AlertCircle, ChevronDown, ChevronUp,
   Flame, Droplets, Sun, Moon, Zap, Clock, Repeat,
-  FileText, Download, Plus, Trash2, Check,
+  FileText, Download, Plus, Trash2, Check, ExternalLink,
 } from "lucide-react";
 
 const BASE_URL = "https://wfc-backend-server.onrender.com/api/v1";
@@ -86,16 +86,26 @@ const Toast = ({ msg, type, onClose }) => {
 /* ══════════════════════════════════════════════════════════════════════════════
    DIET SECTION
 ══════════════════════════════════════════════════════════════════════════════ */
+const toGSheetCsvUrl = (url) => {
+  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (!m) return null;
+  const gid = (url.match(/gid=(\d+)/) || [])[1] || '0';
+  return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv&gid=${gid}`;
+};
+
 const DietSection = ({ memberId, memberName }) => {
-  const [diet,        setDiet]        = useState(null);
-  const [loading,     setLoading]     = useState(true);
-  const [uploading,   setUploading]   = useState(false);
-  const [file,        setFile]        = useState(null);
-  const [planName,    setPlanName]    = useState("Diet Plan");
-  const [editingDay,  setEditingDay]  = useState(null); // { dietId, dayId, data }
-  const [expandedDay, setExpandedDay] = useState(null);
-  const [toast,       setToast]       = useState(null);
-  const [showUpload,  setShowUpload]  = useState(false);
+  const [diet,          setDiet]          = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [uploading,     setUploading]     = useState(false);
+  const [file,          setFile]          = useState(null);
+  const [planName,      setPlanName]      = useState("Diet Plan");
+  const [editingDay,    setEditingDay]    = useState(null);
+  const [expandedDay,   setExpandedDay]   = useState(null);
+  const [toast,         setToast]         = useState(null);
+  const [showUpload,    setShowUpload]    = useState(false);
+  const [importTab,     setImportTab]     = useState('file');
+  const [gsheetLink,    setGsheetLink]    = useState('');
+  const [gsheetLoading, setGsheetLoading] = useState(false);
 
   const showToast = (msg, type = "success") => setToast({ msg, type });
 
@@ -134,6 +144,33 @@ const DietSection = ({ memberId, memberName }) => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleGSheetDietImport = async () => {
+    const exportUrl = toGSheetCsvUrl(gsheetLink.trim());
+    if (!exportUrl) return showToast("Invalid Google Sheet URL", "error");
+    setGsheetLoading(true);
+    try {
+      const res = await fetch(exportUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const blob = new Blob([text], { type: "text/csv" });
+      const csvFile = new File([blob], "gsheet-diet.csv", { type: "text/csv" });
+      const fd = new FormData();
+      fd.append("file", csvFile);
+      fd.append("registrationId", memberId);
+      fd.append("planName", planName);
+      const r = await CustomBaseUrl.post(`member-diet/import`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setDiet(r.data.diet);
+      setShowUpload(false);
+      setGsheetLink('');
+      showToast(`✅ ${r.data.message}`);
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || "Import failed", "error");
+    }
+    setGsheetLoading(false);
   };
 
   const startEditDay = (day) => {
@@ -191,24 +228,59 @@ const DietSection = ({ memberId, memberName }) => {
       {/* ── Upload Zone ── */}
       {showUpload && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-4">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Upload Diet CSV</p>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Import Diet CSV</p>
+
+          {/* Plan name */}
           <div className="mb-3">
             <label className="text-xs text-slate-500 mb-1 block">Plan Name</label>
             <input value={planName} onChange={e => setPlanName(e.target.value)}
               placeholder="e.g. Weight Loss Plan"
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
           </div>
-          <CSVUploadZone
-            onFile={setFile}
-            label="Drop diet CSV or click to browse"
-            description="Headers: day, morning, afternoon, evening, night, preWorkout, postWorkout, food, calories, weightLoss, weightGain"
-            color="green"
-          />
-          {file && (
-            <button onClick={handleImport} disabled={uploading}
-              className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-40 transition">
-              {uploading ? <><RefreshCw size={14} className="animate-spin" /> Importing…</> : <><Check size={14} /> Import Diet Plan</>}
-            </button>
+
+          {/* Tabs */}
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-3 w-fit">
+            {['file','link'].map(t => (
+              <button key={t} onClick={() => setImportTab(t)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${importTab===t?'bg-white text-slate-800 shadow-sm':'text-slate-500 hover:text-slate-700'}`}>
+                {t==='file' ? <><Upload size={10} className="inline mr-1"/>Upload CSV</> : <><ExternalLink size={10} className="inline mr-1"/>Google Sheet</>}
+              </button>
+            ))}
+          </div>
+
+          {importTab === 'file' && (
+            <>
+              <CSVUploadZone
+                onFile={setFile}
+                label="Drop diet CSV or click to browse"
+                description="Headers: day, morning, afternoon, evening, night, preWorkout, postWorkout, food, calories, weightLoss, weightGain"
+                color="green"
+              />
+              {file && (
+                <button onClick={handleImport} disabled={uploading}
+                  className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-40 transition">
+                  {uploading ? <><RefreshCw size={14} className="animate-spin" /> Importing…</> : <><Check size={14} /> Import Diet Plan</>}
+                </button>
+              )}
+            </>
+          )}
+
+          {importTab === 'link' && (
+            <div>
+              <p className="text-[11px] text-slate-500 mb-2">
+                Share your Google Sheet as <strong>"Anyone with link can view"</strong>, then paste the URL below.<br/>
+                Required columns: <code className="bg-slate-100 px-1 rounded">day, morning, afternoon, evening, night, preWorkout, postWorkout, food, calories, weightLoss, weightGain</code>
+              </p>
+              <div className="flex gap-2">
+                <input value={gsheetLink} onChange={e => setGsheetLink(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-green-400"/>
+                <button onClick={handleGSheetDietImport} disabled={gsheetLoading || !gsheetLink.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-700 disabled:opacity-40 transition">
+                  {gsheetLoading ? <><RefreshCw size={12} className="animate-spin"/>Fetching…</> : <><Download size={12}/>Import</>}
+                </button>
+              </div>
+            </div>
           )}
 
           {/* CSV hint */}
@@ -350,15 +422,18 @@ Tuesday,"Poha + milk","Dal + roti","Apple","Grilled fish","Dates","Protein shake
    WORKOUT SECTION
 ══════════════════════════════════════════════════════════════════════════════ */
 const WorkoutSection = ({ memberId, memberName }) => {
-  const [workout,     setWorkout]     = useState(null);
-  const [loading,     setLoading]     = useState(true);
-  const [uploading,   setUploading]   = useState(false);
-  const [file,        setFile]        = useState(null);
-  const [planName,    setPlanName]    = useState("Workout Plan");
-  const [editingDay,  setEditingDay]  = useState(null);
-  const [expandedDay, setExpandedDay] = useState(null);
-  const [toast,       setToast]       = useState(null);
-  const [showUpload,  setShowUpload]  = useState(false);
+  const [workout,       setWorkout]       = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [uploading,     setUploading]     = useState(false);
+  const [file,          setFile]          = useState(null);
+  const [planName,      setPlanName]      = useState("Workout Plan");
+  const [editingDay,    setEditingDay]    = useState(null);
+  const [expandedDay,   setExpandedDay]   = useState(null);
+  const [toast,         setToast]         = useState(null);
+  const [showUpload,    setShowUpload]    = useState(false);
+  const [importTab,     setImportTab]     = useState('file');
+  const [gsheetLink,    setGsheetLink]    = useState('');
+  const [gsheetLoading, setGsheetLoading] = useState(false);
 
   const showToast = (msg, type = "success") => setToast({ msg, type });
 
@@ -396,6 +471,33 @@ const WorkoutSection = ({ memberId, memberName }) => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleGSheetWorkoutImport = async () => {
+    const exportUrl = toGSheetCsvUrl(gsheetLink.trim());
+    if (!exportUrl) return showToast("Invalid Google Sheet URL", "error");
+    setGsheetLoading(true);
+    try {
+      const res = await fetch(exportUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const blob = new Blob([text], { type: "text/csv" });
+      const csvFile = new File([blob], "gsheet-workout.csv", { type: "text/csv" });
+      const fd = new FormData();
+      fd.append("file", csvFile);
+      fd.append("registrationId", memberId);
+      fd.append("planName", planName);
+      const r = await CustomBaseUrl.post(`member-workout/import`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setWorkout(r.data.workout);
+      setShowUpload(false);
+      setGsheetLink('');
+      showToast(`✅ ${r.data.message}`);
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || "Import failed", "error");
+    }
+    setGsheetLoading(false);
   };
 
   const startEditDay = (day) => {
@@ -463,24 +565,59 @@ const WorkoutSection = ({ memberId, memberName }) => {
       {/* ── Upload Zone ── */}
       {showUpload && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-4">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Upload Workout CSV</p>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Import Workout CSV</p>
+
+          {/* Plan name */}
           <div className="mb-3">
             <label className="text-xs text-slate-500 mb-1 block">Plan Name</label>
             <input value={planName} onChange={e => setPlanName(e.target.value)}
               placeholder="e.g. Strength Training Plan"
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
           </div>
-          <CSVUploadZone
-            onFile={setFile}
-            label="Drop workout CSV or click to browse"
-            description="Headers: day, morning, evening, chest, back, biceps, triceps, legs, shoulders, cardio, count, reps"
-            color="red"
-          />
-          {file && (
-            <button onClick={handleImport} disabled={uploading}
-              className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-40 transition">
-              {uploading ? <><RefreshCw size={14} className="animate-spin" /> Importing…</> : <><Check size={14} /> Import Workout Plan</>}
-            </button>
+
+          {/* Tabs */}
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-3 w-fit">
+            {['file','link'].map(t => (
+              <button key={t} onClick={() => setImportTab(t)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${importTab===t?'bg-white text-slate-800 shadow-sm':'text-slate-500 hover:text-slate-700'}`}>
+                {t==='file' ? <><Upload size={10} className="inline mr-1"/>Upload CSV</> : <><ExternalLink size={10} className="inline mr-1"/>Google Sheet</>}
+              </button>
+            ))}
+          </div>
+
+          {importTab === 'file' && (
+            <>
+              <CSVUploadZone
+                onFile={setFile}
+                label="Drop workout CSV or click to browse"
+                description="Headers: day, morning, evening, chest, back, biceps, triceps, legs, shoulders, cardio, count, reps"
+                color="red"
+              />
+              {file && (
+                <button onClick={handleImport} disabled={uploading}
+                  className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-40 transition">
+                  {uploading ? <><RefreshCw size={14} className="animate-spin" /> Importing…</> : <><Check size={14} /> Import Workout Plan</>}
+                </button>
+              )}
+            </>
+          )}
+
+          {importTab === 'link' && (
+            <div>
+              <p className="text-[11px] text-slate-500 mb-2">
+                Share your Google Sheet as <strong>"Anyone with link can view"</strong>, then paste the URL below.<br/>
+                Required columns: <code className="bg-slate-100 px-1 rounded">day, morning, evening, chest, back, biceps, triceps, legs, shoulders, cardio, count, reps</code>
+              </p>
+              <div className="flex gap-2">
+                <input value={gsheetLink} onChange={e => setGsheetLink(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-400"/>
+                <button onClick={handleGSheetWorkoutImport} disabled={gsheetLoading || !gsheetLink.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-semibold hover:bg-red-700 disabled:opacity-40 transition">
+                  {gsheetLoading ? <><RefreshCw size={12} className="animate-spin"/>Fetching…</> : <><Download size={12}/>Import</>}
+                </button>
+              </div>
+            </div>
           )}
 
           <details className="mt-3">
