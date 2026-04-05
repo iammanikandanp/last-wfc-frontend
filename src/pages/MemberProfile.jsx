@@ -7,7 +7,7 @@ import {
   Apple, Upload, X, Check, Scale, Plus,
   Phone, Mail, MapPin, User, RefreshCw, Download,
   Flame, Droplets, Target, Dumbbell, Sun, Moon,
-  ChevronDown, ChevronUp, Trash2,
+  ChevronDown, ChevronUp, Trash2, ExternalLink,
 } from 'lucide-react';
 
 const BASE_URL = 'https://wfc-backend-server.onrender.com';
@@ -32,6 +32,13 @@ const parseCSV = (text) => {
     headers.forEach((h, i) => { obj[h] = vals[i] !== undefined ? vals[i] : ''; });
     return obj;
   });
+};
+
+// ── Convert Google Sheet URL → CSV export URL ─────────────────────────────────
+const toGSheetCsvUrl = (url) => {
+  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (!m) throw new Error('Invalid Google Sheet URL');
+  return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv&gid=0`;
 };
 
 // ── CSV rows → workout payload (matches WorkoutPlan model exactly) ────────────
@@ -422,10 +429,19 @@ const WorkoutDashboard = ({ plan, onEdit, onDelete }) => {
 //  Generic CSV Import Modal (used for both diet & workout)
 // ══════════════════════════════════════════════════════════════════════════════
 const CSVImportModal = ({ title, subtitle, accentColor, onImport, onClose, downloadTemplate, columnGuide, previewFn }) => {
-  const [preview, setPreview] = useState(null);
-  const [rawRows, setRawRows] = useState(null);
-  const [error,   setError]   = useState('');
-  const [saving,  setSaving]  = useState(false);
+  const [tab,      setTab]      = useState('file');
+  const [preview,  setPreview]  = useState(null);
+  const [rawRows,  setRawRows]  = useState(null);
+  const [error,    setError]    = useState('');
+  const [saving,   setSaving]   = useState(false);
+  const [gLink,    setGLink]    = useState('');
+  const [fetching, setFetching] = useState(false);
+
+  const loadRows = (rows) => {
+    setRawRows(rows);
+    setPreview(previewFn(rows));
+    setError('');
+  };
 
   const handleFile = (e) => {
     const f = e.target.files[0];
@@ -436,11 +452,24 @@ const CSVImportModal = ({ title, subtitle, accentColor, onImport, onClose, downl
       try {
         const rows = parseCSV(ev.target.result);
         if (!rows.length) { setError('CSV is empty or has no data rows'); return; }
-        setRawRows(rows);
-        setPreview(previewFn(rows));
+        loadRows(rows);
       } catch { setError('Could not parse CSV — check the format'); }
     };
     reader.readAsText(f);
+  };
+
+  const handleGSheetFetch = async () => {
+    setFetching(true); setError(''); setRawRows(null); setPreview(null);
+    try {
+      const csvUrl = toGSheetCsvUrl(gLink.trim());
+      const res = await fetch(csvUrl);
+      if (!res.ok) throw new Error('Could not fetch sheet — make sure it is shared as "Anyone with link can view"');
+      const text = await res.text();
+      const rows = parseCSV(text);
+      if (!rows.length) throw new Error('Sheet is empty or has no data rows');
+      loadRows(rows);
+    } catch (e) { setError(e.message); }
+    finally { setFetching(false); }
   };
 
   const handleImport = async () => {
@@ -452,8 +481,7 @@ const CSVImportModal = ({ title, subtitle, accentColor, onImport, onClose, downl
     } catch (e) { setError(e.message); setSaving(false); }
   };
 
-  const bg = { green:'from-green-600 to-emerald-700', red:'from-red-600 to-rose-700' }[accentColor] || 'from-slate-700 to-slate-900';
-  const ring= { green:'ring-green-400', red:'ring-red-400' }[accentColor] || 'ring-slate-400';
+  const bg    = { green:'from-green-600 to-emerald-700', red:'from-red-600 to-rose-700' }[accentColor] || 'from-slate-700 to-slate-900';
   const btnBg = { green:'bg-green-600 hover:bg-green-700', red:'bg-red-600 hover:bg-red-700' }[accentColor] || 'bg-slate-700';
 
   return (
@@ -488,15 +516,52 @@ const CSVImportModal = ({ title, subtitle, accentColor, onImport, onClose, downl
             ))}
           </div>
 
+          {/* Tabs */}
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+            {['file','link'].map(t => (
+              <button key={t} onClick={() => { setTab(t); setRawRows(null); setPreview(null); setError(''); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${tab===t?'bg-white text-slate-800 shadow-sm':'text-slate-500 hover:text-slate-700'}`}>
+                {t==='file'
+                  ? <><Upload size={10} className="inline mr-1"/>Upload CSV</>
+                  : <><ExternalLink size={10} className="inline mr-1"/>Google Sheet</>}
+              </button>
+            ))}
+          </div>
+
           {/* File upload */}
-          <label className="block cursor-pointer">
-            <div className={`border-2 border-dashed rounded-xl p-6 text-center transition ${rawRows?'border-green-400 bg-green-50':'border-slate-200 hover:border-slate-400'}`}>
-              <Upload size={20} className={`mx-auto mb-2 ${rawRows?'text-green-500':'text-slate-300'}`}/>
-              <p className="text-sm font-semibold text-slate-600">{rawRows?`✅ ${rawRows.length} rows loaded — ready to import`:'Click to upload CSV'}</p>
-              <p className="text-[10px] text-slate-400 mt-1">.csv files only</p>
+          {tab === 'file' && (
+            <label className="block cursor-pointer">
+              <div className={`border-2 border-dashed rounded-xl p-6 text-center transition ${rawRows?'border-green-400 bg-green-50':'border-slate-200 hover:border-slate-400'}`}>
+                <Upload size={20} className={`mx-auto mb-2 ${rawRows?'text-green-500':'text-slate-300'}`}/>
+                <p className="text-sm font-semibold text-slate-600">{rawRows?`✅ ${rawRows.length} rows loaded — ready to import`:'Click to upload CSV'}</p>
+                <p className="text-[10px] text-slate-400 mt-1">.csv files only</p>
+              </div>
+              <input type="file" accept=".csv" className="hidden" onChange={handleFile}/>
+            </label>
+          )}
+
+          {/* Google Sheet */}
+          {tab === 'link' && (
+            <div className="space-y-2">
+              <p className="text-[11px] text-slate-500">
+                Share your Google Sheet as <strong>"Anyone with link can view"</strong>, then paste the URL below.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={gLink} onChange={e => setGLink(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-green-400"
+                />
+                <button onClick={handleGSheetFetch} disabled={fetching || !gLink.trim()}
+                  className={`flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-xs font-semibold disabled:opacity-40 transition ${btnBg}`}>
+                  {fetching ? <><RefreshCw size={12} className="animate-spin"/>Fetching…</> : <><Download size={12}/>Fetch</>}
+                </button>
+              </div>
+              {rawRows && (
+                <p className="text-[11px] text-green-600 font-semibold">✅ {rawRows.length} rows loaded — ready to import</p>
+              )}
             </div>
-            <input type="file" accept=".csv" className="hidden" onChange={handleFile}/>
-          </label>
+          )}
 
           {/* Preview */}
           {preview && (
