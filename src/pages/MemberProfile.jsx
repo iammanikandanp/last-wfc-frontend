@@ -471,7 +471,7 @@ const CSVImportModal = ({ title, subtitle, accentColor, onImport, onClose, downl
     if (!rawRows) return;
     setSaving(true); setError('');
     try {
-      await onImport(rawRows);
+      await onImport(rawRows, tab === 'link' ? gLink.trim() : '');
       onClose();
     } catch (e) { setError(e.message); setSaving(false); }
   };
@@ -649,6 +649,24 @@ const MemberProfile = () => {
 
   useEffect(()=>{ if(id) fetchAll(); },[id]);
 
+  // ── Auto-sync a plan from its saved Google Sheet link ──────────────────────
+  const syncFromGSheet = async (plan, type) => {
+    if (!plan?.gsheetLink) return null;
+    try {
+      const res = await CustomBaseUrl.get(`/proxy/gsheet-csv?url=${encodeURIComponent(plan.gsheetLink)}`);
+      const text = typeof res.data === 'string' ? res.data : '';
+      if (!text) return null;
+      const rows = parseCSV(text);
+      if (!rows.length) return null;
+      const payload = type === 'diet'
+        ? { ...csvRowToDietPayload(rows[0], id), gsheetLink: plan.gsheetLink }
+        : { ...csvRowsToWorkoutPayload(rows, id), gsheetLink: plan.gsheetLink };
+      const endpoint = type === 'diet' ? `/reg-diet-plans/${plan._id}` : `/reg-workout-plans/${plan._id}`;
+      const upd = await CustomBaseUrl.put(endpoint, payload);
+      return upd.data?.plan || null;
+    } catch { return null; }
+  };
+
   const fetchAll = async () => {
     setLoading(true);
     try {
@@ -660,8 +678,19 @@ const MemberProfile = () => {
         CustomBaseUrl.get(`/reg-payments/member/${id}`),
       ]);
       if(mR.status==='fulfilled') setMember(mR.value.data?.data);
-      if(dR.status==='fulfilled'&&dR.value.data?.success) setDietPlan(dR.value.data.plan);
-      if(wR.status==='fulfilled'&&wR.value.data?.success) setWorkoutPlan(wR.value.data.plan);
+
+      let dietLoaded  = dR.status==='fulfilled'&&dR.value.data?.success ? dR.value.data.plan : null;
+      let workoutLoaded = wR.status==='fulfilled'&&wR.value.data?.success ? wR.value.data.plan : null;
+
+      // Auto-sync from Google Sheet in parallel (silent, best-effort)
+      const [syncedDiet, syncedWorkout] = await Promise.all([
+        syncFromGSheet(dietLoaded, 'diet'),
+        syncFromGSheet(workoutLoaded, 'workout'),
+      ]);
+
+      setDietPlan(syncedDiet || dietLoaded);
+      setWorkoutPlan(syncedWorkout || workoutLoaded);
+
       if(aR.status==='fulfilled'){
         const recs=(aR.value.data?.records||[]).sort((a,b)=>b.month.localeCompare(a.month));
         setAttendance(recs); if(recs.length>0) setActiveMonth(recs[0].month);
@@ -672,8 +701,8 @@ const MemberProfile = () => {
   };
 
   // ── Diet import handler ─────────────────────────────────────────────────────
-  const handleDietImport = async (rows) => {
-    const payload = csvRowToDietPayload(rows[0], id);
+  const handleDietImport = async (rows, gsheetLink = '') => {
+    const payload = { ...csvRowToDietPayload(rows[0], id), gsheetLink };
     const method = dietPlan ? 'put' : 'post';
     const endpoint = dietPlan ? `/reg-diet-plans/${dietPlan._id}` : `/reg-diet-plans`;
     const res = await CustomBaseUrl[method](endpoint, payload);
@@ -682,8 +711,8 @@ const MemberProfile = () => {
   };
 
   // ── Workout import handler ──────────────────────────────────────────────────
-  const handleWorkoutImport = async (rows) => {
-    const payload = csvRowsToWorkoutPayload(rows, id);
+  const handleWorkoutImport = async (rows, gsheetLink = '') => {
+    const payload = { ...csvRowsToWorkoutPayload(rows, id), gsheetLink };
     const method = workoutPlan ? 'put' : 'post';
     const endpoint = workoutPlan ? `/reg-workout-plans/${workoutPlan._id}` : `/reg-workout-plans`;
     const res = await CustomBaseUrl[method](endpoint, payload);
