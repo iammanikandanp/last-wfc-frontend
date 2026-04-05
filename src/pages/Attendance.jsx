@@ -5,7 +5,7 @@ import {
   Upload, Search, X, Download, Users, Clock,
   CheckCircle, XCircle, Link, AlertCircle,
   Dumbbell, Sun, Moon, Star, UserCheck, RefreshCw,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Trash2, FileText, ExternalLink
 } from 'lucide-react';
 
 const PER_PAGE = 10;
@@ -132,21 +132,63 @@ const PaginationBar = ({ page, totalPages, filteredCount, onPage }) => {
   );
 };
 
+const toGSheetCsvUrl = (url) => {
+  const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (!idMatch) return null;
+  const id = idMatch[1];
+  const gidMatch = url.match(/gid=(\d+)/);
+  const gid = gidMatch ? gidMatch[1] : '0';
+  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+};
+
+const parseAttendanceCSV = (text) => {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return null;
+  const byMonth = {};
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    if (cols.length < 8) continue;
+    const month = cols[4]?.trim();
+    if (!month) continue;
+    if (!byMonth[month]) byMonth[month] = [];
+    byMonth[month].push({
+      id:         cols[0]?.trim(),
+      name:       cols[1]?.trim(),
+      dept:       cols[2]?.trim(),
+      shift:      cols[3]?.trim(),
+      workDays:   parseFloat(cols[5]) || 0,
+      attendDays: parseFloat(cols[6]) || 0,
+      absentDays: parseFloat(cols[7]) || 0,
+      lateMins:   parseInt(cols[9])   || 0,
+      lateTimes:  parseInt(cols[10])  || 0,
+      otHours:    parseFloat(cols[11])|| 0,
+    });
+  }
+  return Object.keys(byMonth).length ? byMonth : null;
+};
+
 const Attendance = () => {
-  const fileRef = useRef(null);
-  const [records,    setRecords]    = useState([]);
-  const [months,     setMonths]     = useState([]);
-  const [members,    setMembers]    = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [importing,  setImporting]  = useState(false);
-  const [importLog,  setImportLog]  = useState([]);
-  const [activeDept, setActiveDept] = useState('ALL');
-  const [activeMonth,setActiveMonth]= useState('');
-  const [search,     setSearch]     = useState('');
-  const [sortCol,    setSortCol]    = useState('name');
-  const [sortDir,    setSortDir]    = useState('asc');
-  const [linkTarget, setLinkTarget] = useState(null);
-  const [page,       setPage]       = useState(1);
+  const fileRef    = useRef(null);
+  const csvFileRef = useRef(null);
+  const [records,          setRecords]          = useState([]);
+  const [months,           setMonths]           = useState([]);
+  const [members,          setMembers]          = useState([]);
+  const [loading,          setLoading]          = useState(true);
+  const [importing,        setImporting]        = useState(false);
+  const [importLog,        setImportLog]        = useState([]);
+  const [activeDept,       setActiveDept]       = useState('ALL');
+  const [activeMonth,      setActiveMonth]      = useState('');
+  const [search,           setSearch]           = useState('');
+  const [sortCol,          setSortCol]          = useState('name');
+  const [sortDir,          setSortDir]          = useState('asc');
+  const [linkTarget,       setLinkTarget]       = useState(null);
+  const [page,             setPage]             = useState(1);
+  const [showCsvImport,    setShowCsvImport]    = useState(false);
+  const [csvTab,           setCsvTab]           = useState('link');
+  const [csvLink,          setCsvLink]          = useState('');
+  const [csvLinkLoading,   setCsvLinkLoading]   = useState(false);
+  const [showDeleteConfirm,setShowDeleteConfirm]= useState(false);
+  const [deletingAll,      setDeletingAll]      = useState(false);
 
   useEffect(() => { fetchData(); }, []);
   useEffect(() => { fetchRecords(); }, [activeMonth, activeDept]);
@@ -211,6 +253,73 @@ const Attendance = () => {
     } catch(e) { alert('Link failed: ' + (e.response?.data?.message||e.message)); }
   };
 
+  const importCsvText = async (text, sourceName) => {
+    const byMonth = parseAttendanceCSV(text);
+    if (!byMonth) {
+      setImportLog(prev => [{ t:'warn', m:`⚠️ ${sourceName} — no valid rows found` }, ...prev].slice(0,15));
+      return;
+    }
+    const logs = [];
+    for (const [month, recs] of Object.entries(byMonth)) {
+      try {
+        const res = await CustomBaseUrl.post(`/xls-attendance/import`, { month, sourceFile: sourceName, records: recs });
+        logs.push({ t:'success', m:`✅ ${sourceName} — ${res.data.inserted} saved (${MONTH_LABELS[month]||month})` });
+        setActiveMonth(month);
+      } catch(e) {
+        logs.push({ t:'error', m:`❌ ${sourceName} (${month}) — ${e.response?.data?.message||e.message}` });
+      }
+    }
+    setImportLog(prev => [...logs, ...prev].slice(0,15));
+    await fetchData();
+    await fetchRecords();
+  };
+
+  const handleCsvFile = async (files) => {
+    setImporting(true);
+    for (const file of files) {
+      const text = await file.text();
+      await importCsvText(text, file.name);
+    }
+    setImporting(false);
+    setShowCsvImport(false);
+  };
+
+  const handleCsvLinkImport = async () => {
+    if (!csvLink.trim()) return;
+    const exportUrl = toGSheetCsvUrl(csvLink.trim());
+    if (!exportUrl) {
+      setImportLog(prev => [{ t:'error', m:'❌ Invalid Google Sheet URL — make sure it contains /spreadsheets/d/...' }, ...prev].slice(0,15));
+      return;
+    }
+    setCsvLinkLoading(true);
+    try {
+      const res = await fetch(exportUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      await importCsvText(text, 'Google Sheet');
+      setShowCsvImport(false);
+      setCsvLink('');
+    } catch(e) {
+      setImportLog(prev => [{ t:'error', m:`❌ Failed to fetch Google Sheet: ${e.message}` }, ...prev].slice(0,15));
+    }
+    setCsvLinkLoading(false);
+  };
+
+  const handleDeleteAll = async () => {
+    setDeletingAll(true);
+    try {
+      await CustomBaseUrl.delete(`/xls-attendance`);
+      setShowDeleteConfirm(false);
+      setRecords([]);
+      setMonths([]);
+      setActiveMonth('');
+      setImportLog(prev => [{ t:'success', m:'✅ All attendance records deleted' }, ...prev].slice(0,15));
+    } catch(e) {
+      alert('Delete failed: ' + (e.response?.data?.message||e.message));
+    }
+    setDeletingAll(false);
+  };
+
   const exportCSV = () => {
     const header = ['AttID','Name','Dept','Shift','Month','Work','Attend','Absent','Att%','LateMins','LateX','OT Hrs','Linked Member'];
     const rows = filtered.map(r => {
@@ -271,12 +380,66 @@ const Attendance = () => {
           <div className="flex items-center gap-2">
             {hasData && <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 shadow-sm"><Download size={13}/> CSV</button>}
             <button onClick={()=>fetchData()} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 shadow-sm"><RefreshCw size={13} className={loading?'animate-spin':''}/></button>
+            <button onClick={()=>{ setShowCsvImport(v=>!v); setCsvTab('link'); }} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 shadow-sm">
+              <FileText size={13}/> Import CSV
+            </button>
             <button onClick={()=>fileRef.current?.click()} className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold hover:bg-slate-700 shadow-sm">
               <Upload size={13}/> {importing?'Saving to DB…':'Import XLS'}
             </button>
-            <input ref={fileRef} type="file" accept=".xls,.XLS" multiple className="hidden" onChange={e=>handleFiles(Array.from(e.target.files))}/>
+            <input ref={fileRef}    type="file" accept=".xls,.XLS" multiple className="hidden" onChange={e=>handleFiles(Array.from(e.target.files))}/>
+            <input ref={csvFileRef} type="file" accept=".csv,.CSV" multiple className="hidden" onChange={e=>handleCsvFile(Array.from(e.target.files))}/>
           </div>
         </div>
+
+        {showCsvImport && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold text-slate-700 uppercase tracking-widest">Import CSV</p>
+              <button onClick={()=>setShowCsvImport(false)}><X size={14} className="text-slate-400 hover:text-slate-600"/></button>
+            </div>
+            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-4 w-fit">
+              {['link','file'].map(t=>(
+                <button key={t} onClick={()=>setCsvTab(t)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${csvTab===t?'bg-white text-slate-800 shadow-sm':'text-slate-500 hover:text-slate-700'}`}>
+                  {t==='link'?<><ExternalLink size={11} className="inline mr-1"/>Google Sheet Link</>:<><FileText size={11} className="inline mr-1"/>Upload CSV File</>}
+                </button>
+              ))}
+            </div>
+
+            {csvTab==='link' && (
+              <div>
+                <p className="text-[11px] text-slate-500 mb-2">Paste your Google Sheet URL. The sheet must be shared as <strong>"Anyone with the link can view"</strong> and have the same column format as the exported CSV.</p>
+                <div className="flex gap-2">
+                  <input value={csvLink} onChange={e=>setCsvLink(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"/>
+                  <button onClick={handleCsvLinkImport} disabled={csvLinkLoading||!csvLink.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 disabled:opacity-40 transition">
+                    {csvLinkLoading?<><RefreshCw size={12} className="animate-spin"/>Fetching…</>:<><Download size={12}/>Import</>}
+                  </button>
+                </div>
+                <details className="mt-3">
+                  <summary className="text-[11px] text-slate-400 cursor-pointer hover:text-slate-600">📋 Expected CSV column format</summary>
+                  <div className="mt-2 bg-slate-50 rounded-xl p-3 overflow-x-auto">
+                    <code className="text-[10px] text-slate-600 whitespace-pre">AttID,Name,Dept,Shift,Month,Work,Attend,Absent,Att%,LateMins,LateX,OT Hrs,Linked Member</code>
+                  </div>
+                </details>
+              </div>
+            )}
+
+            {csvTab==='file' && (
+              <div>
+                <p className="text-[11px] text-slate-500 mb-3">Upload a CSV file with the same column format as the exported attendance CSV.</p>
+                <button onClick={()=>csvFileRef.current?.click()}
+                  className="w-full border-2 border-dashed border-slate-200 rounded-xl py-6 text-center hover:border-emerald-400 hover:bg-emerald-50 transition cursor-pointer">
+                  <FileText size={24} className="mx-auto mb-2 text-slate-300"/>
+                  <p className="text-xs font-semibold text-slate-500">Click to browse CSV file</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Headers: AttID, Name, Dept, Shift, Month, Work, Attend, Absent, Att%, LateMins, LateX, OT Hrs</p>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {!hasData && !loading && (
           <div onDrop={e=>{e.preventDefault();handleFiles(Array.from(e.dataTransfer.files));}} onDragOver={e=>e.preventDefault()}
@@ -364,9 +527,15 @@ const Attendance = () => {
                   {activeDept==='ALL'?'All Departments':DEPT[activeDept]?.label||activeDept}
                   {activeMonth?` · ${MONTH_LABELS[activeMonth]||activeMonth}`:''} · {filtered.length} records
                 </p>
-                <button onClick={()=>fileRef.current?.click()} className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-700 transition">
-                  <Upload size={10}/> Import more
-                </button>
+                <div className="flex items-center gap-3">
+                  <button onClick={()=>fileRef.current?.click()} className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-700 transition">
+                    <Upload size={10}/> Import more
+                  </button>
+                  <button onClick={()=>setShowDeleteConfirm(true)}
+                    className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition">
+                    <Trash2 size={10}/> Delete All
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -442,6 +611,31 @@ const Attendance = () => {
 
       {linkTarget && (
         <LinkModal record={linkTarget} members={members} onSave={handleLink} onClose={()=>setLinkTarget(null)} />
+      )}
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={()=>setShowDeleteConfirm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e=>e.stopPropagation()}>
+            <div className="px-5 py-4 bg-red-600 text-white flex items-center gap-3">
+              <Trash2 size={16}/>
+              <p className="font-bold text-sm">Delete All Attendance</p>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-slate-700 mb-1">Are you sure you want to delete <strong>all attendance records</strong>?</p>
+              <p className="text-xs text-slate-400 mb-5">This action cannot be undone. All months and all departments will be cleared.</p>
+              <div className="flex gap-2">
+                <button onClick={()=>setShowDeleteConfirm(false)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                  Cancel
+                </button>
+                <button onClick={handleDeleteAll} disabled={deletingAll}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-semibold hover:bg-red-700 disabled:opacity-40 transition flex items-center justify-center gap-1.5">
+                  {deletingAll?<><RefreshCw size={12} className="animate-spin"/>Deleting…</>:<><Trash2 size={12}/>Confirm Delete</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
