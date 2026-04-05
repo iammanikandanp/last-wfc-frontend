@@ -34,13 +34,6 @@ const parseCSV = (text) => {
   });
 };
 
-// ── Convert Google Sheet URL → CSV export URL ─────────────────────────────────
-const toGSheetCsvUrl = (url) => {
-  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (!m) throw new Error('Invalid Google Sheet URL');
-  return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv&gid=0`;
-};
-
 // ── CSV rows → workout payload (matches WorkoutPlan model exactly) ────────────
 // CSV columns: goal, notes, day, session, exercise_name, sets, reps,
 //              duration, rest, calories, exercise_notes
@@ -461,14 +454,16 @@ const CSVImportModal = ({ title, subtitle, accentColor, onImport, onClose, downl
   const handleGSheetFetch = async () => {
     setFetching(true); setError(''); setRawRows(null); setPreview(null);
     try {
-      const csvUrl = toGSheetCsvUrl(gLink.trim());
-      const res = await fetch(csvUrl);
-      if (!res.ok) throw new Error('Could not fetch sheet — make sure it is shared as "Anyone with link can view"');
-      const text = await res.text();
+      const res = await CustomBaseUrl.get(`/proxy/gsheet-csv?url=${encodeURIComponent(gLink.trim())}`);
+      const text = typeof res.data === 'string' ? res.data : '';
+      if (!text) throw new Error('Empty response from sheet');
       const rows = parseCSV(text);
       if (!rows.length) throw new Error('Sheet is empty or has no data rows');
       loadRows(rows);
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      const msg = e.response?.data?.message || e.message;
+      setError(msg);
+    }
     finally { setFetching(false); }
   };
 
