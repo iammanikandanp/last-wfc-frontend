@@ -5,11 +5,251 @@ import Navbar from '../components/Navbar';
 import {
   CreditCard, Plus, Search, X, Filter, Mail, CheckCircle,
   AlertCircle, Clock, ChevronLeft, ChevronRight, Download,
-  Wallet, TrendingUp, Users, RefreshCw, Send, Check, Edit3, Trash2, Save
+  Wallet, TrendingUp, Users, RefreshCw, Send, Check, Edit3, Trash2, Save,
+  FileText, Loader
 } from 'lucide-react';
 
 const BASE_URL = 'https://wfc-backend-server.onrender.com';
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
+
+// ── PDF generator (reused for invoice downloads in payment list) ──────────────
+const generatePaymentPDF = async (p) => {
+  const loadScript = (src) => new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210, pad = 15;
+
+  doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 45, 'F');
+  doc.setFillColor(220, 38, 38); doc.rect(0, 42, W, 4, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18); doc.setFont('helvetica', 'bold');
+  doc.text('WFC - Wolverine Fitness Club', W / 2, 18, { align: 'center' });
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+  doc.setTextColor(148, 163, 184);
+  doc.text('Your Ultimate Fitness Destination', W / 2, 26, { align: 'center' });
+  doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.3);
+  doc.roundedRect(W/2 - 28, 30, 56, 9, 2, 2, 'S');
+  doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont('courier', 'normal');
+  doc.text(p.invoiceNo || '', W / 2, 35.5, { align: 'center' });
+
+  let y = 58;
+  doc.setFillColor(248, 250, 252); doc.roundedRect(pad, y, W - pad*2, 28, 3, 3, 'F');
+  doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
+  doc.roundedRect(pad, y, W - pad*2, 28, 3, 3, 'S');
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+  doc.setTextColor(100, 116, 139); doc.text('BILLED TO', pad + 5, y + 7);
+  doc.setFontSize(11); doc.setTextColor(15, 23, 42);
+  doc.text(p.memberName || '—', pad + 5, y + 14);
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(71, 85, 105);
+  doc.text(`📞 ${p.memberPhone || '—'}   ✉ ${p.memberEmail || '—'}`, pad + 5, y + 21);
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(100, 116, 139); doc.setFontSize(8);
+  doc.text('ISSUED ON', W - pad - 35, y + 7);
+  doc.setTextColor(15, 23, 42); doc.setFontSize(10);
+  doc.text(new Date(p.createdAt || Date.now()).toLocaleDateString('en-IN'), W - pad - 35, y + 14);
+  y += 36;
+
+  doc.setFillColor(15, 23, 42); doc.roundedRect(pad, y, W - pad*2, 9, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+  const cols = [pad + 5, 90];
+  doc.text('DESCRIPTION', cols[0], y + 6); doc.text('DETAILS', cols[1], y + 6);
+  y += 13;
+
+  const rows = [
+    ['Package / Plan', p.package || '—'],
+    ['Payment Mode', (p.paymentMode || '—').toUpperCase()],
+    ['Payment Type', p.paymentType === 'partly' ? 'Partly (Advance)' : 'Full Payment'],
+    ['Membership Start', p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '—'],
+    ['Membership End',   p.endDate   ? new Date(p.endDate).toLocaleDateString('en-IN')   : '—'],
+  ];
+  rows.forEach((row, i) => {
+    const isEven = i % 2 === 0;
+    doc.setFillColor(isEven ? 248 : 255, isEven ? 250 : 255, isEven ? 252 : 255);
+    doc.rect(pad, y - 4, W - pad*2, 9, 'F');
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
+    doc.line(pad, y + 5, W - pad, y + 5);
+    doc.setTextColor(71, 85, 105); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+    doc.text(row[0], cols[0], y + 1.5);
+    doc.setTextColor(15, 23, 42); doc.setFont('helvetica', 'bold');
+    doc.text(row[1], cols[1], y + 1.5);
+    y += 9;
+  });
+  y += 6;
+
+  doc.setFillColor(248, 250, 252); doc.roundedRect(W/2, y, W/2 - pad, 36, 3, 3, 'F');
+  doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3);
+  doc.roundedRect(W/2, y, W/2 - pad, 36, 3, 3, 'S');
+  const bx = W/2 + 5;
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+  doc.text('Subtotal', bx, y + 9); doc.text('Discount', bx, y + 18);
+  doc.setTextColor(15, 23, 42); doc.setFont('helvetica', 'bold');
+  doc.text(`Rs. ${(p.amount||0).toLocaleString('en-IN')}`, W - pad - 3, y + 9, { align: 'right' });
+  doc.setTextColor(220, 38, 38);
+  doc.text(`- Rs. ${(p.discount||0).toLocaleString('en-IN')}`, W - pad - 3, y + 18, { align: 'right' });
+  doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5);
+  doc.line(W/2 + 3, y + 22, W - pad - 3, y + 22);
+  doc.setFillColor(220, 38, 38);
+  doc.roundedRect(W/2 + 3, y + 24, W/2 - pad - 3, 9, 1.5, 1.5, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+  doc.text('TOTAL PAID', bx, y + 30);
+  doc.text(`Rs. ${(p.finalAmount||p.amount||0).toLocaleString('en-IN')}`, W - pad - 5, y + 30, { align: 'right' });
+  y += 46;
+
+  doc.setFillColor(15, 23, 42); doc.rect(0, y, W, 30, 'F');
+  doc.setFillColor(220, 38, 38); doc.rect(0, y, W, 2, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+  doc.text('Thank you for choosing WFC! 💪', W/2, y + 12, { align: 'center' });
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(148, 163, 184);
+  doc.text('Keep pushing your limits · Wolverine Fitness Club', W/2, y + 20, { align: 'center' });
+
+  return doc;
+};
+
+// ── Invoice List Modal — opens all invoices for a member ──────────────────────
+const InvoiceListModal = ({ payment, allPayments, onClose }) => {
+  // All payments for the same member
+  const memberPayments = allPayments
+    .filter(p => String(p.registrationId) === String(payment.registrationId))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const [downloading, setDownloading] = useState(new Set());
+  const [downloadingAll, setDownloadingAll] = useState(false);
+
+  const downloadSingle = async (p) => {
+    if (downloading.has(p._id)) return;
+    // If PDF URL stored in Cloudinary, open directly
+    if (p.pdfUrl) {
+      window.open(p.pdfUrl, '_blank');
+      return;
+    }
+    setDownloading(prev => new Set([...prev, p._id]));
+    try {
+      const doc = await generatePaymentPDF(p);
+      const fileName = `WFC-Invoice-${p.invoiceNo}-${(p.memberName||'').replace(/\s+/g,'-')}.pdf`;
+      doc.save(fileName);
+    } catch(e) {
+      alert('Could not generate PDF: ' + e.message);
+    } finally {
+      setDownloading(prev => { const s = new Set(prev); s.delete(p._id); return s; });
+    }
+  };
+
+  const downloadAll = async () => {
+    setDownloadingAll(true);
+    for (const p of memberPayments) {
+      try {
+        if (p.pdfUrl) {
+          // For cloud-hosted PDFs, open each in new tab with a short delay
+          window.open(p.pdfUrl, '_blank');
+          await new Promise(r => setTimeout(r, 400));
+        } else {
+          const doc = await generatePaymentPDF(p);
+          const fileName = `WFC-Invoice-${p.invoiceNo}-${(p.memberName||'').replace(/\s+/g,'-')}.pdf`;
+          doc.save(fileName);
+          await new Promise(r => setTimeout(r, 300));
+        }
+      } catch(e) { console.warn('Skip', p.invoiceNo, e.message); }
+    }
+    setDownloadingAll(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden max-h-[90vh] flex flex-col"
+        onClick={e => e.stopPropagation()} style={{animation:'su .2s ease'}}>
+
+        {/* Header */}
+        <div className="bg-gradient-to-r from-slate-900 to-slate-700 px-5 py-4 flex items-center justify-between text-white">
+          <div>
+            <div className="flex items-center gap-2">
+              <FileText size={16}/>
+              <p className="font-bold text-sm">Invoices</p>
+            </div>
+            <p className="text-xs opacity-60 mt-0.5">{payment.memberName} · {memberPayments.length} payment{memberPayments.length !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {memberPayments.length > 1 && (
+              <button onClick={downloadAll} disabled={downloadingAll}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold transition disabled:opacity-50">
+                {downloadingAll
+                  ? <Loader size={12} className="animate-spin"/>
+                  : <Download size={12}/>}
+                Download All
+              </button>
+            )}
+            <button onClick={onClose}><X size={16} className="opacity-60 hover:opacity-100"/></button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto divide-y divide-slate-50">
+          {memberPayments.length === 0 ? (
+            <p className="text-center py-10 text-slate-400 text-sm">No invoices found</p>
+          ) : memberPayments.map((p) => {
+            const isPending = p.balanceAmount > 0;
+            const isLoading = downloading.has(p._id);
+            return (
+              <div key={p._id} className={`px-5 py-3.5 flex items-center gap-3 hover:bg-slate-50 transition ${isPending ? 'bg-amber-50/40' : ''}`}>
+                {/* Icon */}
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isPending ? 'bg-amber-100' : 'bg-emerald-100'}`}>
+                  <FileText size={16} className={isPending ? 'text-amber-600' : 'text-emerald-600'}/>
+                </div>
+
+                {/* Details */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-800 font-mono">{p.invoiceNo}</p>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${isPending ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                      {isPending ? 'Pending' : 'Paid'}
+                    </span>
+                    {p.pdfUrl && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">Cloud</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                    {p.package} · {p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—'}
+                  </p>
+                </div>
+
+                {/* Amount */}
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-black text-slate-800">₹{(p.finalAmount||p.amount||0).toLocaleString('en-IN')}</p>
+                  {isPending && (
+                    <p className="text-[10px] text-red-500 font-semibold">Due ₹{p.balanceAmount.toLocaleString('en-IN')}</p>
+                  )}
+                </div>
+
+                {/* Download button */}
+                <button onClick={() => downloadSingle(p)} disabled={isLoading}
+                  title={p.pdfUrl ? 'Open invoice PDF' : 'Generate & download invoice'}
+                  className="p-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition disabled:opacity-50 flex-shrink-0">
+                  {isLoading
+                    ? <Loader size={13} className="animate-spin"/>
+                    : <Download size={13}/>}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+          <p className="text-[11px] text-slate-400">
+            {memberPayments.filter(p => p.pdfUrl).length} cloud-hosted · {memberPayments.filter(p => !p.pdfUrl).length} will be generated
+          </p>
+          <button onClick={onClose}
+            className="px-4 py-1.5 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-white transition">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ── Email Reminder Modal — sends via backend (real email, not draft) ──────────
 const EmailModal = ({ payment, onClose }) => {
@@ -313,9 +553,10 @@ const Payments = () => {
   const [filter,     setFilter]     = useState('all');   // all | full | pending
   const [search,     setSearch]     = useState('');
   const [page,       setPage]       = useState(1);
-  const [emailTarget, setEmailTarget] = useState(null);
-  const [editTarget,  setEditTarget]  = useState(null);
-  const [deleteTarget,setDeleteTarget]= useState(null);
+  const [emailTarget,   setEmailTarget]   = useState(null);
+  const [editTarget,    setEditTarget]    = useState(null);
+  const [deleteTarget,  setDeleteTarget]  = useState(null);
+  const [invoiceTarget, setInvoiceTarget] = useState(null);
   const PER_PAGE = 20;
 
   useEffect(() => { fetchAll(); }, []);
@@ -561,6 +802,11 @@ const Payments = () => {
                         {/* Actions */}
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
+                            {/* Invoice download */}
+                            <button onClick={() => setInvoiceTarget(p)} title="View & download invoices"
+                              className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition">
+                              <FileText size={13}/>
+                            </button>
                             {/* Edit */}
                             <button onClick={() => setEditTarget(p)} title="Edit payment"
                               className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 hover:text-blue-700 transition">
@@ -627,6 +873,15 @@ const Payments = () => {
           </div>
         )}
       </div>
+
+      {/* Invoice Modal */}
+      {invoiceTarget && (
+        <InvoiceListModal
+          payment={invoiceTarget}
+          allPayments={enriched}
+          onClose={() => setInvoiceTarget(null)}
+        />
+      )}
 
       {/* Email Modal */}
       {emailTarget && (

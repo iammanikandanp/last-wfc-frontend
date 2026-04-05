@@ -261,34 +261,26 @@ const generateInvoicePDF = async (invoiceData) => {
   return doc;
 };
 
-// ─── Invoice Modal ───────────────────────────────────────────────────────────
-// ─── Upload PDF blob to Cloudinary (unsigned) ──────────────────────────────
-// STEP REQUIRED: Go to Cloudinary Dashboard → Settings → Upload → Add upload preset
-// Set it to "Unsigned", resource_type = "raw", folder = "wfc-invoices"
-// Then paste the preset name below:
-const CLOUDINARY_CLOUD = 'dofxwhwbv';
-const CLOUDINARY_UPLOAD_PRESET = 'wfc_invoices'; // ← create this preset in Cloudinary dashboard
-
+// ─── Upload PDF via backend (signed Cloudinary upload — no preset needed) ────
 const uploadPdfToCloudinary = async (pdfBlob, fileName) => {
   const formData = new FormData();
   formData.append('file', pdfBlob, fileName);
-  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  formData.append('resource_type', 'raw');
-  formData.append('folder', 'wfc-invoices');
+  formData.append('fileName', fileName);
 
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`,
-    { method: 'POST', body: formData }
-  );
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${BASE_URL}/api/v1/upload-pdf`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
 
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error?.message || 'Cloudinary upload failed');
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'PDF upload failed');
   }
 
   const json = await res.json();
-  // Force download link so WhatsApp shows it as a file link
-  return json.secure_url;
+  return json.url;
 };
 
 // ─── Invoice Modal ───────────────────────────────────────────────────────────
@@ -350,12 +342,15 @@ const InvoiceModal = ({ data, onClose }) => {
 
   const sendWhatsApp = () => {
     const phone = member.phone?.replace(/\D/g, '');
-    const pdfLink = cloudUrl || '(PDF not available)';
 
     const paymentLine = isPartly
       ? `⚡ *Advance Paid: ₹${(advPaid||0).toLocaleString('en-IN')}*\n` +
         `⏳ *Balance Due:  ₹${(balAmt||0).toLocaleString('en-IN')}*`
       : `✅ *Total Paid: ₹${finalAmount.toLocaleString('en-IN')}*`;
+
+    const pdfSection = cloudUrl
+      ? `━━━━━━━━━━━━━━━━━━━━\n📄 *Invoice PDF:*\n${cloudUrl}\n\n`
+      : ``;
 
     const msg =
       `🏋️ *WFC – Wolverine Fitness Club*\n` +
@@ -369,9 +364,7 @@ const InvoiceModal = ({ data, onClose }) => {
       `${paymentLine}\n\n` +
       `📅 Start: ${new Date(startDate).toLocaleDateString('en-IN')}\n` +
       `📅 End:   ${new Date(endDate).toLocaleDateString('en-IN')}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `📄 *Invoice PDF:*\n` +
-      `${pdfLink}\n\n` +
+      `${pdfSection}` +
       `💪 Keep pushing your limits!\n` +
       `_WFC – Wolverine Fitness Club_`;
 
@@ -518,17 +511,14 @@ const InvoiceModal = ({ data, onClose }) => {
             </div>
           </div>
 
-          {/* Cloudinary setup warning if upload failed */}
-          {stage === 'error' && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 mb-4">
-              <p className="font-bold mb-1">⚙️ One-time Cloudinary setup needed:</p>
-              <ol className="list-decimal list-inside space-y-1 text-amber-700">
-                <li>Go to <strong>cloudinary.com</strong> → Settings → Upload</li>
-                <li>Click <strong>Add upload preset</strong></li>
-                <li>Set Mode: <strong>Unsigned</strong></li>
-                <li>Set Folder: <strong>wfc-invoices</strong></li>
-                <li>Save preset name as <strong>wfc_invoices</strong></li>
-              </ol>
+          {/* Retry upload if failed */}
+          {stage === 'error' && pdfLocalUrl && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 mb-4 flex items-center justify-between gap-3">
+              <p className="font-medium">⚠️ Cloud upload failed. You can still save the PDF locally and send WhatsApp without the link.</p>
+              <button onClick={initPdf}
+                className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700 transition whitespace-nowrap">
+                Retry Upload
+              </button>
             </div>
           )}
 
