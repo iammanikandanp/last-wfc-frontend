@@ -9,7 +9,6 @@ import {
   FileText, Loader
 } from 'lucide-react';
 
-const BASE_URL = 'https://wfc-backend-server.onrender.com';
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
 
 // ── PDF generator (reused for invoice downloads in payment list) ──────────────
@@ -399,6 +398,49 @@ const EmailModal = ({ payment, onClose }) => {
   );
 };
 
+// ── WhatsApp icon (lucide-react has no WhatsApp icon) ────────────────────────
+const WhatsAppIcon = ({ size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+  </svg>
+);
+
+const openWhatsApp = (p) => {
+  const phone = (p.memberPhone || '').replace(/\D/g, '');
+  if (!phone) { alert('No phone number for this member.'); return; }
+  const pdfLine = p.pdfUrl ? `\n📄 *Invoice PDF:*\n${p.pdfUrl}\n` : '';
+  const msg =
+    `🏋️ *WFC – Wolverine Fitness Club*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `Dear *${p.memberName}*,\n\n` +
+    `📋 Invoice: *${p.invoiceNo || '—'}*\n` +
+    `📦 Package: *${p.package || '—'}*\n` +
+    `💰 Amount: ₹${(p.finalAmount || p.amount || 0).toLocaleString('en-IN')}\n` +
+    (p.balanceAmount > 0
+      ? `⏳ *Balance Due: ₹${p.balanceAmount.toLocaleString('en-IN')}*\n`
+      : `✅ *Fully Paid*\n`) +
+    pdfLine +
+    `\n💪 Keep pushing your limits!\n` +
+    `_WFC – Wolverine Fitness Club_`;
+  window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+};
+
+// ── Stable field component (must live outside EditPaymentModal to avoid remount) ──
+const PaymentField = ({ label, name, type = 'text', options, form, onChange }) => (
+  <div>
+    <label className="block text-xs font-semibold text-slate-500 mb-1">{label}</label>
+    {options ? (
+      <select name={name} value={form[name]} onChange={onChange}
+        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        {options.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+      </select>
+    ) : (
+      <input name={name} type={type} value={form[name]} onChange={onChange}
+        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+    )}
+  </div>
+);
+
 // ── Edit Payment Modal ────────────────────────────────────────────────────────
 const EditPaymentModal = ({ payment, onSave, onClose }) => {
   const [saving, setSaving]   = useState(false);
@@ -446,21 +488,6 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
     } finally { setSaving(false); }
   };
 
-  const Field = ({ label, name, type='text', options }) => (
-    <div>
-      <label className="block text-xs font-semibold text-slate-500 mb-1">{label}</label>
-      {options ? (
-        <select name={name} value={form[name]} onChange={handleChange}
-          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-          {options.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
-        </select>
-      ) : (
-        <input name={name} type={type} value={form[name]} onChange={handleChange}
-          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
-      )}
-    </div>
-  );
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col"
@@ -476,20 +503,20 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
 
         <div className="p-5 overflow-y-auto space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Payment Mode" name="paymentMode" options={[
+            <PaymentField label="Payment Mode" name="paymentMode" form={form} onChange={handleChange} options={[
               {val:'cash',label:'💵 Cash'},{val:'upi',label:'📱 UPI'},{val:'card',label:'💳 Card'}
             ]}/>
-            <Field label="Payment Type" name="paymentType" options={[
+            <PaymentField label="Payment Type" name="paymentType" form={form} onChange={handleChange} options={[
               {val:'full',label:'✅ Full'},{val:'partly',label:'⚡ Partly'}
             ]}/>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Total Amount (₹)" name="amount"      type="number"/>
-            <Field label="Discount (₹)"     name="discount"    type="number"/>
+            <PaymentField label="Total Amount (₹)" name="amount"      type="number" form={form} onChange={handleChange}/>
+            <PaymentField label="Discount (₹)"     name="discount"    type="number" form={form} onChange={handleChange}/>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Final Amount (₹)" name="finalAmount"   type="number"/>
-            <Field label="Advance Paid (₹)" name="advanceAmount" type="number"/>
+            <PaymentField label="Final Amount (₹)" name="finalAmount"   type="number" form={form} onChange={handleChange}/>
+            <PaymentField label="Advance Paid (₹)" name="advanceAmount" type="number" form={form} onChange={handleChange}/>
           </div>
           <div className="bg-slate-50 rounded-xl px-4 py-3 flex items-center justify-between">
             <span className="text-sm font-semibold text-slate-600">Balance Due</span>
@@ -498,10 +525,10 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
             </span>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Start Date" name="startDate" type="date"/>
-            <Field label="End Date"   name="endDate"   type="date"/>
+            <PaymentField label="Start Date" name="startDate" type="date" form={form} onChange={handleChange}/>
+            <PaymentField label="End Date"   name="endDate"   type="date" form={form} onChange={handleChange}/>
           </div>
-          <Field label="Package" name="package"/>
+          <PaymentField label="Package" name="package" form={form} onChange={handleChange}/>
 
           {errMsg && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-xs text-red-700">{errMsg}</div>
@@ -806,6 +833,11 @@ const Payments = () => {
                             <button onClick={() => setInvoiceTarget(p)} title="View & download invoices"
                               className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition">
                               <FileText size={13}/>
+                            </button>
+                            {/* WhatsApp */}
+                            <button onClick={() => openWhatsApp(p)} title="Send via WhatsApp"
+                              className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 transition">
+                              <WhatsAppIcon size={13}/>
                             </button>
                             {/* Edit */}
                             <button onClick={() => setEditTarget(p)} title="Edit payment"

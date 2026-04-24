@@ -8,8 +8,6 @@ import {
   ArrowLeft, User, Clock, Zap, Star, Gift, Plus, Loader, Mail
 } from 'lucide-react';
 
-const BASE_URL = 'https://wfc-backend-server.onrender.com';
-
 // ─── Preset packages ────────────────────────────────────────────────────────
 const PRESET_PACKAGES = [
   { id: 'basic', label: 'Basic', price: 1000, months: 1, color: 'bg-slate-100 border-slate-300 text-slate-700', accent: 'bg-slate-600', icon: Star },
@@ -267,20 +265,12 @@ const uploadPdfToCloudinary = async (pdfBlob, fileName) => {
   formData.append('file', pdfBlob, fileName);
   formData.append('fileName', fileName);
 
-  const token = localStorage.getItem('token');
-  const res = await fetch(`${BASE_URL}/api/v1/upload-pdf`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
+  const res = await CustomBaseUrl.post('/upload-pdf', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || 'PDF upload failed');
-  }
-
-  const json = await res.json();
-  return json.url;
+  if (!res.data?.url) throw new Error('PDF upload failed');
+  return res.data.url;
 };
 
 // ─── Invoice Modal ───────────────────────────────────────────────────────────

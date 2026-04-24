@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import CustomBaseUrl from "../hooks/CustomBaseUrl";
+import CustomBaseUrl, { SERVER_URL } from "../hooks/CustomBaseUrl";
 import { Link } from "react-router-dom";
 import { FaEdit } from "react-icons/fa";
 
@@ -115,7 +115,7 @@ export const UserDetails = () => {
                     <td className="px-4 py-3 border border-gray-200">
                       {user.images?.profileImage !== "None" ? (
                         <img
-                          src={`https://wfc-backend-server.onrender.com/${user.images.profileImage}`}
+                          src={`${SERVER_URL}/${user.images.profileImage}`}
                           alt="profile"
                           className="w-12 h-12 object-cover rounded-full mx-auto"
                         />
@@ -179,12 +179,12 @@ export const UserDetails = () => {
                     <td className="px-4 py-3 border border-gray-200">
                       {user.images?.frontBodyImage !== "None" ? (
                         <img
-                          src={`https://wfc-backend-server.onrender.com/${user.images.frontBodyImage}`}
+                          src={`${SERVER_URL}/${user.images.frontBodyImage}`}
                           alt="front"
                           className="w-12 h-12 object-cover cursor-pointer rounded-lg mx-auto"
                           onClick={() =>
                             setSelectedImage(
-                              `https://wfc-backend-server.onrender.com/${user.images.frontBodyImage}`
+                              `${SERVER_URL}/${user.images.frontBodyImage}`
                             )
                           }
                         />
@@ -197,12 +197,12 @@ export const UserDetails = () => {
                     <td className="px-4 py-3 border border-gray-200">
                       {user.images?.sideBodyImage !== "None" ? (
                         <img
-                          src={`https://wfc-backend-server.onrender.com/${user.images.sideBodyImage}`}
+                          src={`${SERVER_URL}/${user.images.sideBodyImage}`}
                           alt="side"
                           className="w-12 h-12 object-cover cursor-pointer rounded-lg mx-auto"
                           onClick={() =>
                             setSelectedImage(
-                              `https://wfc-backend-server.onrender.com/${user.images.sideBodyImage}`
+                              `${SERVER_URL}/${user.images.sideBodyImage}`
                             )
                           }
                         />
@@ -215,12 +215,12 @@ export const UserDetails = () => {
                     <td className="px-4 py-3 border border-gray-200">
                       {user.images?.backBodyImage !== "None" ? (
                         <img
-                          src={`https://wfc-backend-server.onrender.com/${user.images.backBodyImage}`}
+                          src={`${SERVER_URL}/${user.images.backBodyImage}`}
                           alt="back"
                           className="w-12 h-12 object-cover cursor-pointer rounded-lg mx-auto"
                           onClick={() =>
                             setSelectedImage(
-                              `https://wfc-backend-server.onrender.com/${user.images.backBodyImage}`
+                              `${SERVER_URL}/${user.images.backBodyImage}`
                             )
                           }
                         />

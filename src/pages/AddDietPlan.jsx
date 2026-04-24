@@ -7,8 +7,6 @@ import {
   Target, Check, ChevronDown, Apple, Leaf, Zap, Activity
 } from 'lucide-react';
 
-const BASE_URL = 'https://wfc-backend-server.onrender.com';
-
 const GOALS = ['Weight Loss', 'Muscle Gain', 'Maintenance', 'Endurance', 'Custom'];
 
 const MEAL_CONFIG = [

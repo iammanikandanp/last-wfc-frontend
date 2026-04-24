@@ -1,8 +1,14 @@
 
 import axios from "axios";
 
+// BASE_URL CONFIG — comment/uncomment to switch environments:
+// const BASE_URL = "http://localhost:5000/api/v1";        // TEST  (local)
+const BASE_URL = "https://wfc-backend-server.onrender.com/api/v1"; // PROD
+
+export const SERVER_URL = BASE_URL.replace("/api/v1", ""); // server root (for image src)
+
 const CustomBaseUrl = axios.create({
-  baseURL: "https://wfc-backend-server.onrender.com/api/v1",
+  baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },

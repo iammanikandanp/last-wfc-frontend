@@ -10,8 +10,6 @@ import {
   ChevronDown, ChevronUp, Trash2, ExternalLink,
 } from 'lucide-react';
 
-const BASE_URL = 'https://wfc-backend-server.onrender.com';
-
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday'];
 const DAY_LABELS = { monday:'Mon',tuesday:'Tue',wednesday:'Wed',thursday:'Thu',friday:'Fri',saturday:'Sat' };
 const DAY_FULL   = { monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday' };
@@ -809,7 +807,13 @@ const MemberProfile = () => {
               <div className="border-t border-slate-100 px-5 py-4">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Membership</p>
                 <div className="space-y-1.5">
-                  {[['Package',member.packages],['Duration',member.duration?`${member.duration} month(s)`:'—'],
+                  {[['Package',member.packages],['Duration',(() => {
+                    if (member.startDate && member.endDate) {
+                      const months = Math.round((new Date(member.endDate) - new Date(member.startDate)) / (1000 * 60 * 60 * 24 * 30));
+                      return months > 0 ? `${months} month(s)` : '—';
+                    }
+                    return member.duration ? `${member.duration} month(s)` : '—';
+                  })()],
                     ['Start',member.startDate?new Date(member.startDate).toLocaleDateString('en-IN'):'—'],
                     ['End',member.endDate?new Date(member.endDate).toLocaleDateString('en-IN'):'—'],
                     ['Services',member.services]

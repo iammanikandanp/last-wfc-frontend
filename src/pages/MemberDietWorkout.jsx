@@ -15,8 +15,6 @@ import {
   FileText, Download, Plus, Trash2, Check, ExternalLink,
 } from "lucide-react";
 
-const BASE_URL = "https://wfc-backend-server.onrender.com/api/v1";
-
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const DAY_COLORS = {
   Monday:    { bg: "bg-red-50",     border: "border-red-200",    dot: "bg-red-500",    text: "text-red-700"    },

@@ -471,7 +471,9 @@ const Members = () => {
   const fetchMembers = async () => {
     try {
       const res = await CustomBaseUrl.get(`/fetch`);
-      setMembers(res.data.data || []);
+      const list = res.data.data || [];
+      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setMembers(list);
     } catch (err) {
       console.error('Error fetching members:', err);
     } finally {
