@@ -5,7 +5,7 @@ import Navbar from '../components/Navbar';
 import {
   Plus, Search, X, User,
   AlertCircle, CheckCircle, Clock, XCircle, Eye, Edit3, Trash2,
-  ChevronLeft, ChevronRight, Upload, FileText, Loader2
+  ChevronLeft, ChevronRight, Upload, FileText, Loader2, RefreshCw
 } from 'lucide-react';
 
 const PER_PAGE = 10;
@@ -341,6 +341,124 @@ const CSVImportModal = ({ onClose, onDone }) => {
   );
 };
 
+// ── Renew Modal ───────────────────────────────────────────────────────────────
+
+const PRESET_PACKAGES = [
+  { id: 'basic',    label: 'Basic',    price: 1000, months: 1  },
+  { id: 'standard', label: 'Standard', price: 2500, months: 3  },
+  { id: 'premium',  label: 'Premium',  price: 4500, months: 6  },
+  { id: 'offer',    label: 'Offer',    price: 7500, months: 12 },
+];
+
+const RenewModal = ({ member, onClose }) => {
+  const navigate = useNavigate();
+
+  // Derive the member's last plan from member.packages field
+  const lastPkg = (member.packages || '').trim();
+  const matchedPreset = PRESET_PACKAGES.find(
+    p => p.label.toLowerCase() === lastPkg.toLowerCase()
+  );
+
+  // Derive last duration in months from endDate - startDate
+  const lastMonths = (() => {
+    if (!member.startDate || !member.endDate) return null;
+    const diff = Math.round(
+      (new Date(member.endDate) - new Date(member.startDate)) / (1000 * 60 * 60 * 24 * 30.44)
+    );
+    return diff > 0 ? diff : null;
+  })();
+
+  const handleSamePlan = () => {
+    onClose();
+    navigate('/payments/new', {
+      state: {
+        renewMember:   member,
+        renewPackage:  matchedPreset?.id || 'custom',
+        renewPkgLabel: lastPkg,
+        renewMonths:   lastMonths || matchedPreset?.months || 1,
+        renewAmount:   matchedPreset?.price || '',
+        isRenewal:     true,
+      },
+    });
+  };
+
+  const handleDifferentPlan = () => {
+    onClose();
+    navigate('/payments/new', {
+      state: {
+        renewMember: member,
+        isRenewal:   true,
+      },
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="bg-gradient-to-br from-slate-800 to-red-900 text-white px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <RefreshCw size={16} />
+            <div>
+              <p className="font-bold text-sm">Renew Membership</p>
+              <p className="text-xs opacity-60">{member.name}</p>
+            </div>
+          </div>
+          <button onClick={onClose}><X size={16} className="opacity-60 hover:opacity-100" /></button>
+        </div>
+
+        <div className="p-5">
+          {/* Current plan info */}
+          <div className="bg-slate-50 rounded-xl px-4 py-3 mb-5">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Current Plan</p>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-slate-800">{lastPkg || '—'}</span>
+              {lastMonths && (
+                <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">
+                  {lastMonths} month{lastMonths > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            {matchedPreset && (
+              <p className="text-xs text-slate-500 mt-0.5">₹{matchedPreset.price.toLocaleString('en-IN')} · {matchedPreset.months} month{matchedPreset.months > 1 ? 's' : ''}</p>
+            )}
+          </div>
+
+          <p className="text-sm font-semibold text-slate-700 mb-3">Renew with the same plan?</p>
+
+          <div className="flex flex-col gap-2.5">
+            {matchedPreset ? (
+              <button
+                onClick={handleSamePlan}
+                className="w-full flex items-center justify-between px-4 py-3 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 active:scale-95 transition-all"
+              >
+                <span>✅ Yes — same plan &amp; duration</span>
+                <span className="text-xs opacity-80 bg-white/20 px-2 py-0.5 rounded-full">
+                  ₹{matchedPreset.price.toLocaleString('en-IN')}
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={handleDifferentPlan}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 active:scale-95 transition-all"
+              >
+                <RefreshCw size={14} /> Renew (Custom Plan)
+              </button>
+            )}
+
+            <button
+              onClick={handleDifferentPlan}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-200 active:scale-95 transition-all"
+            >
+              Choose a different plan
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Member status helpers ─────────────────────────────────────────────────────
 
 const getMembershipStatus = (endDate) => {
@@ -362,7 +480,7 @@ const Avatar = ({ src, name, size = 'md' }) => {
   return <div className={`${sizeClass} ${color} rounded-full flex items-center justify-center text-white font-bold ring-2 ring-white shadow`}>{initials}</div>;
 };
 
-const MemberCard = ({ member, onEdit, onDelete }) => {
+const MemberCard = ({ member, onEdit, onDelete, onRenew }) => {
   const navigate = useNavigate();
   const status = getMembershipStatus(member.endDate);
   const StatusIcon = status.icon;
@@ -388,15 +506,19 @@ const MemberCard = ({ member, onEdit, onDelete }) => {
           <StatusIcon size={10} />{status.label}
         </span>
         <button onClick={() => navigate(`/members/${member._id}`)}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition opacity-0 group-hover:opacity-100" title="View profile">
+          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition" title="View profile">
           <Eye size={14} />
         </button>
+        <button onClick={e => { e.stopPropagation(); onRenew(member); }}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition" title="Renew membership">
+          <RefreshCw size={14} />
+        </button>
         <button onClick={e => { e.stopPropagation(); onEdit(member); }}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition opacity-0 group-hover:opacity-100" title="Edit member">
+          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition" title="Edit member">
           <Edit3 size={14} />
         </button>
         <button onClick={e => { e.stopPropagation(); onDelete(member); }}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition opacity-0 group-hover:opacity-100" title="Delete member">
+          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition" title="Delete member">
           <Trash2 size={14} />
         </button>
       </div>
@@ -462,6 +584,7 @@ const Members = () => {
   const [search,       setSearch]       = useState('');
   const [filter,       setFilter]       = useState('all');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [renewTarget,  setRenewTarget]  = useState(null);
   const [page,         setPage]         = useState(1);
   const [showImport,   setShowImport]   = useState(false);
 
@@ -591,7 +714,7 @@ const Members = () => {
           <>
             <div className="space-y-2.5">
               {paginated.map(member => (
-                <MemberCard key={member._id} member={member} onEdit={handleEdit} onDelete={setDeleteTarget} />
+                <MemberCard key={member._id} member={member} onEdit={handleEdit} onDelete={setDeleteTarget} onRenew={setRenewTarget} />
               ))}
             </div>
             <Pagination page={page} totalPages={totalPages} filtered={filtered.length} onPage={setPage} />
@@ -601,6 +724,10 @@ const Members = () => {
 
       {deleteTarget && (
         <DeleteModal member={deleteTarget} onConfirm={handleDeleteConfirm} onClose={() => setDeleteTarget(null)} />
+      )}
+
+      {renewTarget && (
+        <RenewModal member={renewTarget} onClose={() => setRenewTarget(null)} />
       )}
 
       {showImport && (

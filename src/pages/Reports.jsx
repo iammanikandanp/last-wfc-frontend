@@ -266,6 +266,12 @@ export default function Reports() {
   const activeNow  = members.filter(m => new Date(m.endDate) > NOW).length;
   const expiredNow = members.length - activeNow;
 
+  // Renewal metrics (only isRenewal === true payments)
+  const curRenew    = curPay.filter(p => p.isRenewal);
+  const prvRenew    = prvPay.filter(p => p.isRenewal);
+  const curRenewAmt = curRenew.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
+  const prvRenewAmt = prvRenew.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
+
   // Payment mode breakdown
   const MODES = ['cash', 'upi', 'card'];
   const modeStats = MODES.map(mode => ({
@@ -370,7 +376,7 @@ export default function Reports() {
         )}
 
         {/* ── KPI Cards: 8 across ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2.5 mb-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2.5 mb-2.5">
           <KpiCard label="Total Revenue"   curVal={curRevenue}       prvVal={prvRevenue}        color="green"  />
           <KpiCard label="Transactions"    curVal={curPay.length}    prvVal={prvPay.length}     color="blue"   isMoney={false} />
           <KpiCard label="Avg Payment"     curVal={curAvg}           prvVal={prvAvg}            color="amber"  />
@@ -379,6 +385,12 @@ export default function Reports() {
           <KpiCard label="New Members"     curVal={curMembers.length} prvVal={prvMembers.length} color="violet" isMoney={false} />
           <KpiCard label="Active Members"  curVal={activeNow}        color="slate"              isMoney={false} />
           <KpiCard label="Expired"         curVal={expiredNow}       color="pink"               isMoney={false} />
+        </div>
+
+        {/* ── Renewal KPI row ── */}
+        <div className="grid grid-cols-2 gap-2.5 mb-5">
+          <KpiCard label="🔄 Renewal Revenue"      curVal={curRenewAmt}      prvVal={prvRenewAmt}      color="teal"   />
+          <KpiCard label="🔄 Renewal Transactions"  curVal={curRenew.length}  prvVal={prvRenew.length}  color="violet" isMoney={false} />
         </div>
 
         {/* ── Revenue Trend + Transaction Count ── */}
@@ -803,11 +815,14 @@ export default function Reports() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        p.paymentType === 'partly' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {p.paymentType === 'partly' ? 'Part' : 'Full'}
-                      </span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          p.paymentType === 'partly' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {p.paymentType === 'partly' ? 'Part' : 'Full'}
+                        </span>
+                        {p.isRenewal && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">🔄 Renew</span>}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">
                       {p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—'}

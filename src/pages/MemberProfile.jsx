@@ -587,39 +587,311 @@ const CSVImportModal = ({ title, subtitle, accentColor, onImport, onClose, downl
 };
 
 // ── Edit Measurements Modal ───────────────────────────────────────────────────
+const MeasureField = ({ label, name, unit, value, onChange }) => (
+  <div>
+    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">{label}</label>
+    <div className="relative">
+      <input
+        type="number"
+        value={value}
+        onChange={e => onChange(name, e.target.value)}
+        className="w-full pl-3 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+      />
+      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">{unit}</span>
+    </div>
+  </div>
+);
+
+const calcBodyFat = (gender, height, waist, neck, hip) => {
+  const h=parseFloat(height), w=parseFloat(waist), n=parseFloat(neck), hp=parseFloat(hip);
+  if (!h || !w || !n || h<=0 || w<=n) return null;
+  let bf = null;
+  if (gender === 'Male') {
+    bf = 495 / (1.0324 - 0.19077 * Math.log10(w - n) + 0.15456 * Math.log10(h)) - 450;
+  } else if (gender === 'Female') {
+    if (!hp || hp <= 0) return null;
+    bf = 495 / (1.29579 - 0.35004 * Math.log10(w + hp - n) + 0.22100 * Math.log10(h)) - 450;
+  }
+  if (bf === null || isNaN(bf) || bf <= 0 || bf > 60) return null;
+  return bf.toFixed(1);
+};
+
+const bfCategory = (gender, bf) => {
+  const v = parseFloat(bf);
+  if (isNaN(v)) return null;
+  if (gender === 'Male') {
+    if (v < 6)  return { label: 'Essential Fat', color: 'text-blue-600' };
+    if (v < 14) return { label: 'Athlete',        color: 'text-emerald-600' };
+    if (v < 18) return { label: 'Fit',            color: 'text-green-600' };
+    if (v < 25) return { label: 'Acceptable',     color: 'text-amber-600' };
+    return             { label: 'Obese',          color: 'text-red-600' };
+  }
+  if (v < 14) return { label: 'Essential Fat', color: 'text-blue-600' };
+  if (v < 21) return { label: 'Athlete',        color: 'text-emerald-600' };
+  if (v < 25) return { label: 'Fit',            color: 'text-green-600' };
+  if (v < 32) return { label: 'Acceptable',     color: 'text-amber-600' };
+  return             { label: 'Obese',          color: 'text-red-600' };
+};
+
 const EditMeasurementsModal = ({ member, onSave, onClose }) => {
+  const gender = member.gender || '';
   const [form, setForm] = useState({
-    height:member.height||'',weight:member.weight||'',
-    waist:member.waist||'',hip:member.hip||'',
-    neck:member.neck||'',chest:member.chest||'',
-    arm:member.arm||'',thigh:member.thigh||'',
+    height: member.height || '', weight: member.weight || '',
+    waist:  member.waist  || '', hip:    member.hip    || '',
+    neck:   member.neck   || '', chest:  member.chest  || '',
+    arm:    member.arm    || '', thigh:  member.thigh  || '',
   });
-  const F = ({label,name,unit}) => (
-    <div>
-      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">{label}</label>
-      <div className="flex items-center gap-1">
-        <input type="number" value={form[name]} onChange={e=>setForm(f=>({...f,[name]:e.target.value}))}
-          className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"/>
-        <span className="text-[10px] text-slate-400 w-6 shrink-0">{unit}</span>
+
+  const handleChange = (name, value) => setForm(f => ({ ...f, [name]: value }));
+
+  // Live body fat calculation
+  const bodyFat = calcBodyFat(gender, form.height, form.waist, form.neck, form.hip);
+  const bfCat   = bodyFat ? bfCategory(gender, bodyFat) : null;
+
+  // BMI live calc
+  const h = parseFloat(form.height), w = parseFloat(form.weight);
+  const bmi = (h > 0 && w > 0) ? (w / Math.pow(h/100, 2)).toFixed(1) : null;
+
+  const needsHip = gender === 'Female';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 bg-slate-800 text-white flex items-center justify-between">
+          <div>
+            <p className="font-bold text-sm">Edit Measurements</p>
+            {gender && <p className="text-[10px] opacity-50 mt-0.5">{gender} · Navy formula body fat</p>}
+          </div>
+          <button onClick={onClose}><X size={16}/></button>
+        </div>
+        <div className="p-5 grid grid-cols-2" style={{gap:'16px 20px'}}>
+          <MeasureField label="Height" name="height" unit="cm" value={form.height} onChange={handleChange}/>
+          <MeasureField label="Weight" name="weight" unit="kg" value={form.weight} onChange={handleChange}/>
+          <MeasureField label="Waist"  name="waist"  unit="cm" value={form.waist}  onChange={handleChange}/>
+          <MeasureField label={needsHip ? 'Hip ✱' : 'Hip'} name="hip" unit="cm" value={form.hip} onChange={handleChange}/>
+          <MeasureField label="Neck"   name="neck"   unit="cm" value={form.neck}   onChange={handleChange}/>
+          <MeasureField label="Chest"  name="chest"  unit="cm" value={form.chest}  onChange={handleChange}/>
+          <MeasureField label="Arm"    name="arm"    unit="cm" value={form.arm}    onChange={handleChange}/>
+          <MeasureField label="Thigh"  name="thigh"  unit="cm" value={form.thigh}  onChange={handleChange}/>
+        </div>
+
+        {/* Live calculated results */}
+        <div className="mx-5 mb-4 rounded-xl bg-slate-50 border border-slate-100 p-3 grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">BMI (auto)</p>
+            <p className={`text-base font-black ${bmi ? (parseFloat(bmi)<18.5?'text-blue-600':parseFloat(bmi)<25?'text-emerald-600':parseFloat(bmi)<30?'text-amber-600':'text-red-600') : 'text-slate-300'}`}>
+              {bmi || '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Body Fat % (auto)</p>
+            {bodyFat ? (
+              <p className={`text-base font-black ${bfCat?.color}`}>
+                {bodyFat}% <span className="text-[10px] font-semibold">{bfCat?.label}</span>
+              </p>
+            ) : (
+              <p className="text-base font-black text-slate-300">—
+                <span className="text-[9px] font-normal text-slate-400 ml-1">
+                  {!gender ? 'no gender' : needsHip && !form.hip ? 'need hip' : !form.neck ? 'need neck' : !form.waist ? 'need waist' : !form.height ? 'need height' : ''}
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">Cancel</button>
+          <button onClick={() => onSave({ ...form, bodyFat: bodyFat || form.bodyFat || member.bodyFat || '' })} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700">Save</button>
+        </div>
       </div>
     </div>
   );
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  BMI / Weight History Modal
+// ══════════════════════════════════════════════════════════════════════════════
+const BmiHistoryModal = ({ member, bmiHistory, onClose }) => {
+  const [chartTab, setChartTab] = useState('weight');
+
+  const W=520, H=200, PAD={t:24,r:20,b:36,l:46};
+  const iW=W-PAD.l-PAD.r, iH=H-PAD.t-PAD.b;
+  const n = bmiHistory.length;
+  const xOf = i => PAD.l + (n<=1 ? iW/2 : (i/(n-1))*iW);
+
+  const makeChart = (key, color, gradId, unit) => {
+    const vals = bmiHistory.map(h => parseFloat(h[key])).filter(v => !isNaN(v) && v > 0);
+    if (!vals.length) return <p className="text-xs text-slate-400 text-center py-8">No data</p>;
+    const raw  = bmiHistory.map(h => parseFloat(h[key]) || null);
+    const minV = Math.min(...vals), maxV = Math.max(...vals);
+    const pad  = (maxV - minV) * 0.25 || 2;
+    const lo   = minV - pad, hi = maxV + pad;
+    const yOf  = v => PAD.t + iH - ((v - lo) / (hi - lo)) * iH;
+
+    const pts = raw.map((v,i) => v!=null ? [xOf(i), yOf(v)] : null).filter(Boolean);
+    let linePath='', areaPath='';
+    if (pts.length >= 2) {
+      const cp = pts.map((p,i,a) => {
+        const prev=a[i-1]||p, next=a[i+1]||p;
+        return [[(p[0]+next[0])/2,(p[1]+next[1])/2],[(prev[0]+p[0])/2,(prev[1]+p[1])/2]];
+      });
+      linePath = `M${pts[0][0]},${pts[0][1]}` + pts.slice(1).map((p,i)=>`C${cp[i][0][0]},${cp[i][0][1]} ${cp[i+1]?.[1][0]??p[0]},${cp[i+1]?.[1][1]??p[1]} ${p[0]},${p[1]}`).join('');
+      areaPath = linePath + ` L${pts[pts.length-1][0]},${PAD.t+iH} L${pts[0][0]},${PAD.t+iH} Z`;
+    } else if (pts.length===1) {
+      linePath = `M${pts[0][0]-1},${pts[0][1]} L${pts[0][0]+1},${pts[0][1]}`;
+    }
+    const ticks = Array.from({length:5},(_,i)=> lo+(i/4)*(hi-lo));
+    const dateLabels = bmiHistory.map(h=>{const d=new Date(h.date);return `${d.getDate()}/${d.getMonth()+1}`;});
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{height:200}}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.22"/>
+            <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
+          </linearGradient>
+        </defs>
+        {ticks.map((t,i)=>{
+          const y=yOf(t).toFixed(1);
+          return (
+            <g key={i}>
+              <line x1={PAD.l} y1={y} x2={W-PAD.r} y2={y} stroke="#e2e8f0" strokeWidth={i===0?0:1}/>
+              <text x={PAD.l-6} y={parseFloat(y)+3} textAnchor="end" fontSize="9" fill="#94a3b8">{t.toFixed(1)}</text>
+            </g>
+          );
+        })}
+        {bmiHistory.map((_,i)=>(
+          <line key={i} x1={xOf(i).toFixed(1)} y1={PAD.t} x2={xOf(i).toFixed(1)} y2={PAD.t+iH} stroke="#f1f5f9" strokeWidth="1"/>
+        ))}
+        {areaPath && <path d={areaPath} fill={`url(#${gradId})`}/>}
+        {linePath && <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>}
+        {raw.map((v,i)=> v!=null ? (
+          <g key={i}>
+            <circle cx={xOf(i)} cy={yOf(v)} r="4" fill="white" stroke={color} strokeWidth="2"/>
+            <text x={xOf(i)} y={yOf(v)-9} textAnchor="middle" fontSize="9" fontWeight="700" fill={color}>{v}{unit}</text>
+          </g>
+        ):null)}
+        {dateLabels.map((l,i)=>(
+          <text key={i} x={xOf(i)} y={H-6} textAnchor="middle" fontSize="9" fill="#64748b">{l}</text>
+        ))}
+        <line x1={PAD.l} y1={PAD.t+iH} x2={W-PAD.r} y2={PAD.t+iH} stroke="#cbd5e1" strokeWidth="1"/>
+        <line x1={PAD.l} y1={PAD.t}    x2={PAD.l}   y2={PAD.t+iH} stroke="#cbd5e1" strokeWidth="1"/>
+      </svg>
+    );
+  };
+
+  const bmiNum = parseFloat(member.bmi)||0;
+  const bmiBg  = bmiNum<18.5?'bg-blue-50 text-blue-700':bmiNum<25?'bg-emerald-50 text-emerald-700':bmiNum<30?'bg-amber-50 text-amber-700':'bg-red-50 text-red-700';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e=>e.stopPropagation()}>
-        <div className="px-5 py-4 bg-slate-800 text-white flex items-center justify-between">
-          <p className="font-bold text-sm">Edit Measurements</p>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e=>e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="px-5 py-4 bg-gradient-to-r from-slate-700 to-slate-900 text-white flex items-center justify-between flex-shrink-0">
+          <div>
+            <p className="font-bold text-sm">Measurement History</p>
+            <p className="text-xs opacity-60">{member.name} · {bmiHistory.length} record{bmiHistory.length!==1?'s':''}</p>
+          </div>
           <button onClick={onClose}><X size={16}/></button>
         </div>
-        <div className="p-5 grid grid-cols-2 gap-3">
-          <F label="Height" name="height" unit="cm"/><F label="Weight" name="weight" unit="kg"/>
-          <F label="Waist"  name="waist"  unit="cm"/><F label="Hip"    name="hip"    unit="cm"/>
-          <F label="Neck"   name="neck"   unit="cm"/><F label="Chest"  name="chest"  unit="cm"/>
-          <F label="Arm"    name="arm"    unit="cm"/><F label="Thigh"  name="thigh"  unit="cm"/>
+
+        <div className="overflow-y-auto flex-1 p-5 space-y-4">
+          {bmiHistory.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              <Scale size={36} className="mx-auto mb-3 opacity-20"/>
+              <p className="text-sm font-medium">No history yet</p>
+              <p className="text-xs mt-1">History is recorded each time you save measurements.</p>
+            </div>
+          ) : (
+            <>
+              {/* Current stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-blue-50 text-blue-700 rounded-xl p-3">
+                  <p className="text-[9px] font-bold uppercase opacity-60">Current Weight</p>
+                  <p className="text-lg font-black mt-0.5">{member.weight ? `${member.weight} kg` : '—'}</p>
+                </div>
+                <div className={`rounded-xl p-3 ${bmiBg}`}>
+                  <p className="text-[9px] font-bold uppercase opacity-60">Current BMI</p>
+                  <p className="text-lg font-black mt-0.5">{member.bmi || '—'}</p>
+                </div>
+                <div className="bg-purple-50 text-purple-700 rounded-xl p-3">
+                  <p className="text-[9px] font-bold uppercase opacity-60">Body Fat</p>
+                  <p className="text-lg font-black mt-0.5">{member.bodyFat ? `${member.bodyFat}%` : '—'}</p>
+                </div>
+              </div>
+
+              {/* Chart with tabs */}
+              {bmiHistory.length >= 2 && (
+                <div className="bg-slate-50 rounded-2xl p-4">
+                  {/* Tab bar */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <button
+                      onClick={()=>setChartTab('weight')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${chartTab==='weight'?'bg-blue-600 text-white shadow-sm':'bg-white text-slate-500 hover:text-slate-700 border border-slate-200'}`}>
+                      <span className={`w-2 h-2 rounded-full ${chartTab==='weight'?'bg-white':'bg-blue-500'}`}/>
+                      Weight
+                    </button>
+                    <button
+                      onClick={()=>setChartTab('bmi')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${chartTab==='bmi'?'bg-rose-500 text-white shadow-sm':'bg-white text-slate-500 hover:text-slate-700 border border-slate-200'}`}>
+                      <span className={`w-2 h-2 rounded-full ${chartTab==='bmi'?'bg-white':'bg-rose-500'}`}/>
+                      BMI
+                    </button>
+                    {chartTab==='bmi' && (
+                      <div className="ml-auto flex items-center gap-2 text-[9px] font-semibold">
+                        <span className="text-blue-500">{'<18.5 Under'}</span>
+                        <span className="text-emerald-500">18.5–25 Normal</span>
+                        <span className="text-amber-500">25–30 Over</span>
+                        <span className="text-red-500">{'>30 Obese'}</span>
+                      </div>
+                    )}
+                    {chartTab==='weight' && (
+                      <span className="ml-auto text-[10px] text-slate-400 font-semibold">kg</span>
+                    )}
+                  </div>
+                  {chartTab==='weight' && makeChart('weight','#3b82f6','wGrad','kg')}
+                  {chartTab==='bmi'    && makeChart('bmi',   '#f43f5e','bGrad','')}
+                </div>
+              )}
+
+              {/* History table */}
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">All Records</p>
+                <div className="rounded-xl border border-slate-100 overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        {['Date','Weight','BMI','Waist','Hip','Body Fat'].map(h=>(
+                          <th key={h} className="text-left px-3 py-2 text-[9px] font-bold text-slate-400 uppercase">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...bmiHistory].reverse().map((h,i)=>{
+                        const bv=parseFloat(h.bmi)||0;
+                        const bc=bv<18.5?'text-blue-600':bv<25?'text-emerald-600':bv<30?'text-amber-600':'text-red-600';
+                        return (
+                          <tr key={i} className={`border-t border-slate-50 ${i%2===0?'bg-white':'bg-slate-50/50'}`}>
+                            <td className="px-3 py-2 font-medium text-slate-700">{new Date(h.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})}</td>
+                            <td className="px-3 py-2 font-bold text-blue-600">{h.weight??'—'} <span className="font-normal text-slate-400">kg</span></td>
+                            <td className={`px-3 py-2 font-bold ${bc}`}>{h.bmi??'—'}</td>
+                            <td className="px-3 py-2 text-slate-600">{h.waist??'—'}{h.waist&&<span className="text-slate-400"> cm</span>}</td>
+                            <td className="px-3 py-2 text-slate-600">{h.hip??'—'}{h.hip&&<span className="text-slate-400"> cm</span>}</td>
+                            <td className="px-3 py-2 text-slate-600">{h.bodyFat??'—'}{h.bodyFat&&<span className="text-slate-400"> %</span>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-        <div className="px-5 pb-5 flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">Cancel</button>
-          <button onClick={()=>onSave(form)} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700">Save</button>
+
+        <div className="px-5 pb-4 flex-shrink-0">
+          <button onClick={onClose} className="w-full py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">Close</button>
         </div>
       </div>
     </div>
@@ -644,6 +916,11 @@ const MemberProfile = () => {
   const [showDiet,      setShowDiet]      = useState(false);
   const [showWorkout,   setShowWorkout]   = useState(false);
   const [showMeasure,   setShowMeasure]   = useState(false);
+  const [showAddons,    setShowAddons]    = useState(false);
+  const [addonsForm,    setAddonsForm]    = useState({ personalTraining:'No', customWorkout:'No', customDiet:'No', rehabTherapy:'No' });
+  const [addonsSaving, setAddonsSaving]  = useState(false);
+  const [bmiHistory,    setBmiHistory]    = useState([]);
+  const [showBmiHistory,setShowBmiHistory]= useState(false);
 
   useEffect(()=>{ if(id) fetchAll(); },[id]);
 
@@ -694,8 +971,33 @@ const MemberProfile = () => {
         setAttendance(recs); if(recs.length>0) setActiveMonth(recs[0].month);
       }
       if(pR.status==='fulfilled') setPayments(pR.value.data?.payments||[]);
+
+      // Load measurement history from localStorage
+      try {
+        const stored = localStorage.getItem(`bmi_history_${id}`);
+        setBmiHistory(stored ? JSON.parse(stored) : []);
+      } catch { setBmiHistory([]); }
     } catch(e){console.error(e);}
     finally{setLoading(false);}
+  };
+
+  const pushBmiHistory = (form, bmi) => {
+    const entry = {
+      date: new Date().toISOString(),
+      weight: parseFloat(form.weight) || null,
+      height: parseFloat(form.height) || null,
+      bmi:    parseFloat(bmi)         || null,
+      waist:  parseFloat(form.waist)  || null,
+      hip:    parseFloat(form.hip)    || null,
+      neck:   parseFloat(form.neck)   || null,
+      chest:  parseFloat(form.chest)  || null,
+      bodyFat: parseFloat(form.bodyFat) || null,
+    };
+    setBmiHistory(prev => {
+      const next = [...prev, entry];
+      try { localStorage.setItem(`bmi_history_${id}`, JSON.stringify(next)); } catch(e) { void e; }
+      return next;
+    });
   };
 
   // ── Diet import handler ─────────────────────────────────────────────────────
@@ -730,16 +1032,48 @@ const MemberProfile = () => {
     setWorkoutPlan(null);
   };
 
-  const handleSaveMeasurements = async (form) => {
-    const bmi=(parseFloat(form.weight)&&parseFloat(form.height))
-      ?(parseFloat(form.weight)/Math.pow(parseFloat(form.height)/100,2)).toFixed(1):member.bmi;
-    await CustomBaseUrl.post(`/update/${id}`,{
-      ...member,...form,bmi,name:member.name,age:member.age,gender:member.gender,
-      emails:member.emails,phone:member.phone,address:member.address,pincode:member.pincode,
-      packages:member.packages,duration:member.duration,services:member.services,
-      startDate:member.startDate?.split?.('T')[0],endDate:member.endDate?.split?.('T')[0],
+  const openAddons = () => {
+    setAddonsForm({
+      personalTraining: member.personalTraining || 'No',
+      customWorkout:    member.customWorkout    || 'No',
+      customDiet:       member.customDiet       || 'No',
+      rehabTherapy:     member.rehabTherapy     || 'No',
     });
-    setMember(m=>({...m,...form,bmi}));
+    setShowAddons(true);
+  };
+
+  const handleSaveAddons = async () => {
+    setAddonsSaving(true);
+    try {
+      await CustomBaseUrl.post(`/update/${id}`, {
+        ...member, ...addonsForm,
+        name: member.name, age: member.age, gender: member.gender,
+        emails: member.emails, phone: member.phone, address: member.address,
+        pincode: member.pincode, packages: member.packages, duration: member.duration,
+        services: member.services,
+        startDate: member.startDate?.split?.('T')[0],
+        endDate:   member.endDate?.split?.('T')[0],
+      });
+      setMember(m => ({ ...m, ...addonsForm }));
+      setShowAddons(false);
+    } catch(e) { console.error(e); }
+    finally { setAddonsSaving(false); }
+  };
+
+  const handleSaveMeasurements = async (form) => {
+    const bmi = (parseFloat(form.weight) && parseFloat(form.height))
+      ? (parseFloat(form.weight) / Math.pow(parseFloat(form.height)/100, 2)).toFixed(1)
+      : member.bmi;
+    const bodyFat = form.bodyFat || calcBodyFat(member.gender, form.height, form.waist, form.neck, form.hip) || member.bodyFat || '';
+    await CustomBaseUrl.post(`/update/${id}`, {
+      ...member, ...form, bmi, bodyFat,
+      name: member.name, age: member.age, gender: member.gender,
+      emails: member.emails, phone: member.phone, address: member.address, pincode: member.pincode,
+      packages: member.packages, duration: member.duration, services: member.services,
+      startDate: member.startDate?.split?.('T')[0], endDate: member.endDate?.split?.('T')[0],
+    });
+    pushBmiHistory({ ...form, bodyFat }, bmi);
+    setMember(m => ({ ...m, ...form, bmi, bodyFat }));
     setShowMeasure(false);
   };
 
@@ -874,7 +1208,12 @@ const MemberProfile = () => {
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2"><Scale size={13} className="text-slate-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Measurements</p></div>
-                <button onClick={()=>setShowMeasure(true)} className="flex items-center gap-1 text-xs text-red-600 font-semibold"><Edit3 size={11}/>Edit</button>
+                <div className="flex items-center gap-2">
+                  <button onClick={()=>setShowBmiHistory(true)} className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition">
+                    <Activity size={10}/> History
+                  </button>
+                  <button onClick={()=>setShowMeasure(true)} className="flex items-center gap-1 text-xs text-red-600 font-semibold"><Edit3 size={11}/>Edit</button>
+                </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl mb-3">
                 <div className="relative shrink-0" style={{width:56,height:56}}>
@@ -1004,7 +1343,13 @@ const MemberProfile = () => {
 
             {/* Add-ons */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Add-on Services</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Add-on Services</p>
+                <button onClick={openAddons}
+                  className="flex items-center gap-1 text-[10px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg transition">
+                  <Edit3 size={10}/> Edit
+                </button>
+              </div>
               <div className="space-y-2">
                 {[['Personal Training',member.personalTraining],['Custom Workout',member.customWorkout],
                   ['Custom Diet',member.customDiet],['Rehab Therapy',member.rehabTherapy]
@@ -1098,6 +1443,53 @@ const MemberProfile = () => {
       )}
 
       {showMeasure && <EditMeasurementsModal member={member} onSave={handleSaveMeasurements} onClose={()=>setShowMeasure(false)}/>}
+
+      {/* ── BMI / Weight History Modal ── */}
+      {showBmiHistory && (
+        <BmiHistoryModal
+          member={member}
+          bmiHistory={bmiHistory}
+          onClose={()=>setShowBmiHistory(false)}
+        />
+      )}
+
+      {/* ── Add-on Services Modal ── */}
+      {showAddons && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={()=>setShowAddons(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e=>e.stopPropagation()}>
+            <div className="px-5 py-4 bg-gradient-to-r from-slate-700 to-slate-900 text-white flex items-center justify-between">
+              <p className="font-bold text-sm">Edit Add-on Services</p>
+              <button onClick={()=>setShowAddons(false)}><X size={16}/></button>
+            </div>
+            <div className="p-5 space-y-3">
+              {[
+                ['Personal Training', 'personalTraining'],
+                ['Custom Workout',    'customWorkout'],
+                ['Custom Diet',       'customDiet'],
+                ['Rehab Therapy',     'rehabTherapy'],
+              ].map(([label, key]) => (
+                <div key={key}>
+                  <label className="block mb-1 text-xs font-semibold text-slate-600">{label}</label>
+                  <select
+                    value={addonsForm[key]}
+                    onChange={e => setAddonsForm(f => ({ ...f, [key]: e.target.value }))}
+                    className="w-full border-2 border-slate-200 p-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400 bg-white">
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 pb-5 flex gap-2">
+              <button onClick={()=>setShowAddons(false)} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">Cancel</button>
+              <button onClick={handleSaveAddons} disabled={addonsSaving}
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-60">
+                {addonsSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

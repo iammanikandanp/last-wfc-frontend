@@ -5,7 +5,8 @@ import Navbar from '../components/Navbar';
 import {
   Users, TrendingUp, AlertTriangle, Clock, CreditCard,
   X, Bell, CheckCircle, Salad, Wallet,
-  Plus, Activity, RefreshCw, Edit3, Trash2, Megaphone
+  Plus, Activity, RefreshCw, Edit3, Trash2, Megaphone,
+  Calendar, Flame, Droplets, Target, Dumbbell, Star
 } from 'lucide-react';
 
 const getMemberStatus = (endDate) => {
@@ -16,7 +17,6 @@ const getMemberStatus = (endDate) => {
   return 'active';
 };
 const isThisMonth = (d) => { if (!d) return false; const t = new Date(d), n = new Date(); return t.getMonth()===n.getMonth()&&t.getFullYear()===n.getFullYear(); };
-const isLastMonth = (d) => { if (!d) return false; const t = new Date(d), n = new Date(), l=new Date(n.getFullYear(),n.getMonth()-1,1); return t.getMonth()===l.getMonth()&&t.getFullYear()===l.getFullYear(); };
 
 const MemberModal = ({ title, members, color, onClose }) => {
   const navigate = useNavigate();
@@ -246,7 +246,521 @@ const LineChart = ({ members }) => {
   );
 };
 
-const Dashboard = () => {
+
+const AttRing = ({ pct, size = 56 }) => {
+  const r = (size - 10) / 2, circ = 2 * Math.PI * r;
+  const color = pct >= 80 ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#dc2626';
+  return (
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#e2e8f0" strokeWidth="5"/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5"
+        strokeDasharray={`${(pct/100)*circ} ${circ}`} strokeLinecap="round"/>
+    </svg>
+  );
+};
+
+const GOAL_CLR = {
+  'Weight Loss':'bg-blue-100 text-blue-700','Muscle Gain':'bg-red-100 text-red-700',
+  'Maintenance':'bg-green-100 text-green-700','Endurance':'bg-amber-100 text-amber-700',
+  'Custom':'bg-violet-100 text-violet-700',
+};
+
+const WK_DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday'];
+
+const fmtMonth = (m) => {
+  if (!m) return '';
+  const [y, mo] = m.split('-');
+  return new Date(+y, +mo - 1, 1).toLocaleString('en-IN', { month: 'short', year: '2-digit' });
+};
+
+const MemberDashboard = ({ user }) => {
+  const navigate      = useNavigate();
+  const [member,      setMember]      = useState(null);
+  const [dietPlan,    setDietPlan]    = useState(null);
+  const [workoutPlan, setWorkoutPlan] = useState(null);
+  const [attendance,  setAttendance]  = useState([]);
+  const [payments,    setPayments]    = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [activeMonth, setActiveMonth] = useState(null);
+  const [notLinked,   setNotLinked]   = useState(false);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchData(); }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      let regId = user.registrationId || null;
+      if (!regId && user.phone) {
+        const allRes = await CustomBaseUrl.get(`/fetch`);
+        const matched = (allRes.data?.data || []).find(m => m.phone === user.phone);
+        regId = matched?._id || null;
+      }
+      if (!regId) { setNotLinked(true); setLoading(false); return; }
+
+      const [mR, dR, wR, aR, pR] = await Promise.allSettled([
+        CustomBaseUrl.get(`/fetchone/${regId}`),
+        CustomBaseUrl.get(`/reg-diet-plans/member/${regId}`),
+        CustomBaseUrl.get(`/reg-workout-plans/member/${regId}`),
+        CustomBaseUrl.get(`/xls-attendance/member/${regId}`),
+        CustomBaseUrl.get(`/reg-payments/member/${regId}`),
+      ]);
+      if (mR.status === 'fulfilled') setMember(mR.value.data?.data);
+      if (dR.status === 'fulfilled' && dR.value.data?.success) setDietPlan(dR.value.data.plan);
+      if (wR.status === 'fulfilled' && wR.value.data?.success) setWorkoutPlan(wR.value.data.plan);
+      if (aR.status === 'fulfilled') {
+        const recs = (aR.value.data?.records || []).sort((a, b) => b.month.localeCompare(a.month));
+        setAttendance(recs);
+        if (recs.length > 0) setActiveMonth(recs[0].month);
+      }
+      if (pR.status === 'fulfilled') setPayments(pR.value.data?.payments || []);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
+  // ── Computed values ──────────────────────────────────────────
+  const selAtt     = attendance.find(r => r.month === activeMonth);
+  const attPct     = selAtt?.workDays > 0 ? Math.round((selAtt.attendDays / selAtt.workDays) * 100) : 0;
+  const totalPaid  = payments.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
+  const totalDue   = payments.reduce((s, p) => s + (p.balanceAmount || 0), 0);
+  const daysLeft   = member?.endDate ? Math.ceil((new Date(member.endDate) - new Date()) / 86400000) : null;
+  const memStatus  = daysLeft === null ? 'unknown' : daysLeft < 0 ? 'expired' : daysLeft <= 7 ? 'expiring' : 'active';
+  const bmi        = parseFloat(member?.bmi) || 0;
+  const bmiCat     = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese';
+  const bmiClr     = bmi < 18.5 ? 'text-blue-600' : bmi < 25 ? 'text-emerald-600' : bmi < 30 ? 'text-amber-600' : 'text-red-600';
+  const bmiPct     = Math.min(100, Math.max(0, ((bmi - 10) / 30) * 100));
+  const overallAtt = attendance.length > 0
+    ? Math.round(attendance.reduce((s, r) => s + (r.workDays > 0 ? r.attendDays / r.workDays : 0), 0) / attendance.length * 100)
+    : 0;
+  const wkExercises = WK_DAYS.reduce((s, d) => s + (workoutPlan?.[d]?.morning?.exercises?.length || 0) + (workoutPlan?.[d]?.evening?.exercises?.length || 0), 0);
+  const wkActiveDays = WK_DAYS.filter(d => (workoutPlan?.[d]?.morning?.exercises?.length || 0) + (workoutPlan?.[d]?.evening?.exercises?.length || 0) > 0).length;
+
+  const STATUS_BADGE = {
+    active:   { cls:'bg-emerald-100 text-emerald-700', dot:'bg-emerald-500', label:'Active' },
+    expiring: { cls:'bg-amber-100 text-amber-700',     dot:'bg-amber-500',   label:`${daysLeft}d left` },
+    expired:  { cls:'bg-red-100 text-red-700',         dot:'bg-red-500',     label:'Expired' },
+    unknown:  { cls:'bg-slate-100 text-slate-500',     dot:'bg-slate-400',   label:'Unknown' },
+  }[memStatus];
+
+  const displayName = member?.name || user.name || 'Member';
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Navbar />
+      <div className="max-w-6xl mx-auto px-4 py-6">
+
+        {/* ── Greeting bar ── */}
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h1 className="text-lg font-bold text-slate-900">
+              {new Date().getHours()<12?'Good Morning 🌅':new Date().getHours()<17?'Good Afternoon ☀️':'Good Evening 🌙'}&nbsp;
+              <span className="text-red-600">{displayName}</span> 👋
+            </h1>
+            <p className="text-xs text-slate-400">{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</p>
+          </div>
+          <button onClick={fetchData} className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-slate-200 transition">
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''}/> Refresh
+          </button>
+        </div>
+
+        {/* ── Loading skeleton ── */}
+        {loading ? (
+          <div className="space-y-4">
+            <div className="h-36 bg-white rounded-2xl animate-pulse border border-slate-100"/>
+            <div className="grid grid-cols-4 gap-3">{[...Array(4)].map((_,i)=><div key={i} className="h-20 bg-white rounded-xl animate-pulse border border-slate-100"/>)}</div>
+            <div className="grid grid-cols-3 gap-4">{[...Array(3)].map((_,i)=><div key={i} className="h-56 bg-white rounded-2xl animate-pulse border border-slate-100"/>)}</div>
+            <div className="grid grid-cols-3 gap-4">{[...Array(3)].map((_,i)=><div key={i} className="h-40 bg-white rounded-2xl animate-pulse border border-slate-100"/>)}</div>
+          </div>
+
+        ) : notLinked ? (
+          <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-10 text-center max-w-md mx-auto">
+            <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle size={24} className="text-amber-500"/>
+            </div>
+            <p className="font-bold text-slate-800 mb-1">Gym profile not linked yet</p>
+            <p className="text-xs text-slate-500">Your login account (<strong>{user.phone}</strong>) has no matching gym registration. Ask your admin to register you with this phone number.</p>
+          </div>
+
+        ) : (<>
+
+          {/* ═══ PROFILE HERO ═══ */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-4">
+            <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-red-800 px-5 py-5 flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full ring-4 ring-white/20 bg-red-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shrink-0">
+                {displayName[0]?.toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold text-white">{displayName}</h2>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${STATUS_BADGE.cls}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_BADGE.dot}`}/>{STATUS_BADGE.label}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  {[member?.age && `${member.age} yrs`, member?.gender, member?.profession].filter(Boolean).join(' · ')}
+                </p>
+              </div>
+            </div>
+            <div className="px-5 pb-5 pt-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Membership</p>
+                  <p className="text-xs font-bold text-slate-800">{member?.packages || '—'}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{member?.services || '—'}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Period</p>
+                  <p className="text-[11px] font-semibold text-slate-800">{member?.startDate ? new Date(member.startDate).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '—'}</p>
+                  <p className="text-[10px] text-slate-400">→ {member?.endDate ? new Date(member.endDate).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '—'}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Health</p>
+                  <p className="text-[11px] font-semibold text-slate-800">Blood: {member?.bloodGroup || '—'}</p>
+                  <p className="text-[10px] text-slate-400">BP: {member?.bloodPressure || '—'}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Contact</p>
+                  <p className="text-[11px] font-semibold text-slate-800">{member?.phone || '—'}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{member?.emails || user.email || '—'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ QUICK STATS ═══ */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            {[
+              { label:'Days Remaining', value: daysLeft === null ? '—' : daysLeft < 0 ? 'Expired' : `${daysLeft} days`,
+                emoji:'📅', bg: daysLeft === null ? 'bg-slate-100' : daysLeft < 0 ? 'bg-red-50' : daysLeft <= 7 ? 'bg-amber-50' : 'bg-emerald-50',
+                vc: daysLeft === null ? 'text-slate-600' : daysLeft < 0 ? 'text-red-600' : daysLeft <= 7 ? 'text-amber-600' : 'text-emerald-700' },
+              { label:'Overall Attendance', value: attendance.length > 0 ? `${overallAtt}%` : '—',
+                emoji:'📊', bg: overallAtt >= 80 ? 'bg-emerald-50' : overallAtt >= 50 ? 'bg-amber-50' : attendance.length > 0 ? 'bg-red-50' : 'bg-slate-50',
+                vc: overallAtt >= 80 ? 'text-emerald-700' : overallAtt >= 50 ? 'text-amber-600' : 'text-red-600' },
+              { label:'Balance Due', value: totalDue > 0 ? `₹${totalDue.toLocaleString('en-IN')}` : 'All Clear',
+                emoji:'💰', bg: totalDue > 0 ? 'bg-red-50' : 'bg-emerald-50',
+                vc: totalDue > 0 ? 'text-red-600' : 'text-emerald-700' },
+              { label:'BMI', value: bmi > 0 ? `${bmi} — ${bmiCat}` : '—',
+                emoji:'⚖️', bg:'bg-violet-50', vc: bmi > 0 ? bmiClr : 'text-slate-500' },
+            ].map(({ label, value, emoji, bg, vc }) => (
+              <div key={label} className={`${bg} rounded-xl p-3.5 flex items-center gap-3`}>
+                <span className="text-2xl leading-none">{emoji}</span>
+                <div className="min-w-0">
+                  <p className={`text-sm font-black leading-tight truncate ${vc}`}>{value}</p>
+                  <p className="text-[10px] text-slate-400">{label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ═══ CALORIE TRACKER CARD ═══ */}
+          {(() => {
+            const todayK = new Date().toISOString().slice(0, 10);
+            const logs   = (() => { try { return JSON.parse(localStorage.getItem('wfc_diet_logs') || '{}'); } catch { return {}; } })();
+            const plan   = (() => { try { return JSON.parse(localStorage.getItem('wfc_diet_plan') || 'null'); } catch { return null; } })();
+            const target = plan?.calorieTarget || dietPlan?.calorieTarget || 2000;
+            const entries = logs[todayK] || [];
+            const consumed = entries.reduce((s, e) => s + (e.calories || 0), 0);
+            const pct      = Math.min((consumed / target) * 100, 100);
+            const over     = consumed > target;
+            const low      = consumed > 0 && consumed < target * 0.5;
+            const barColor = over ? 'bg-red-500' : low ? 'bg-amber-400' : consumed > 0 ? 'bg-green-500' : 'bg-slate-200';
+            const status   = over ? `⚠️ Over by ${consumed - target} kcal` : low ? '🔻 Low intake' : consumed > 0 ? `✅ ${target - consumed} kcal remaining` : 'No food logged yet';
+            const statusCl = over ? 'text-red-600' : low ? 'text-amber-600' : consumed > 0 ? 'text-green-700' : 'text-slate-400';
+            return (
+              <button onClick={() => navigate('/diet-log')}
+                className="w-full mb-4 bg-white rounded-2xl border border-slate-100 shadow-sm p-4 text-left hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg leading-none">🔥</span>
+                    <p className="text-sm font-bold text-slate-800">Today's Calories</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${over ? 'bg-red-100 text-red-700' : low ? 'bg-amber-100 text-amber-700' : consumed > 0 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {consumed} / {target} kcal
+                    </span>
+                    <span className="text-xs text-slate-400 group-hover:text-slate-700 transition">Track →</span>
+                  </div>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
+                  <div className={`h-2 rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct}%` }} />
+                </div>
+                <p className={`text-xs font-semibold ${statusCl}`}>{status}</p>
+              </button>
+            );
+          })()}
+
+          {/* ═══ MAIN 3 CARDS ═══ */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+
+            {/* Attendance Scoreboard */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar size={14} className="text-blue-500"/>
+                <p className="font-bold text-slate-800 text-sm">Attendance</p>
+                {attendance.length > 0 && <span className="ml-auto text-[10px] text-slate-400">{attendance.length} month{attendance.length > 1 ? 's' : ''}</span>}
+              </div>
+              {attendance.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <Calendar size={28} className="mx-auto mb-2 opacity-20"/>
+                  <p className="text-xs">No records yet</p>
+                </div>
+              ) : (<>
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {attendance.map(r => {
+                    const p = r.workDays > 0 ? Math.round((r.attendDays / r.workDays) * 100) : 0;
+                    const dot = p >= 80 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                    return (
+                      <button key={r.month} onClick={() => setActiveMonth(r.month)}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition ${activeMonth === r.month ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeMonth === r.month ? 'bg-white' : dot}`}/>
+                        {fmtMonth(r.month)}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selAtt && (
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="relative shrink-0" style={{width:56,height:56}}>
+                        <AttRing pct={attPct}/>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-xs font-black text-slate-700">{attPct}%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{selAtt.attendDays} / {selAtt.workDays} days</p>
+                        {selAtt.dept && <p className="text-[10px] text-slate-400">{selAtt.dept} · {selAtt.shift}</p>}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 mb-2">
+                      {[
+                        {l:'Present', v:selAtt.attendDays, c:'text-emerald-600', bg:'bg-emerald-50'},
+                        {l:'Absent',  v:selAtt.absentDays, c:'text-red-500',     bg:'bg-red-50'},
+                        {l:'Work',    v:selAtt.workDays,   c:'text-slate-700',   bg:'bg-white'},
+                      ].map(s => (
+                        <div key={s.l} className={`text-center rounded-lg py-2 ${s.bg}`}>
+                          <p className={`text-base font-black ${s.c}`}>{s.v}</p>
+                          <p className="text-[9px] text-slate-400">{s.l}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {selAtt.lateTimes > 0 && <p className="text-[10px] text-amber-600 font-semibold">⏰ Late {selAtt.lateTimes}× · {selAtt.lateMins} min</p>}
+                    {selAtt.otHours  > 0 && <p className="text-[10px] text-violet-600 font-semibold mt-0.5">⭐ OT: {selAtt.otHours} hrs</p>}
+                  </div>
+                )}
+              </>)}
+            </div>
+
+            {/* Diet Plan */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Salad size={14} className="text-green-500"/>
+                <p className="font-bold text-slate-800 text-sm">Diet Plan</p>
+              </div>
+              {!dietPlan ? (
+                <div className="text-center py-8 text-slate-400">
+                  <Salad size={28} className="mx-auto mb-2 opacity-20"/>
+                  <p className="text-xs">No diet plan yet</p>
+                  <p className="text-[10px] mt-1 text-slate-400">Ask your trainer to assign one</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${GOAL_CLR[dietPlan.goal] || 'bg-slate-100 text-slate-600'}`}>{dietPlan.goal || 'Maintenance'}</span>
+                    <span className="flex items-center gap-1 text-xs font-bold text-orange-600"><Flame size={11}/>{dietPlan.calorieTarget || 0} kcal</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[{l:'Protein',v:dietPlan.protein,c:'bg-blue-50 text-blue-700'},{l:'Carbs',v:dietPlan.carbs,c:'bg-amber-50 text-amber-700'},{l:'Fats',v:dietPlan.fats,c:'bg-red-50 text-red-700'},{l:'Fiber',v:dietPlan.fiber,c:'bg-green-50 text-green-700'}].map(({l,v,c})=>(
+                      <div key={l} className={`text-center rounded-lg py-1.5 ${c}`}>
+                        <p className="text-xs font-black leading-none">{v||0}g</p>
+                        <p className="text-[8px] opacity-70 mt-0.5">{l}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-5 gap-1">
+                    {[{key:'breakfast',emoji:'🌅',label:'Break'},{key:'morningSnack',emoji:'🍎',label:'AM'},{key:'lunch',emoji:'☀️',label:'Lunch'},{key:'eveningSnack',emoji:'🍵',label:'PM'},{key:'dinner',emoji:'🌙',label:'Din'}].map(({key,emoji,label})=>{
+                      const meal=dietPlan[key]; const has=meal?.items?.length>0;
+                      return (
+                        <div key={key} className={`text-center rounded-lg py-1.5 ${has?'bg-slate-800 text-white':'bg-slate-100 text-slate-400'}`}>
+                          <p className="text-xs leading-none">{emoji}</p>
+                          <p className="text-[8px] font-bold mt-0.5">{label}</p>
+                          {has&&<p className="text-[8px] opacity-60">{meal.calories}cal</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {dietPlan.waterIntake && <span className="flex items-center gap-1 text-[10px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full"><Droplets size={9}/>Water {dietPlan.waterIntake}L</span>}
+                    {dietPlan.weightGoal  && <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full"><Target size={9}/>Target {dietPlan.weightGoal}kg</span>}
+                  </div>
+                  {dietPlan.supplements?.length > 0 && (
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Supplements</p>
+                      <div className="flex flex-wrap gap-1">{dietPlan.supplements.map((s,i)=><span key={i} className="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-[10px] font-medium">{s}</span>)}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Payments */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <CreditCard size={14} className="text-violet-500"/>
+                <p className="font-bold text-slate-800 text-sm">Payments</p>
+                {payments.length > 0 && <span className="ml-auto text-[10px] text-slate-400">{payments.length} record{payments.length > 1 ? 's' : ''}</span>}
+              </div>
+              {payments.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <CreditCard size={28} className="mx-auto mb-2 opacity-20"/>
+                  <p className="text-xs">No payment records yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex gap-2 mb-3">
+                    <div className="flex-1 bg-emerald-50 rounded-xl p-2.5 text-center">
+                      <p className="text-sm font-black text-emerald-700">₹{totalPaid.toLocaleString('en-IN')}</p>
+                      <p className="text-[9px] text-emerald-600">Total Paid</p>
+                    </div>
+                    <div className={`flex-1 rounded-xl p-2.5 text-center ${totalDue > 0 ? 'bg-red-50' : 'bg-slate-50'}`}>
+                      <p className={`text-sm font-black ${totalDue > 0 ? 'text-red-600' : 'text-slate-400'}`}>{totalDue > 0 ? `₹${totalDue.toLocaleString('en-IN')}` : '✓'}</p>
+                      <p className={`text-[9px] ${totalDue > 0 ? 'text-red-500' : 'text-slate-400'}`}>{totalDue > 0 ? 'Balance Due' : 'All Clear'}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {payments.map(p => (
+                      <div key={p._id} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                        <div>
+                          <p className="text-xs font-semibold text-slate-800">{p.package || '—'}</p>
+                          <p className="text-[10px] text-slate-400">{p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '—'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-emerald-600">₹{(p.finalAmount || p.amount || 0).toLocaleString('en-IN')}</p>
+                          {p.balanceAmount > 0 && <p className="text-[10px] text-red-500 font-semibold">-₹{p.balanceAmount.toLocaleString('en-IN')} due</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ═══ BOTTOM ROW ═══ */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            {/* Body Stats */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity size={14} className="text-slate-500"/>
+                <p className="font-bold text-slate-800 text-sm">Body Stats</p>
+              </div>
+              {bmi > 0 && (
+                <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3 mb-3">
+                  <div className="relative shrink-0" style={{width:52,height:52}}>
+                    <AttRing pct={bmiPct} size={52}/>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className={`text-[11px] font-black ${bmiClr}`}>{bmi}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className={`font-bold text-sm ${bmiClr}`}>{bmiCat}</p>
+                    <p className="text-[10px] text-slate-400">BMI Index</p>
+                    {member?.bodyFat && <p className="text-[10px] text-slate-400">Body fat: {member.bodyFat}%</p>}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                {[['Height',member?.height,'cm'],['Weight',member?.weight,'kg'],['Waist',member?.waist,'cm'],['Hip',member?.hip,'cm'],['Neck',member?.neck,'cm'],['Chest',member?.chest,'cm'],['Arm',member?.arm,'cm'],['Thigh',member?.thigh,'cm']].filter(([,v])=>v).map(([l,v,u])=>(
+                  <div key={l} className="bg-slate-50 rounded-xl px-3 py-2">
+                    <p className="text-[9px] text-slate-400 uppercase">{l}</p>
+                    <p className="text-sm font-bold text-slate-800">{v} <span className="text-[10px] font-normal text-slate-400">{u}</span></p>
+                  </div>
+                ))}
+                {bmi === 0 && !member?.height && !member?.weight && (
+                  <p className="text-xs text-slate-400 col-span-2 text-center py-4 opacity-60">No measurements recorded yet</p>
+                )}
+              </div>
+            </div>
+
+            {/* Workout Plan */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Dumbbell size={14} className="text-red-500"/>
+                <p className="font-bold text-slate-800 text-sm">Workout Plan</p>
+              </div>
+              {!workoutPlan ? (
+                <div className="text-center py-8 text-slate-400">
+                  <Dumbbell size={28} className="mx-auto mb-2 opacity-20"/>
+                  <p className="text-xs">No workout plan yet</p>
+                  <p className="text-[10px] mt-1 text-slate-400">Ask your trainer to assign one</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full ${GOAL_CLR[workoutPlan.goal] || 'bg-slate-100 text-slate-600'}`}>{workoutPlan.goal}</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      {l:'Weekly Cal', v:workoutPlan.totalWeeklyCalories||0, c:'bg-orange-50 text-orange-600'},
+                      {l:'Exercises',  v:wkExercises,                        c:'bg-slate-100 text-slate-700'},
+                      {l:'Active Days',v:`${wkActiveDays}/6`,                c:'bg-blue-50 text-blue-600'},
+                    ].map(({l,v,c})=>(
+                      <div key={l} className={`text-center rounded-xl p-2 ${c}`}>
+                        <p className="text-sm font-black leading-none">{v}</p>
+                        <p className="text-[9px] mt-0.5 opacity-80">{l}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-6 gap-1">
+                    {WK_DAYS.map(d => {
+                      const total = (workoutPlan[d]?.morning?.exercises?.length||0) + (workoutPlan[d]?.evening?.exercises?.length||0);
+                      return (
+                        <div key={d} className={`text-center rounded-lg py-1.5 ${total>0?'bg-slate-800 text-white':'bg-slate-100 text-slate-400'}`}>
+                          <p className="text-[9px] font-bold capitalize">{d.slice(0,3)}</p>
+                          <p className="text-[8px] mt-0.5 opacity-70">{total>0?`${total}ex`:'rest'}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {workoutPlan.notes && <p className="text-[10px] text-slate-400 italic">📝 {workoutPlan.notes}</p>}
+                </div>
+              )}
+            </div>
+
+            {/* Add-ons & Health */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Star size={14} className="text-amber-500"/>
+                <p className="font-bold text-slate-800 text-sm">Add-on Services</p>
+              </div>
+              <div className="space-y-2 mb-4">
+                {[['💪 Personal Training',member?.personalTraining],['🏋️ Custom Workout',member?.customWorkout],['🥗 Custom Diet',member?.customDiet],['🧘 Rehab Therapy',member?.rehabTherapy]].map(([l,v])=>(
+                  <div key={l} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
+                    <span className="text-xs text-slate-600">{l}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${v&&v!=='No'?'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-400'}`}>{v&&v!=='No'?v:'No'}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-slate-100 pt-3">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Health Info</p>
+                <div className="space-y-1.5">
+                  {[['Blood Group',member?.bloodGroup],['Blood Pressure',member?.bloodPressure],['Sugar Level',member?.sugarLevel?`${member.sugarLevel} mg/dL`:null],['Issues',member?.issues&&member.issues!=='None'?member.issues:null],['Address',member?.address]].filter(([,v])=>v).map(([l,v])=>(
+                    <div key={l} className="flex justify-between text-xs gap-2">
+                      <span className="text-slate-400 shrink-0">{l}</span>
+                      <span className="font-semibold text-slate-700 text-right">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </>)}
+      </div>
+    </div>
+  );
+};
+
+const AdminDashboard = () => {
   const navigate = useNavigate();
   const [members,  setMembers]  = useState([]);
   const [leadStats,setLeadStats]= useState({ total:0, new:0, converted:0, interested:0 });
@@ -301,7 +815,6 @@ const Dashboard = () => {
   },[]);
 
   const tMA=members.filter(m=>isThisMonth(m.startDate)&&getMemberStatus(m.endDate)==='active').length;
-  const lMA=members.filter(m=>isLastMonth(m.startDate)&&getMemberStatus(m.endDate)==='active').length;
   const newThisMonth=members.filter(m=>isThisMonth(m.createdAt)).length;
 
   const autoReminders = [];
@@ -457,10 +970,10 @@ const Dashboard = () => {
               { label: 'New Payment', icon: CreditCard,  color: 'bg-red-600 hover:bg-red-700',        fn: () => navigate('/payments/new') },
               { label: 'Diet Plan',   icon: Salad,       color: 'bg-green-600 hover:bg-green-700',    fn: () => navigate('/diet-plans/new') },
               { label: 'All Members', icon: Users,       color: 'bg-violet-600 hover:bg-violet-700',  fn: () => navigate('/members') },
-            ].map(({ label, icon: Icon, color, fn }) => (
-              <button key={label} onClick={fn}
-                className={`flex items-center gap-2.5 px-4 py-3 ${color} text-white rounded-xl text-sm font-semibold transition-all active:scale-95 shadow-sm`}>
-                <Icon size={16} />{label}
+            ].map((action) => (
+              <button key={action.label} onClick={action.fn}
+                className={`flex items-center gap-2.5 px-4 py-3 ${action.color} text-white rounded-xl text-sm font-semibold transition-all active:scale-95 shadow-sm`}>
+                {React.createElement(action.icon, { size: 16 })}{action.label}
               </button>
             ))}
           </div>
@@ -471,6 +984,12 @@ const Dashboard = () => {
       {showAddReminder&&<AddReminderModal onSave={saveManual} onClose={()=>setShowAddReminder(false)}/>}
     </div>
   );
+};
+
+const Dashboard = () => {
+  const userObj = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+  if (userObj.role === 'member') return <MemberDashboard user={userObj} />;
+  return <AdminDashboard />;
 };
 
 export default Dashboard;

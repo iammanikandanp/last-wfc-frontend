@@ -4,7 +4,9 @@ import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import {
   Plus, Search, X, Flame, Droplets, Target,
-  Apple, Trash2, Edit3, ChevronLeft, ChevronRight
+  Apple, Trash2, Edit3, ChevronLeft, ChevronRight,
+  Download, RefreshCw, ExternalLink, FileSpreadsheet,
+  CheckCircle, AlertTriangle, BarChart2
 } from 'lucide-react';
 
 const PER_PAGE = 10;
@@ -17,6 +19,51 @@ const GOAL_COLORS = {
   'Custom':       { bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-500', border: 'border-violet-200' },
 };
 
+const MEALS = [
+  { key: 'breakfast',   emoji: '🌅', label: 'Breakfast' },
+  { key: 'morningSnack',emoji: '🍎', label: 'Morning Snack' },
+  { key: 'lunch',       emoji: '☀️', label: 'Lunch' },
+  { key: 'eveningSnack',emoji: '🍵', label: 'Evening Snack' },
+  { key: 'dinner',      emoji: '🌙', label: 'Dinner' },
+];
+
+const DIET_HEADERS = [
+  'goal','calorieTarget','weightGoal','waterIntake','protein','carbs','fats','fiber','supplements','notes',
+  'breakfast_items','breakfast_calories','breakfast_time','breakfast_notes',
+  'morningSnack_items','morningSnack_calories','morningSnack_time','morningSnack_notes',
+  'lunch_items','lunch_calories','lunch_time','lunch_notes',
+  'eveningSnack_items','eveningSnack_calories','eveningSnack_time','eveningSnack_notes',
+  'dinner_items','dinner_calories','dinner_time','dinner_notes',
+];
+
+const planToCSVRow = (plan) => [
+  plan.goal || '',
+  plan.calorieTarget || 0,
+  plan.weightGoal || '',
+  plan.waterIntake || 3,
+  plan.protein || 0,
+  plan.carbs || 0,
+  plan.fats || 0,
+  plan.fiber || 0,
+  (plan.supplements || []).join(';'),
+  plan.notes || '',
+  ...MEALS.flatMap(({ key }) => [
+    (plan[key]?.items || []).join(';'),
+    plan[key]?.calories || 0,
+    plan[key]?.time || '',
+    plan[key]?.notes || '',
+  ]),
+];
+
+const downloadPlanCSV = (plan, memberName) => {
+  const csv = [DIET_HEADERS.join(','), planToCSVRow(plan).join(',')].join('\n');
+  const a   = document.createElement('a');
+  a.href    = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `diet_plan_${(memberName || 'member').replace(/\s+/g, '_')}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+};
+
+// ── Macro ring ────────────────────────────────────────────────
 const MacroRing = ({ protein = 0, carbs = 0, fats = 0 }) => {
   const total = protein + carbs + fats || 1;
   const r = 22, cx = 26, cy = 26, stroke = 6;
@@ -41,10 +88,10 @@ const MacroRing = ({ protein = 0, carbs = 0, fats = 0 }) => {
   );
 };
 
+// ── Admin plan card ───────────────────────────────────────────
 const DietPlanCard = ({ plan, onEdit, onDelete }) => {
   const goal = plan.goal || 'Maintenance';
   const gc = GOAL_COLORS[goal] || GOAL_COLORS['Custom'];
-
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
       <div className={`h-1 ${gc.dot}`} />
@@ -59,9 +106,7 @@ const DietPlanCard = ({ plan, onEdit, onDelete }) => {
               <p className="text-xs text-slate-400">{plan.memberPhone || '—'}</p>
             </div>
           </div>
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${gc.bg} ${gc.text} border ${gc.border}`}>
-            {goal}
-          </span>
+          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${gc.bg} ${gc.text} border ${gc.border}`}>{goal}</span>
         </div>
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center gap-1.5 bg-orange-50 px-3 py-1.5 rounded-xl">
@@ -152,12 +197,262 @@ const Pagination = ({ page, totalPages, filteredCount, onPage }) => {
   );
 };
 
-const DietPlans = () => {
-  const navigate = useNavigate();
-  const [plans, setPlans] = useState([]);
+// ══════════════════════════════════════════════════════════════
+//  MEMBER DIET PAGE
+// ══════════════════════════════════════════════════════════════
+const MemberDietPage = ({ userObj }) => {
+  const navigate    = useNavigate();
+  const [plan,      setPlan]      = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [notLinked, setNotLinked] = useState(false);
+  const [expanded,  setExpanded]  = useState({});
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchPlan(); }, []);
+
+  const fetchPlan = async () => {
+    setLoading(true);
+    try {
+      let regId = userObj.registrationId || null;
+      if (!regId && userObj.phone) {
+        const allRes = await CustomBaseUrl.get(`/fetch`);
+        const matched = (allRes.data?.data || []).find(m => m.phone === userObj.phone);
+        regId = matched?._id || null;
+      }
+      if (!regId) { setNotLinked(true); setLoading(false); return; }
+
+      const res = await CustomBaseUrl.get(`/reg-diet-plans/member/${regId}`);
+      if (res.data?.success) setPlan(res.data.plan);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
+  const toggleMeal = (key) => setExpanded(p => ({ ...p, [key]: !p[key] }));
+
+  const totalMealCal = plan ? MEALS.reduce((s, { key }) => s + (plan[key]?.calories || 0), 0) : 0;
+  const gc = plan ? (GOAL_COLORS[plan.goal] || GOAL_COLORS['Custom']) : null;
+
+  // ── Stats ──
+  const stats = [
+    { label: 'Active Plans',   value: plan ? '1' : '0',                         icon: Apple,    color: 'text-green-600 bg-green-50' },
+    { label: 'Avg Calories',   value: plan ? `${plan.calorieTarget || 0} kcal` : '—', icon: Flame, color: 'text-orange-600 bg-orange-50' },
+    { label: 'Unique Goals',   value: plan ? plan.goal || 'Maintenance' : '—',  icon: Target,   color: 'text-violet-600 bg-violet-50' },
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Navbar />
+      <div className="max-w-4xl mx-auto px-4 py-8">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <Apple size={24} className="text-green-500" /> My Diet Plan
+            </h1>
+            <p className="text-slate-500 text-sm mt-0.5">Your personal nutrition plan assigned by your trainer</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/diet-log')}
+              className="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-orange-600 transition shadow-sm">
+              <BarChart2 size={13} /> Track Calories
+            </button>
+            <button onClick={fetchPlan} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 text-xs font-medium px-3 py-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 transition">
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''}/> Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          {stats.map(({ label, value, icon: Ic, color }) => (
+            <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}><Ic size={20} /></div>
+              <div>
+                <p className="text-xs text-slate-500">{label}</p>
+                <p className="text-lg font-bold text-slate-900 truncate max-w-[140px]">{loading ? '…' : value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Loading */}
+        {loading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-white rounded-2xl animate-pulse border border-slate-100"/>)}
+          </div>
+
+        ) : notLinked ? (
+          <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-10 text-center">
+            <AlertTriangle size={32} className="mx-auto mb-3 text-amber-400"/>
+            <p className="font-bold text-slate-800 mb-1">Profile not linked</p>
+            <p className="text-xs text-slate-500">Ask your admin to register you with phone <strong>{userObj.phone}</strong>.</p>
+          </div>
+
+        ) : !plan ? (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-16 text-center">
+            <Apple size={48} className="mx-auto mb-3 opacity-20 text-green-500"/>
+            <p className="font-semibold text-slate-700">No diet plan assigned yet</p>
+            <p className="text-sm text-slate-400 mt-1">Your trainer will assign a plan shortly.</p>
+          </div>
+
+        ) : (
+          <>
+            {/* ── Excel / CSV source banner ── */}
+            {plan.gsheetLink && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 mb-4 flex items-center gap-3">
+                <FileSpreadsheet size={18} className="text-emerald-600 shrink-0"/>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-emerald-800">Linked from Google Sheet</p>
+                  <p className="text-[10px] text-emerald-600 truncate">{plan.gsheetLink}</p>
+                </div>
+                <a href={plan.gsheetLink} target="_blank" rel="noreferrer"
+                  className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-emerald-700 transition shrink-0">
+                  <ExternalLink size={11}/> Open Sheet
+                </a>
+              </div>
+            )}
+
+            {/* ── Main plan card ── */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+
+              {/* Card header */}
+              <div className={`h-1.5 ${gc.dot}`}/>
+              <div className="p-5 border-b border-slate-100">
+                <div className="flex items-center justify-between mb-4">
+                  <span className={`text-sm font-bold px-3 py-1.5 rounded-full ${gc.bg} ${gc.text} border ${gc.border}`}>
+                    {plan.goal || 'Maintenance'}
+                  </span>
+                  <button onClick={() => downloadPlanCSV(plan, plan.memberName)}
+                    className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition shadow-sm">
+                    <Download size={13}/> Download Excel
+                  </button>
+                </div>
+
+                {/* Key metrics */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {[
+                    { label:'Calorie Target', value:`${plan.calorieTarget || 0} kcal`, icon:<Flame size={16} className="text-orange-500"/>, bg:'bg-orange-50' },
+                    { label:'Water Intake',   value:`${plan.waterIntake || 3} L/day`,  icon:<Droplets size={16} className="text-blue-500"/>,   bg:'bg-blue-50' },
+                    { label:'Weight Goal',    value: plan.weightGoal ? `${plan.weightGoal} kg` : 'Not set', icon:<Target size={16} className="text-emerald-500"/>, bg:'bg-emerald-50' },
+                  ].map(({ label, value, icon, bg }) => (
+                    <div key={label} className={`${bg} rounded-xl p-3 text-center`}>
+                      <div className="flex justify-center mb-1">{icon}</div>
+                      <p className="text-sm font-black text-slate-800">{value}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Macros */}
+                <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl">
+                  <MacroRing protein={plan.protein} carbs={plan.carbs} fats={plan.fats}/>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 flex-1">
+                    {[
+                      { label:'Protein', val:plan.protein, color:'bg-blue-500' },
+                      { label:'Carbs',   val:plan.carbs,   color:'bg-amber-500' },
+                      { label:'Fats',    val:plan.fats,    color:'bg-red-500' },
+                      { label:'Fiber',   val:plan.fiber,   color:'bg-green-500' },
+                    ].map(({ label, val, color }) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${color} shrink-0`}/>
+                        <span className="text-[11px] text-slate-500">{label} <strong className="text-slate-800">{val || 0}g</strong></span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-black text-slate-700">{totalMealCal} cal</p>
+                    <p className="text-[9px] text-slate-400">total/day</p>
+                  </div>
+                </div>
+
+                {/* Supplements */}
+                {plan.supplements?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Supplements</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {plan.supplements.map((s, i) => (
+                        <span key={i} className="px-2.5 py-0.5 bg-violet-100 text-violet-700 rounded-full text-[11px] font-semibold">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {plan.notes && (
+                  <p className="text-[11px] text-slate-500 italic mt-3 bg-slate-50 rounded-xl px-3 py-2">📝 {plan.notes}</p>
+                )}
+              </div>
+
+              {/* ── Meal breakdown ── */}
+              <div className="p-5">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Meal Breakdown</p>
+                <div className="space-y-2">
+                  {MEALS.map(({ key, emoji, label }) => {
+                    const meal = plan[key];
+                    const hasItems = meal?.items?.length > 0;
+                    const isOpen  = expanded[key];
+                    return (
+                      <div key={key} className={`rounded-xl border overflow-hidden transition-all ${hasItems ? 'border-slate-200' : 'border-slate-100 opacity-50'}`}>
+                        <button
+                          onClick={() => hasItems && toggleMeal(key)}
+                          className={`w-full flex items-center justify-between px-4 py-3 ${hasItems ? 'hover:bg-slate-50 cursor-pointer' : 'cursor-default'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg leading-none">{emoji}</span>
+                            <div className="text-left">
+                              <p className="text-sm font-semibold text-slate-800">{label}</p>
+                              {meal?.time && <p className="text-[10px] text-slate-400">{meal.time}</p>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {hasItems
+                              ? <><span className="text-xs font-bold text-orange-600">{meal.calories} cal</span>
+                                  <CheckCircle size={14} className="text-emerald-500"/>
+                                  <span className="text-[10px] text-slate-400">{isOpen ? '▲' : '▼'}</span></>
+                              : <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Not set</span>
+                            }
+                          </div>
+                        </button>
+                        {isOpen && hasItems && (
+                          <div className="px-4 pb-3 border-t border-slate-100 bg-slate-50/50">
+                            <div className="flex flex-wrap gap-1.5 mt-2.5">
+                              {meal.items.map((item, i) => (
+                                <span key={i} className="px-2.5 py-1 bg-white border border-slate-200 rounded-full text-[11px] text-slate-700 font-medium">{item}</span>
+                              ))}
+                            </div>
+                            {meal.notes && <p className="text-[10px] text-slate-400 italic mt-2">💬 {meal.notes}</p>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── Download footer ── */}
+              <div className="px-5 pb-5">
+                <button onClick={() => downloadPlanCSV(plan, plan.memberName)}
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 transition shadow-sm">
+                  <FileSpreadsheet size={16}/> Download Diet Plan as Excel (CSV)
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════
+//  ADMIN DIET PAGE
+// ══════════════════════════════════════════════════════════════
+const AdminDietPage = () => {
+  const navigate  = useNavigate();
+  const [plans,   setPlans]   = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [search,  setSearch]  = useState('');
+  const [page,    setPage]    = useState(1);
 
   useEffect(() => { fetchPlans(); }, []);
   useEffect(() => { setPage(1); }, [search]);
@@ -180,25 +475,22 @@ const DietPlans = () => {
 
   const handleEdit = (plan) => navigate('/diet-plans/new', { state: { editPlan: plan } });
 
-  const filtered = plans.filter(p =>
+  const filtered    = plans.filter(p =>
     p.memberName?.toLowerCase().includes(search.toLowerCase()) ||
     p.goal?.toLowerCase().includes(search.toLowerCase())
   );
-
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const paginated  = filtered.slice((page-1)*PER_PAGE, page*PER_PAGE);
-
+  const totalPages  = Math.ceil(filtered.length / PER_PAGE);
+  const paginated   = filtered.slice((page-1)*PER_PAGE, page*PER_PAGE);
   const stats = {
-    total: plans.length,
+    total:       plans.length,
     avgCalories: plans.length ? Math.round(plans.reduce((s, p) => s + (p.calorieTarget || 0), 0) / plans.length) : 0,
-    goals: [...new Set(plans.map(p => p.goal))].length,
+    goals:       [...new Set(plans.map(p => p.goal))].length,
   };
 
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
       <div className="max-w-6xl mx-auto px-4 py-8">
-
         <div className="flex items-center justify-between mb-7">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -214,12 +506,12 @@ const DietPlans = () => {
 
         <div className="grid grid-cols-3 gap-4 mb-6">
           {[
-            { label: 'Active Plans',    value: stats.total,       icon: Apple,    color: 'text-green-600 bg-green-50' },
-            { label: 'Avg Calories',    value: `${stats.avgCalories} kcal`, icon: Flame, color: 'text-orange-600 bg-orange-50' },
-            { label: 'Unique Goals',    value: stats.goals,       icon: Target,   color: 'text-violet-600 bg-violet-50' },
-          ].map(({ label, value, icon: Icon, color }) => (
+            { label:'Active Plans', value:stats.total,                    icon:Apple,  color:'text-green-600 bg-green-50' },
+            { label:'Avg Calories', value:`${stats.avgCalories} kcal`,    icon:Flame,  color:'text-orange-600 bg-orange-50' },
+            { label:'Unique Goals', value:stats.goals,                    icon:Target, color:'text-violet-600 bg-violet-50' },
+          ].map(({ label, value, icon: Ic, color }) => (
             <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}><Icon size={20} /></div>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}><Ic size={20} /></div>
               <div><p className="text-xs text-slate-500">{label}</p><p className="text-xl font-bold text-slate-900">{value}</p></div>
             </div>
           ))}
@@ -270,6 +562,15 @@ const DietPlans = () => {
       </div>
     </div>
   );
+};
+
+// ══════════════════════════════════════════════════════════════
+//  ROUTER — picks admin or member view
+// ══════════════════════════════════════════════════════════════
+const DietPlans = () => {
+  const userObj = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+  if (userObj.role === 'member') return <MemberDietPage userObj={userObj} />;
+  return <AdminDietPage />;
 };
 
 export default DietPlans;

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import CustomBaseUrl from '../hooks/CustomBaseUrl';
+import { useNavigate, useLocation } from 'react-router-dom';
+import CustomBaseUrl, { PUBLIC_SERVER_URL } from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import {
   Search, X, ChevronDown, Calendar, CreditCard, Smartphone,
   Banknote, Tag, Check, FileText, MessageCircle, Download,
-  ArrowLeft, User, Clock, Zap, Star, Gift, Plus, Loader, Mail
+  ArrowLeft, User, Clock, Zap, Star, Gift, Plus, Loader, Mail, RefreshCw
 } from 'lucide-react';
 
 // ─── Preset packages ────────────────────────────────────────────────────────
@@ -69,192 +69,242 @@ const UpiQR = ({ amount, upiId, name }) => {
   );
 };
 
-// ─── PDF Generator using jsPDF + html2canvas ──────────────────────────────
-const generateInvoicePDF = async (invoiceData) => {
-  const { member, pkg, amount, discount, finalAmount, paymentMethod, startDate, endDate, invoiceNo } = invoiceData;
+// ─── Shared script loader ─────────────────────────────────────────────────────
+const loadScript = (src) => new Promise((res, rej) => {
+  if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+  const s = document.createElement('script');
+  s.src = src; s.onload = res; s.onerror = rej;
+  document.head.appendChild(s);
+});
 
-  // Dynamically load jsPDF and html2canvas from CDN
-  const loadScript = (src) => new Promise((res, rej) => {
-    if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = res;
-    s.onerror = rej;
-    document.head.appendChild(s);
-  });
+// ─── Invoice PDF — Wolverine Fitness Club branded style ──────────────────────
+const generateInvoicePDF = async (invoiceData) => {
+  const { member, pkg, amount, discount, finalAmount, paymentMethod, startDate, endDate, invoiceNo, paymentType, advanceAmount: advPaid, balanceAmount: balAmt } = invoiceData;
+  const isPartly = paymentType === 'partly';
 
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210, H = 297, pad = 15;
 
-  const W = 210; // A4 width mm
-  const pad = 15;
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+  const fmtAmt  = (n) => `Rs. ${(n || 0).toLocaleString('en-IN')}`;
 
-  // ── Header background ──
-  doc.setFillColor(15, 23, 42); // slate-900
-  doc.rect(0, 0, W, 45, 'F');
+  const sdObj = startDate ? new Date(startDate) : null;
+  const edObj = endDate   ? new Date(endDate)   : null;
+  const sdStr = fmtDate(startDate);
+  const edStr = fmtDate(endDate);
 
-  // ── Red accent bar ──
-  doc.setFillColor(220, 38, 38); // red-600
-  doc.rect(0, 42, W, 4, 'F');
+  let durationBadge = '';
+  let durationLabel = '-';
+  if (sdObj && edObj) {
+    const months = Math.round((edObj - sdObj) / (1000 * 60 * 60 * 24 * 30.44));
+    durationBadge = `${months} MONTH${months !== 1 ? 'S' : ''}`;
+    const periodMap = { 1: 'Monthly', 3: 'Quarterly', 6: 'Half-Yearly', 12: 'Yearly' };
+    durationLabel = `${months} Month${months !== 1 ? 's' : ''} (${periodMap[months] || 'Membership'})`;
+  }
 
-  // ── Gym name ──
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('WFC - Wolverine Fitness Club', W / 2, 18, { align: 'center' });
+  const C = {
+    dark:    [17, 17, 17],
+    darkCard:[28, 28, 28],
+    gold:    [210, 168, 45],
+    white:   [255, 255, 255],
+    light:   [248, 249, 250],
+    border:  [218, 218, 218],
+    textDk:  [20, 20, 20],
+    textGy:  [110, 110, 110],
+    green:   [46, 160, 67],
+    red:     [210, 38, 38],
+  };
 
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(148, 163, 184); // slate-400
-  doc.text('Your Ultimate Fitness Destination', W / 2, 26, { align: 'center' });
+  // White page background
+  doc.setFillColor(...C.white); doc.rect(0, 0, W, H, 'F');
 
-  // ── Invoice badge ──
-  doc.setFillColor(255, 255, 255, 0.1);
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(W/2 - 28, 30, 56, 9, 2, 2, 'S');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(8);
-  doc.setFont('courier', 'normal');
-  doc.text(invoiceNo, W / 2, 35.5, { align: 'center' });
+  // ── DARK HEADER ──────────────────────────────────────────────────────────────
+  doc.setFillColor(...C.dark); doc.rect(0, 0, W, 43, 'F');
 
-  // ── PAID stamp ──
-  doc.setFontSize(22);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(34, 197, 94); // green
-  doc.setGState && doc.setGState(new doc.GState({ opacity: 0.15 }));
-  doc.text('PAID', W - pad - 5, 38, { align: 'right', angle: -15 });
-  doc.setGState && doc.setGState(new doc.GState({ opacity: 1 }));
+  doc.setFontSize(22); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
+  doc.text('WOLVERINE FITNESS CLUB', W / 2, 18, { align: 'center' });
 
-  let y = 58;
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gold);
+  doc.text('YOUR ULTIMATE FITNESS DESTINATION', W / 2, 27, { align: 'center' });
 
-  // ── Member info section ──
-  doc.setFillColor(248, 250, 252); // slate-50
-  doc.roundedRect(pad, y, W - pad * 2, 28, 3, 3, 'F');
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(pad, y, W - pad * 2, 28, 3, 3, 'S');
+  doc.setDrawColor(...C.gold); doc.setLineWidth(0.5);
+  doc.line(pad + 28, 33, W - pad - 28, 33);
 
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(100, 116, 139); // slate-500
-  doc.text('BILLED TO', pad + 5, y + 7);
+  doc.setDrawColor(...C.gold); doc.setLineWidth(1.2);
+  doc.line(0, 43, W, 43);
 
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text(member.name || '—', pad + 5, y + 14);
+  // ── INVOICE INFO ─────────────────────────────────────────────────────────────
+  let y = 53;
 
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text(`📞 ${member.phone || '—'}   ✉ ${member.emails || '—'}`, pad + 5, y + 21);
+  doc.setFontSize(15); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.textDk);
+  doc.text('INVOICE', pad, y);
+  y += 10;
 
-  // ── Issue date on right ──
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(100, 116, 139);
-  doc.setFontSize(8);
-  doc.text('ISSUED ON', W - pad - 35, y + 7);
-  doc.setTextColor(15, 23, 42);
-  doc.setFontSize(10);
-  doc.text(new Date().toLocaleDateString('en-IN'), W - pad - 35, y + 14);
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.textGy);
+  doc.text('Invoice No.', pad, y);
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.gold);
+  doc.text(invoiceNo || '-', pad + 28, y);
+  y += 8;
 
-  y += 36;
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.textGy);
+  doc.text('Issued On', pad, y);
+  doc.setTextColor(...C.textDk);
+  doc.text(fmtDate(new Date()), pad + 28, y);
+  y += 10;
 
-  // ── Details table header ──
-  doc.setFillColor(15, 23, 42);
-  doc.roundedRect(pad, y, W - pad * 2, 9, 2, 2, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  const cols = [pad + 5, 90, W - pad - 5];
-  doc.text('DESCRIPTION', cols[0], y + 6);
-  doc.text('DETAILS', cols[1], y + 6);
+  // PAID badge (new payments are always paid or partial)
+  if (!isPartly) {
+    doc.setFillColor(...C.green);
+    doc.roundedRect(pad, y, 22, 8, 2, 2, 'F');
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
+    doc.text('v  PAID', pad + 11, y + 5.5, { align: 'center' });
+  } else {
+    doc.setFillColor(...C.red);
+    doc.roundedRect(pad, y, 26, 8, 2, 2, 'F');
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
+    doc.text('PARTIAL', pad + 13, y + 5.5, { align: 'center' });
+  }
+  y += 16;
 
-  y += 13;
+  // ── TWO COLUMN CARDS ─────────────────────────────────────────────────────────
+  const colW = (W - pad * 2 - 5) / 2;
+  const rightX = pad + colW + 5;
+  const cardH = 52;
 
-  // ── Table rows ──
+  // Left card — BILLED TO
+  doc.setFillColor(245, 245, 245);
+  doc.roundedRect(pad, y, colW, cardH, 2, 2, 'F');
+  doc.setDrawColor(...C.border); doc.setLineWidth(0.3);
+  doc.roundedRect(pad, y, colW, cardH, 2, 2, 'S');
+
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.gold);
+  doc.text('BILLED TO', pad + 5, y + 8);
+
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.textDk);
+  doc.text(member.name || '-', pad + 5, y + 18);
+
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.textGy);
+  if (member.phone) doc.text(`- ${member.phone}`, pad + 5, y + 27);
+  doc.text('- Wolverine Fitness Club', pad + 5, y + 35);
+  doc.text('  Member Portal', pad + 5, y + 42);
+
+  // Right card — MEMBERSHIP PERIOD
+  doc.setFillColor(...C.darkCard);
+  doc.roundedRect(rightX, y, colW, cardH, 2, 2, 'F');
+
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.gold);
+  doc.text('MEMBERSHIP PERIOD', rightX + 5, y + 8);
+
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(170, 170, 170);
+  doc.text('Start Date', rightX + 5, y + 15);
+
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
+  doc.text(sdStr, rightX + 5, y + 24);
+
+  if (durationBadge) {
+    const bdgW = 24; const bdgX = rightX + colW - 5 - bdgW;
+    doc.setFillColor(...C.gold);
+    doc.roundedRect(bdgX, y + 19, bdgW, 7, 2, 2, 'F');
+    doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(20, 20, 20);
+    doc.text(durationBadge, bdgX + bdgW / 2, y + 24, { align: 'center' });
+  }
+
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(170, 170, 170);
+  doc.text('End Date', rightX + 5, y + 33);
+
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
+  doc.text(edStr, rightX + 5, y + 42);
+
+  y += cardH + 10;
+
+  // ── DESCRIPTION TABLE ─────────────────────────────────────────────────────────
+  const tableW = W - pad * 2;
+  const rowH = 10;
+
+  doc.setFillColor(...C.dark); doc.rect(pad, y, tableW, 10, 'F');
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.gold);
+  doc.text('DESCRIPTION', pad + 5, y + 7);
+  doc.text('DETAILS', W - pad - 5, y + 7, { align: 'right' });
+  y += 10;
+
   const tableRows = [
-    ['Package / Plan', pkg || '—'],
-    ['Payment Mode', (paymentMethod || '—').toUpperCase()],
-    ['Membership Start', new Date(startDate).toLocaleDateString('en-IN')],
-    ['Membership End', new Date(endDate).toLocaleDateString('en-IN')],
+    ['Membership Package', `${pkg || '-'} Plan`],
+    ['Payment Mode',        paymentMethod || '-'],
+    ['Duration',            durationLabel],
   ];
 
-  tableRows.forEach((row, i) => {
-    const isEven = i % 2 === 0;
-    doc.setFillColor(isEven ? 248 : 255, isEven ? 250 : 255, isEven ? 252 : 255);
-    doc.rect(pad, y - 4, W - pad * 2, 9, 'F');
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.2);
-    doc.line(pad, y + 5, W - pad, y + 5);
+  tableRows.forEach(([label, value], i) => {
+    doc.setFillColor(...(i % 2 === 0 ? C.white : C.light));
+    doc.rect(pad, y, tableW, rowH, 'F');
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.2);
+    doc.line(pad, y + rowH, W - pad, y + rowH);
 
-    doc.setTextColor(71, 85, 105);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.text(row[0], cols[0], y + 1.5);
-
-    doc.setTextColor(15, 23, 42);
-    doc.setFont('helvetica', 'bold');
-    doc.text(row[1], cols[1], y + 1.5);
-
-    y += 9;
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.textGy);
+    doc.text(label, pad + 5, y + 7);
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.textDk);
+    doc.text(value, W - pad - 5, y + 7, { align: 'right' });
+    y += rowH;
   });
 
+  y += 5;
+
+  // ── TOTALS ────────────────────────────────────────────────────────────────────
+
+  // Subtotal
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.textGy);
+  doc.text('Subtotal', pad + 5, y + 7);
+  doc.setTextColor(...C.textDk);
+  doc.text(fmtAmt(amount), W - pad - 5, y + 7, { align: 'right' });
+  doc.setDrawColor(...C.border); doc.setLineWidth(0.2);
+  doc.line(pad, y + rowH, W - pad, y + rowH);
+  y += rowH;
+
+  // Discount
+  if ((discount || 0) > 0) {
+    doc.setFillColor(...C.light); doc.rect(pad, y, tableW, rowH, 'F');
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.textGy);
+    doc.text('Discount Applied', pad + 5, y + 7);
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.red);
+    doc.text(`- ${fmtAmt(discount)}`, W - pad - 5, y + 7, { align: 'right' });
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.2);
+    doc.line(pad, y + rowH, W - pad, y + rowH);
+    y += rowH;
+  }
+
+  // Advance paid (partly)
+  if (isPartly && (advPaid || 0) > 0) {
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.textGy);
+    doc.text('Advance Paid', pad + 5, y + 7);
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.textDk);
+    doc.text(fmtAmt(advPaid), W - pad - 5, y + 7, { align: 'right' });
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.2);
+    doc.line(pad, y + rowH, W - pad, y + rowH);
+    y += rowH;
+  }
+
+  // TOTAL PAID / BALANCE DUE
+  const totalLabel = isPartly ? 'BALANCE DUE' : 'TOTAL PAID';
+  const totalValue = isPartly ? (balAmt || 0) : finalAmount;
+
+  doc.setFillColor(...C.dark); doc.rect(pad, y, tableW, 13, 'F');
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.gold);
+  doc.text(totalLabel, pad + 5, y + 9);
+  doc.setFontSize(14); doc.setTextColor(...C.white);
+  doc.text(fmtAmt(totalValue), W - pad - 5, y + 9.5, { align: 'right' });
+
+  y += 24;
+
+  // ── FOOTER ────────────────────────────────────────────────────────────────────
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.gold);
+  doc.text('Thank you for choosing Wolverine Fitness Club!', W / 2, y, { align: 'center' });
+  y += 7;
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.textGy);
+  doc.text('Keep pushing your limits  *  Stay strong  *  Stay consistent', W / 2, y, { align: 'center' });
   y += 6;
-
-  // ── Amount breakdown box ──
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(W / 2, y, W / 2 - pad, 36, 3, 3, 'F');
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(W / 2, y, W / 2 - pad, 36, 3, 3, 'S');
-
-  const bx = W / 2 + 5;
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 116, 139);
-  doc.text('Subtotal', bx, y + 9);
-  doc.text('Discount', bx, y + 18);
-
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Rs. ${amount.toLocaleString('en-IN')}`, W - pad - 3, y + 9, { align: 'right' });
-  doc.setTextColor(220, 38, 38);
-  doc.text(`- Rs. ${discount.toLocaleString('en-IN')}`, W - pad - 3, y + 18, { align: 'right' });
-
-  // ── Total line ──
-  doc.setDrawColor(220, 38, 38);
-  doc.setLineWidth(0.5);
-  doc.line(W / 2 + 3, y + 22, W - pad - 3, y + 22);
-
-  doc.setFillColor(220, 38, 38);
-  doc.roundedRect(W / 2 + 3, y + 24, W / 2 - pad - 3, 9, 1.5, 1.5, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL PAID', bx, y + 30);
-  doc.text(`Rs. ${finalAmount.toLocaleString('en-IN')}`, W - pad - 5, y + 30, { align: 'right' });
-
-  y += 46;
-
-  // ── Thank you footer ──
-  doc.setFillColor(15, 23, 42);
-  doc.rect(0, y, W, 30, 'F');
-  doc.setFillColor(220, 38, 38);
-  doc.rect(0, y, W, 2, 'F');
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Thank you for choosing WFC! 💪', W / 2, y + 12, { align: 'center' });
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(148, 163, 184);
-  doc.text('Keep pushing your limits · Wolverine Fitness Club', W / 2, y + 20, { align: 'center' });
+  doc.text('For queries: contact@wolverinefitnessclub.com  |  +91 97869 69711', W / 2, y, { align: 'center' });
 
   return doc;
 };
@@ -282,8 +332,10 @@ const InvoiceModal = ({ data, onClose }) => {
   const [pdfLocalUrl, setPdfLocalUrl] = useState(null);
   const [cloudUrl, setCloudUrl] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [sharingImg, setSharingImg] = useState(false);
+  const invoiceRef = React.useRef(null);
 
-  const fileName = `WFC-Invoice-${invoiceNo}-${(member.name || 'member').replace(/\s+/g, '-')}.pdf`;
+  const fileName = `WFC-Invoice-${invoiceNo}-${(member.name || 'member').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')}.pdf`;
 
   useEffect(() => {
     initPdf();
@@ -294,7 +346,8 @@ const InvoiceModal = ({ data, onClose }) => {
       // 1. Generate PDF
       setStage('generating');
       const doc = await generateInvoicePDF(data);
-      const blob = doc.output('blob');
+      const pdfBytes = doc.output('arraybuffer');
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const localUrl = URL.createObjectURL(blob);
       setPdfLocalUrl(localUrl);
 
@@ -330,33 +383,73 @@ const InvoiceModal = ({ data, onClose }) => {
     document.body.removeChild(a);
   };
 
+  // ── Capture invoice HTML as image and share via WhatsApp ────────────────────
+  const captureAndShareInvoice = async () => {
+    const phone = member.phone?.replace(/\D/g, '');
+    if (!phone) { alert('No phone number for this member.'); return; }
+
+    // Open the member's WhatsApp chat immediately (must be in user-gesture context)
+    window.open(`https://wa.me/91${phone}`, '_blank');
+
+    setSharingImg(true);
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      const canvas = await window.html2canvas(invoiceRef.current, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
+      });
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `WFC-Invoice-${invoiceNo}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    } catch (e) {
+      console.error('Image capture error:', e);
+      alert('Could not capture invoice image. Please use Save PDF instead.');
+    } finally {
+      setSharingImg(false);
+    }
+  };
+
   const sendWhatsApp = () => {
     const phone = member.phone?.replace(/\D/g, '');
 
     const paymentLine = isPartly
-      ? `⚡ *Advance Paid: ₹${(advPaid||0).toLocaleString('en-IN')}*\n` +
-        `⏳ *Balance Due:  ₹${(balAmt||0).toLocaleString('en-IN')}*`
-      : `✅ *Total Paid: ₹${finalAmount.toLocaleString('en-IN')}*`;
+      ? `💵 *Advance Paid:* ₹${(advPaid||0).toLocaleString('en-IN')}\n` +
+        `⏳ *Balance Due:* ₹${(balAmt||0).toLocaleString('en-IN')}\n` +
+        `_Please clear the balance at your earliest convenience._`
+      : `✅ *Amount Paid:* ₹${finalAmount.toLocaleString('en-IN')} _(Full Payment)_`;
 
-    const pdfSection = cloudUrl
-      ? `━━━━━━━━━━━━━━━━━━━━\n📄 *Invoice PDF:*\n${cloudUrl}\n\n`
+    const invoiceViewUrl = data.savedPaymentId
+      ? `${PUBLIC_SERVER_URL}/api/v1/invoice/${data.savedPaymentId}`
+      : cloudUrl || null;
+    const pdfSection = invoiceViewUrl
+      ? `🧾 *View Invoice:*\n${invoiceViewUrl}\n\n`
       : ``;
 
     const msg =
-      `🏋️ *WFC – Wolverine Fitness Club*\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `🏋️‍♂️ *WFC – Wolverine Fitness Club*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `Dear *${member.name}*,\n\n` +
-      `✅ *Payment Confirmed!*\n\n` +
-      `📋 Invoice: *${invoiceNo}*\n` +
-      `📦 Package: *${pkg}*\n` +
-      `💳 Mode: *${paymentMethod.toUpperCase()}*\n` +
-      `💰 Total: ₹${amount.toLocaleString('en-IN')} | Discount: ₹${discount.toLocaleString('en-IN')}\n` +
+      `Thank you for your payment. Your membership has been successfully confirmed.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `🧾 *PAYMENT RECEIPT*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `📋 *Invoice No:*  ${invoiceNo}\n` +
+      `📦 *Package:*  ${pkg}\n` +
+      `💳 *Payment Mode:*  ${paymentMethod.toUpperCase()}\n` +
+      `💰 *Original Amount:*  ₹${amount.toLocaleString('en-IN')}\n` +
+      (discount > 0 ? `🏷️ *Discount Applied:*  ₹${discount.toLocaleString('en-IN')}\n` : ``) +
       `${paymentLine}\n\n` +
-      `📅 Start: ${new Date(startDate).toLocaleDateString('en-IN')}\n` +
-      `📅 End:   ${new Date(endDate).toLocaleDateString('en-IN')}\n\n` +
+      `📅 *Membership Start:*  ${new Date(startDate).toLocaleDateString('en-IN')}\n` +
+      `📅 *Membership End:*  ${new Date(endDate).toLocaleDateString('en-IN')}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `${pdfSection}` +
-      `💪 Keep pushing your limits!\n` +
-      `_WFC – Wolverine Fitness Club_`;
+      `We look forward to supporting your fitness journey! 💪\n\n` +
+      `📍 *Wolverine Fitness Club, Coimbatore*\n` +
+      `_Reply to this message for any queries._`;
 
     window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
@@ -436,8 +529,102 @@ const InvoiceModal = ({ data, onClose }) => {
         <div className="bg-gradient-to-br from-slate-900 to-red-900 text-white p-6 text-center">
           <div className="text-3xl mb-1">💪</div>
           <h2 className="text-lg font-black tracking-wide">WFC – Wolverine Fitness Club</h2>
-          <p className="text-slate-300 text-xs mt-1">Your Ultimate Fitness Destination</p>
+          <p className="text-slate-300 text-xs mt-1">Excellence in Fitness | Coimbatore</p>
           <div className="mt-3 inline-block bg-white/10 px-3 py-1 rounded-full text-xs font-mono">{invoiceNo}</div>
+        </div>
+
+        {/* Hidden invoice template — captured by html2canvas for WhatsApp image */}
+        <div style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }}>
+          <div ref={invoiceRef} style={{ width: '794px', background: '#fff', padding: '40px 44px', fontFamily: 'Arial, sans-serif', color: '#1e293b' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>WFC – Wolverine Fitness Club</div>
+                <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>Excellence in Fitness | Coimbatore, Tamil Nadu</div>
+                <div style={{ color: '#64748b', fontSize: '12px', marginTop: '2px' }}>support@wolverinefitnessclub.com</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#dc2626', lineHeight: 1 }}>INVOICE</div>
+                <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px', fontFamily: 'monospace' }}># {invoiceNo}</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Date: {new Date().toLocaleDateString('en-IN')}</div>
+              </div>
+            </div>
+            {/* Red + gray divider */}
+            <div style={{ height: '3px', background: '#dc2626', marginBottom: '2px' }} />
+            <div style={{ height: '1px', background: '#e2e8f0', marginBottom: '24px' }} />
+            {/* Bill To + Period */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '28px' }}>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Bill To</div>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b' }}>{member.name || '—'}</div>
+                {member.phone && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>Phone: {member.phone}</div>}
+                {member.emails && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Email: {member.emails}</div>}
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Membership Period</div>
+                <div style={{ fontSize: '12px', color: '#475569', marginTop: '3px' }}>Start: {new Date(startDate).toLocaleDateString('en-IN')}</div>
+                <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>End: &nbsp;&nbsp;{new Date(endDate).toLocaleDateString('en-IN')}</div>
+                <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>Mode: {(paymentMethod || '').toUpperCase()}</div>
+              </div>
+            </div>
+            {/* Table */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+              <thead>
+                <tr style={{ background: '#1e293b' }}>
+                  {['DESCRIPTION', 'QTY', 'UNIT PRICE', 'TOTAL'].map((h, i) => (
+                    <th key={h} style={{ padding: '10px 14px', fontSize: '11px', fontWeight: 'bold', color: '#fff', textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ background: '#f8fafc' }}>
+                  <td style={{ padding: '14px', borderBottom: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b' }}>{pkg || '—'} Membership</div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{new Date(startDate).toLocaleDateString('en-IN')} – {new Date(endDate).toLocaleDateString('en-IN')}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Payment Mode: {(paymentMethod || '').toUpperCase()}</div>
+                  </td>
+                  <td style={{ padding: '14px', textAlign: 'center', fontSize: '13px', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>1</td>
+                  <td style={{ padding: '14px', textAlign: 'right', fontSize: '13px', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>Rs. {amount.toLocaleString('en-IN')}</td>
+                  <td style={{ padding: '14px', textAlign: 'right', fontSize: '13px', fontWeight: 'bold', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>Rs. {amount.toLocaleString('en-IN')}</td>
+                </tr>
+              </tbody>
+            </table>
+            {/* Amount Summary */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '32px' }}>
+              <div style={{ width: '280px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>Subtotal</span>
+                  <span style={{ fontSize: '12px', color: '#1e293b' }}>Rs. {amount.toLocaleString('en-IN')}</span>
+                </div>
+                {discount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0' }}>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>Discount</span>
+                    <span style={{ fontSize: '12px', color: '#dc2626' }}>- Rs. {discount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {isPartly && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0' }}>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>Advance Paid</span>
+                    <span style={{ fontSize: '12px', color: '#1e293b' }}>Rs. {(advPaid||0).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: '#1e293b', borderRadius: '6px', marginTop: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>Balance Due</span>
+                  <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff' }}>Rs. {(isPartly ? (balAmt||0) : finalAmount).toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            </div>
+            {/* Footer */}
+            <div style={{ height: '3px', background: '#dc2626', marginBottom: '2px' }} />
+            <div style={{ height: '1px', background: '#e2e8f0', marginBottom: '16px' }} />
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b', marginBottom: '8px' }}>Thank you for your business!</div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Terms of Invoice:</div>
+            {['Please retain this invoice for your records.',
+              'For queries: support@wolverinefitnessclub.com',
+              'Computer-generated invoice — no physical signature required.'].map(t => (
+              <div key={t} style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>• {t}</div>
+            ))}
+          </div>
         </div>
 
         {/* Body */}
@@ -532,9 +719,21 @@ const InvoiceModal = ({ data, onClose }) => {
                 ? <Loader size={15} className="animate-spin" />
                 : <MessageCircle size={15} />
               }
-              {stage === 'ready' ? 'WhatsApp' : stage === 'error' ? 'WhatsApp' : 'Please wait…'}
+              {stage === 'ready' ? 'WhatsApp Text' : stage === 'error' ? 'WhatsApp Text' : 'Please wait…'}
             </button>
           </div>
+
+          {/* Send Invoice as Image button */}
+          <button
+            onClick={captureAndShareInvoice}
+            disabled={sharingImg}
+            className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white py-3 rounded-xl text-sm font-semibold hover:bg-[#1ebe5d] active:scale-95 transition-all shadow mb-3 disabled:opacity-50"
+          >
+            {sharingImg
+              ? <><Loader size={15} className="animate-spin" /> Capturing Invoice…</>
+              : <><MessageCircle size={15} /> Send Invoice as Image (WhatsApp)</>
+            }
+          </button>
 
           {/* Email button */}
           <button
@@ -561,9 +760,9 @@ const InvoiceModal = ({ data, onClose }) => {
             <p className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{emailError}</p>
           )}
 
-          {stage === 'ready' && cloudUrl && (
+          {stage === 'ready' && data.savedPaymentId && (
             <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-xs text-emerald-800">
-              ✅ PDF uploaded to cloud — WhatsApp message will include a <strong>direct download link</strong> for the member.
+              ✅ WhatsApp message will include a <strong>tap-to-view invoice link</strong> — opens in any browser.
             </div>
           )}
 
@@ -579,7 +778,9 @@ const InvoiceModal = ({ data, onClose }) => {
 
 // ─── Main AddPayment Page ────────────────────────────────────────────────────
 const AddPayment = () => {
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const renewal   = location.state || {};
 
   // Member search
   const [members, setMembers] = useState([]);
@@ -607,8 +808,32 @@ const AddPayment = () => {
   const [invoiceData, setInvoiceData] = useState(null);
   const searchRef = useRef(null);
 
+  const isRenewal = !!renewal.isRenewal;
+
   useEffect(() => {
     fetchMembers();
+  }, []);
+
+  // Pre-fill from renewal state after members list loads
+  useEffect(() => {
+    if (!renewal.renewMember) return;
+    const m = renewal.renewMember;
+    setSelectedMember(m);
+    setSearch(m.name);
+    if (renewal.renewPackage) {
+      setSelectedPkg(renewal.renewPackage);
+      if (renewal.renewPackage === 'custom') {
+        setCustomPkgName(renewal.renewPkgLabel || '');
+      }
+    }
+    if (renewal.renewMonths) {
+      setDurationType('months');
+      setDurationMonths(renewal.renewMonths);
+    }
+    if (renewal.renewAmount) {
+      setAmount(String(renewal.renewAmount));
+    }
+  // eslint-disable-next-line
   }, []);
 
   const fetchMembers = async () => {
@@ -703,6 +928,7 @@ const AddPayment = () => {
         startDate,
         endDate,
         invoiceNo,
+        isRenewal,
         pdfUrl: '',
       };
 
@@ -751,9 +977,16 @@ const AddPayment = () => {
           <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-slate-200 transition">
             <ArrowLeft size={18} className="text-slate-600" />
           </button>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">New Payment</h1>
-            <p className="text-slate-500 text-sm">Create a membership payment</p>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-slate-900">{isRenewal ? 'Renew Membership' : 'New Payment'}</h1>
+              {isRenewal && (
+                <span className="text-xs bg-violet-100 text-violet-700 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <RefreshCw size={10} /> Renewal
+                </span>
+              )}
+            </div>
+            <p className="text-slate-500 text-sm">{isRenewal ? `Renewing plan for ${renewal.renewMember?.name || ''}` : 'Create a membership payment'}</p>
           </div>
         </div>
 

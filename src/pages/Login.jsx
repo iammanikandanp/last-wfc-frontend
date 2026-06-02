@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import CustomBaseUrl from '../hooks/CustomBaseUrl';
 
@@ -104,9 +104,9 @@ const Login = () => {
 
             {/* Forgot Password */}
             <div className='text-right'>
-              <Link to='/forgot-password' className='text-sm text-red-600 hover:text-red-700'>
+              <a href='/forgot-password' className='text-sm text-red-600 hover:text-red-700'>
                 Forgot password?
-              </Link>
+              </a>
             </div>
 
             {/* Submit Button */}
@@ -120,11 +120,8 @@ const Login = () => {
           </form>
 
           {/* Footer */}
-          <div className='mt-6 text-center text-sm text-slate-600'>
-            Don't have an account?{' '}
-            <Link to='/signup' className='text-red-600 font-semibold hover:text-red-700'>
-              Register now
-            </Link>
+          <div className='mt-6 text-center text-sm text-slate-500'>
+            Contact your admin to get access.
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, LogOut, Home, Users, CreditCard, Apple, Calendar, FileText, Info, Megaphone } from 'lucide-react';
+import { Menu, X, LogOut, Home, Users, CreditCard, Apple, Calendar, FileText, Info, Megaphone, UserPlus } from 'lucide-react';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,16 +19,19 @@ const Navbar = () => {
     navigate('/login');
   };
 
-  const navItems = [
-    { name: 'Dashboard', path: '/dashboard',  icon: Home      },
-    { name: 'Members',   path: '/members',    icon: Users     },
-    { name: 'Leads',     path: '/leads',      icon: Megaphone },
-    { name: 'Payments',  path: '/payments',   icon: CreditCard},
-    { name: 'Diet Plans',path: '/diet-plans', icon: Apple     },
-    { name: 'Attendance',path: '/attendance', icon: Calendar  },
-    { name: 'Reports',   path: '/reports',    icon: FileText  },
-    { name: 'About',     path: '/about',      icon: Info      },
+  const allNavItems = [
+    { name: 'Dashboard', path: '/dashboard',  icon: Home,       roles: ['admin','trainer','member'] },
+    { name: 'Members',   path: '/members',    icon: Users,      roles: ['admin','trainer'] },
+    { name: 'Leads',     path: '/leads',      icon: Megaphone,  roles: ['admin','trainer'] },
+    { name: 'Payments',  path: '/payments',   icon: CreditCard, roles: ['admin','trainer'] },
+    { name: 'Diet Plans',path: '/diet-plans', icon: Apple,      roles: ['admin','trainer','member'] },
+    { name: 'Attendance',path: '/attendance', icon: Calendar,   roles: ['admin','trainer','member'] },
+    { name: 'Reports',   path: '/reports',    icon: FileText,   roles: ['admin'] },
+    { name: 'Add User',  path: '/signup',     icon: UserPlus,   roles: ['admin'] },
+    { name: 'About',     path: '/about',      icon: Info,       roles: ['admin','trainer','member'] },
   ];
+
+  const navItems = allNavItems.filter(item => item.roles.includes(user?.role));
 
   const isActive = (path) => location.pathname === path;
 

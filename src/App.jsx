@@ -19,12 +19,32 @@ import AddTrainer from "./pages/AddTrainer";
 import Reports from "./pages/Reports";
 import About from "./pages/About";
 import Leads from "./pages/Leads";
+import ForgotPassword from "./pages/ForgotPassword";
+import DietLog from "./pages/DietLog";
 
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
+// Role-aware Protected Route
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const token = localStorage.getItem("token");
-  return token ? children : <Navigate to="/login" />;
+  const user  = JSON.parse(localStorage.getItem("user") || "{}");
+  if (!token) return <Navigate to="/login" />;
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/unauthorized" />;
+  }
+  return children;
 };
+
+const Unauthorized = () => (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+    <div className="text-center text-white">
+      <div className="text-8xl font-bold text-red-500 mb-4">403</div>
+      <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+      <p className="text-slate-400 mb-8">You don't have permission to view this page.</p>
+      <a href="/dashboard" className="bg-red-600 px-6 py-2.5 rounded-lg hover:bg-red-700 transition font-semibold">
+        Back to Dashboard
+      </a>
+    </div>
+  </div>
+);
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -38,39 +58,50 @@ function App() {
     <Router>
       <Routes>
         {/* Auth Routes */}
-        <Route path="/login"    element={<Login />} />
-        <Route path="/signup"   element={<UserRegister />} />
+        <Route path="/login"           element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        {/* Admin-only: create member / trainer accounts */}
+        <Route path="/signup" element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <UserRegister />
+          </ProtectedRoute>
+        } />
+
+        {/* Unauthorized */}
+        <Route path="/unauthorized" element={<Unauthorized />} />
 
         {/* Protected Routes */}
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["admin","trainer","member"]}><Dashboard /></ProtectedRoute>} />
 
         {/* Members */}
-        <Route path="/register"      element={<ProtectedRoute><AdminRegister /></ProtectedRoute>} />
-        <Route path="/members"       element={<ProtectedRoute><Members /></ProtectedRoute>} />
-        <Route path="/members/new"   element={<ProtectedRoute><AddMember /></ProtectedRoute>} />
-        <Route path="/members/:id"   element={<ProtectedRoute><MemberProfile /></ProtectedRoute>} />
+        <Route path="/register"      element={<ProtectedRoute allowedRoles={["admin","trainer"]}><AdminRegister /></ProtectedRoute>} />
+        <Route path="/members"       element={<ProtectedRoute allowedRoles={["admin","trainer"]}><Members /></ProtectedRoute>} />
+        <Route path="/members/new"   element={<ProtectedRoute allowedRoles={["admin","trainer"]}><AddMember /></ProtectedRoute>} />
+        <Route path="/members/:id"   element={<ProtectedRoute allowedRoles={["admin","trainer","member"]}><MemberProfile /></ProtectedRoute>} />
 
         {/* Payments */}
-        <Route path="/payments"      element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-        <Route path="/payments/new"  element={<ProtectedRoute><AddPayment /></ProtectedRoute>} />
+        <Route path="/payments"      element={<ProtectedRoute allowedRoles={["admin","trainer"]}><Payments /></ProtectedRoute>} />
+        <Route path="/payments/new"  element={<ProtectedRoute allowedRoles={["admin","trainer"]}><AddPayment /></ProtectedRoute>} />
 
         {/* Attendance */}
-        <Route path="/attendance"    element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
+        <Route path="/attendance"    element={<ProtectedRoute allowedRoles={["admin","trainer","member"]}><Attendance /></ProtectedRoute>} />
 
         {/* Diet Plans */}
-        <Route path="/diet-plans"    element={<ProtectedRoute><DietPlans /></ProtectedRoute>} />
-        <Route path="/diet-plans/new" element={<ProtectedRoute><AddDietPlan /></ProtectedRoute>} />
+        <Route path="/diet-plans"    element={<ProtectedRoute allowedRoles={["admin","trainer","member"]}><DietPlans /></ProtectedRoute>} />
+        <Route path="/diet-plans/new" element={<ProtectedRoute allowedRoles={["admin","trainer"]}><AddDietPlan /></ProtectedRoute>} />
+        <Route path="/diet-log"      element={<ProtectedRoute allowedRoles={["member"]}><DietLog /></ProtectedRoute>} />
 
         {/* Training */}
-        <Route path="/training"      element={<ProtectedRoute><Training /></ProtectedRoute>} />
-        <Route path="/training/new"  element={<ProtectedRoute><AddTrainer /></ProtectedRoute>} />
+        <Route path="/training"      element={<ProtectedRoute allowedRoles={["admin","trainer"]}><Training /></ProtectedRoute>} />
+        <Route path="/training/new"  element={<ProtectedRoute allowedRoles={["admin","trainer"]}><AddTrainer /></ProtectedRoute>} />
 
         {/* Leads */}
-        <Route path="/leads"         element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+        <Route path="/leads"         element={<ProtectedRoute allowedRoles={["admin","trainer"]}><Leads /></ProtectedRoute>} />
 
         {/* Reports & About */}
-        <Route path="/reports"       element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-        <Route path="/about"         element={<ProtectedRoute><About /></ProtectedRoute>} />
+        <Route path="/reports"       element={<ProtectedRoute allowedRoles={["admin"]}><Reports /></ProtectedRoute>} />
+        <Route path="/about"         element={<ProtectedRoute allowedRoles={["admin","trainer","member"]}><About /></ProtectedRoute>} />
 
         {/* Default Route */}
         <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />

@@ -168,6 +168,8 @@ const parseAttendanceCSV = (text) => {
 };
 
 const Attendance = () => {
+  const userRole = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}').role || ''; } catch { return ''; } })();
+  const isAdmin = userRole === 'admin' || userRole === 'trainer';
   const fileRef    = useRef(null);
   const csvFileRef = useRef(null);
   const [records,          setRecords]          = useState([]);
@@ -380,12 +382,14 @@ const Attendance = () => {
           <div className="flex items-center gap-2">
             {hasData && <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 shadow-sm"><Download size={13}/> CSV</button>}
             <button onClick={()=>fetchData()} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 shadow-sm"><RefreshCw size={13} className={loading?'animate-spin':''}/></button>
-            <button onClick={()=>{ setShowCsvImport(v=>!v); setCsvTab('link'); }} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 shadow-sm">
-              <FileText size={13}/> Import CSV
-            </button>
-            <button onClick={()=>fileRef.current?.click()} className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold hover:bg-slate-700 shadow-sm">
-              <Upload size={13}/> {importing?'Saving to DB…':'Import XLS'}
-            </button>
+            {isAdmin && <>
+              <button onClick={()=>{ setShowCsvImport(v=>!v); setCsvTab('link'); }} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 shadow-sm">
+                <FileText size={13}/> Import CSV
+              </button>
+              <button onClick={()=>fileRef.current?.click()} className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold hover:bg-slate-700 shadow-sm">
+                <Upload size={13}/> {importing?'Saving to DB…':'Import XLS'}
+              </button>
+            </>}
             <input ref={fileRef}    type="file" accept=".xls,.XLS" multiple className="hidden" onChange={e=>handleFiles(Array.from(e.target.files))}/>
             <input ref={csvFileRef} type="file" accept=".csv,.CSV" multiple className="hidden" onChange={e=>handleCsvFile(Array.from(e.target.files))}/>
           </div>
@@ -441,7 +445,7 @@ const Attendance = () => {
           </div>
         )}
 
-        {!hasData && !loading && (
+        {!hasData && !loading && isAdmin && (
           <div onDrop={e=>{e.preventDefault();handleFiles(Array.from(e.dataTransfer.files));}} onDragOver={e=>e.preventDefault()}
             onClick={()=>fileRef.current?.click()}
             className="border-2 border-dashed border-slate-300 rounded-2xl p-14 text-center cursor-pointer hover:border-slate-400 hover:bg-white transition mb-5 bg-white">
@@ -528,9 +532,9 @@ const Attendance = () => {
                   {activeMonth?` · ${MONTH_LABELS[activeMonth]||activeMonth}`:''} · {filtered.length} records
                 </p>
                 <div className="flex items-center gap-3">
-                  <button onClick={()=>fileRef.current?.click()} className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-700 transition">
+                  {isAdmin && <button onClick={()=>fileRef.current?.click()} className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-700 transition">
                     <Upload size={10}/> Import more
-                  </button>
+                  </button>}
                   <button onClick={()=>setShowDeleteConfirm(true)}
                     className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition">
                     <Trash2 size={10}/> Delete All
