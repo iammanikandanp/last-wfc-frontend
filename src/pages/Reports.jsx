@@ -203,6 +203,7 @@ export default function Reports() {
   const [period,     setPeriod]     = useState('month');
   const [payments,   setPayments]   = useState([]);
   const [members,    setMembers]    = useState([]);
+  const [expenses,   setExpenses]   = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
   const [chartReady, setChartReady] = useState(false);
@@ -224,9 +225,10 @@ export default function Reports() {
     (async () => {
       setLoading(true); setError('');
       try {
-        const [pRes, mRes] = await Promise.allSettled([
+        const [pRes, mRes, eRes] = await Promise.allSettled([
           CustomBaseUrl.get(`/reg-payments`),
           CustomBaseUrl.get(`/fetch`),
+          CustomBaseUrl.get(`/expenses`),
         ]);
         if (pRes.status === 'fulfilled') {
           const d = pRes.value.data;
@@ -235,6 +237,7 @@ export default function Reports() {
           throw new Error(pRes.reason?.response?.data?.message || 'Cannot reach payment API');
         }
         if (mRes.status === 'fulfilled') setMembers(mRes.value.data?.data || []);
+        if (eRes.status === 'fulfilled') setExpenses(eRes.value.data?.data || []);
       } catch (e) {
         setError(e.message);
       } finally { setLoading(false); }
@@ -302,6 +305,33 @@ export default function Reports() {
     pkgMap[k].count++;
   });
   const pkgList = Object.entries(pkgMap).sort((a, b) => b[1].revenue - a[1].revenue);
+
+  // Expense metrics
+  const curExpenses = filterPeriod(expenses, 'date', curRange);
+  const prvExpenses = filterPeriod(expenses, 'date', prvRange);
+  const curExpTotal = curExpenses.reduce((s, e) => s + e.amount, 0);
+  const prvExpTotal = prvExpenses.reduce((s, e) => s + e.amount, 0);
+  const curNetProfit = curCollected - curExpTotal;
+  const prvNetProfit = (prvRevenue - prvPay.reduce((s,p)=>s+(p.balanceAmount||0),0)) - prvExpTotal;
+
+  // Expense by category for current period
+  const expByCat = {};
+  curExpenses.forEach(e => {
+    const cat = e.category?.name || 'Uncategorised';
+    const color = e.category?.color || '#6366f1';
+    if (!expByCat[cat]) expByCat[cat] = { total: 0, color };
+    expByCat[cat].total += e.amount;
+  });
+
+  // Monthly expense buckets (aligned with payment buckets)
+  const expBuckets = buckets.map(b => {
+    const bStart = new Date(b.label + ' 01');
+    const bExpenses = curExpenses.filter(e => {
+      const d = new Date(e.date);
+      return d.getMonth() === bStart.getMonth() && d.getFullYear() === bStart.getFullYear();
+    });
+    return { label: b.label, amount: bExpenses.reduce((s, e) => s + e.amount, 0) };
+  });
 
   // Table pagination
   const totalTablePages = Math.ceil(curPay.length / TABLE_PER);
@@ -392,6 +422,102 @@ export default function Reports() {
           <KpiCard label="🔄 Renewal Revenue"      curVal={curRenewAmt}      prvVal={prvRenewAmt}      color="teal"   />
           <KpiCard label="🔄 Renewal Transactions"  curVal={curRenew.length}  prvVal={prvRenew.length}  color="violet" isMoney={false} />
         </div>
+
+        {/* ── Expense & Net Profit KPI row ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 mb-5">
+          <KpiCard label="💸 Total Expenses"  curVal={curExpTotal}   prvVal={prvExpTotal}   color="red"    />
+          <KpiCard label="💰 Net Profit"       curVal={curNetProfit}  prvVal={prvNetProfit}  color="green"  />
+          <KpiCard label="📊 Expense Count"   curVal={curExpenses.length} prvVal={prvExpenses.length} color="slate" isMoney={false} />
+        </div>
+
+        {/* ── Revenue vs Expenses vs Net Profit chart ── */}
+        {chartReady && (curExpTotal > 0 || curRevenue > 0) && (
+          <div className="mb-4">
+            <Panel title={`Revenue vs Expenses — ${periodLabel}`} icon="📉">
+              <Legend items={[
+                { label: 'Revenue (Collected)',  color: C.green  },
+                { label: 'Expenses',             color: C.red    },
+                { label: 'Net Profit',           color: C.violet },
+              ]} />
+              <ChartBox
+                id={`rev-vs-exp-${period}`}
+                type="bar"
+                height={220}
+                labels={buckets.map(b => b.label)}
+                datasets={[
+                  {
+                    label: 'Revenue',
+                    data: buckets.map(b => b.revenue),
+                    backgroundColor: C.green,
+                    borderRadius: 6,
+                    order: 3,
+                  },
+                  {
+                    label: 'Expenses',
+                    data: expBuckets.map(b => b.amount),
+                    backgroundColor: C.red,
+                    borderRadius: 6,
+                    order: 2,
+                  },
+                  {
+                    label: 'Net Profit',
+                    data: buckets.map((b, i) => b.revenue - (expBuckets[i]?.amount || 0)),
+                    type: 'line',
+                    borderColor: C.violet,
+                    backgroundColor: 'rgba(139,92,246,0.1)',
+                    borderWidth: 2.5,
+                    pointRadius: 4,
+                    pointBackgroundColor: C.violet,
+                    tension: 0.4,
+                    fill: true,
+                    order: 1,
+                  },
+                ]}
+              />
+            </Panel>
+          </div>
+        )}
+
+        {/* ── Expense Category Breakdown ── */}
+        {Object.keys(expByCat).length > 0 && (
+          <div className="mb-4">
+            <Panel title={`Expense by Category — ${periodLabel}`} icon="🏷️"
+              right={<span className="text-xs text-slate-500 font-semibold">{rupee(curExpTotal)} total</span>}>
+              {chartReady ? (
+                <ChartBox
+                  id={`exp-cat-${period}`}
+                  type="doughnut"
+                  height={220}
+                  isDoughnut
+                  labels={Object.keys(expByCat)}
+                  datasets={[{
+                    data: Object.values(expByCat).map(c => c.total),
+                    backgroundColor: Object.values(expByCat).map(c => c.color),
+                    borderWidth: 2,
+                    borderColor: '#fff',
+                  }]}
+                />
+              ) : <div className="h-52 flex items-center justify-center text-slate-400 text-sm">Loading chart…</div>}
+              {/* Category list */}
+              <div className="mt-3 space-y-1.5">
+                {Object.entries(expByCat).sort((a,b) => b[1].total - a[1].total).map(([name, data]) => (
+                  <div key={name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.color }} />
+                      <span className="text-slate-600">{name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-slate-800">{rupee(data.total)}</span>
+                      <span className="text-slate-400 w-10 text-right">
+                        {curExpTotal > 0 ? Math.round((data.total / curExpTotal) * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </div>
+        )}
 
         {/* ── Revenue Trend + Transaction Count ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">

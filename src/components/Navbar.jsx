@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, LogOut, Home, Users, CreditCard, Apple, Calendar, FileText, Info, Megaphone, UserPlus } from 'lucide-react';
+import { Menu, X, LogOut, Home, Users, CreditCard, Apple, Calendar, FileText, Info, Megaphone, UserPlus, TrendingDown } from 'lucide-react';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,7 +26,8 @@ const Navbar = () => {
     { name: 'Payments',  path: '/payments',   icon: CreditCard, roles: ['admin','trainer'] },
     { name: 'Diet Plans',path: '/diet-plans', icon: Apple,      roles: ['admin','trainer','member'] },
     { name: 'Attendance',path: '/attendance', icon: Calendar,   roles: ['admin','trainer','member'] },
-    { name: 'Reports',   path: '/reports',    icon: FileText,   roles: ['admin'] },
+    { name: 'Reports',   path: '/reports',    icon: FileText,    roles: ['admin'] },
+    { name: 'Expenses',  path: '/expenses',   icon: TrendingDown, roles: ['admin'] },
     { name: 'Add User',  path: '/signup',     icon: UserPlus,   roles: ['admin'] },
     { name: 'About',     path: '/about',      icon: Info,       roles: ['admin','trainer','member'] },
   ];

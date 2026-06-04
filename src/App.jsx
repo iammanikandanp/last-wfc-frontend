@@ -17,6 +17,7 @@ import AddDietPlan from "./pages/AddDietPlan";
 import Training from "./pages/Training";
 import AddTrainer from "./pages/AddTrainer";
 import Reports from "./pages/Reports";
+import Expenses from "./pages/Expenses";
 import About from "./pages/About";
 import Leads from "./pages/Leads";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -99,8 +100,9 @@ function App() {
         {/* Leads */}
         <Route path="/leads"         element={<ProtectedRoute allowedRoles={["admin","trainer"]}><Leads /></ProtectedRoute>} />
 
-        {/* Reports & About */}
+        {/* Reports, Expenses & About */}
         <Route path="/reports"       element={<ProtectedRoute allowedRoles={["admin"]}><Reports /></ProtectedRoute>} />
+        <Route path="/expenses"      element={<ProtectedRoute allowedRoles={["admin"]}><Expenses /></ProtectedRoute>} />
         <Route path="/about"         element={<ProtectedRoute allowedRoles={["admin","trainer","member"]}><About /></ProtectedRoute>} />
 
         {/* Default Route */}

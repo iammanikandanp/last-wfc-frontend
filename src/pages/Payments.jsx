@@ -6,7 +6,7 @@ import {
   CreditCard, Plus, Search, X, Filter, Mail, CheckCircle,
   AlertCircle, Clock, ChevronLeft, ChevronRight, Download,
   Wallet, TrendingUp, Users, RefreshCw, Send, Check, Edit3, Trash2, Save,
-  FileText, Loader
+  FileText, Loader, Ban, DollarSign
 } from 'lucide-react';
 
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
@@ -642,6 +642,96 @@ const DeletePaymentModal = ({ payment, onConfirm, onClose }) => (
   </div>
 );
 
+// ── Write-Off Confirm Modal ───────────────────────────────────────────────────
+const WriteOffModal = ({ payment, onConfirm, onClose }) => {
+  const [saving, setSaving] = useState(false);
+  const handleConfirm = async () => {
+    setSaving(true);
+    await onConfirm();
+    setSaving(false);
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()} style={{animation:'su .2s ease'}}>
+        <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4"><Ban size={24} className="text-orange-600"/></div>
+        <h3 className="font-bold text-slate-900 text-lg mb-1">Write Off Balance?</h3>
+        <p className="text-slate-500 text-sm mb-1"><strong>{payment.memberName}</strong> · {payment.invoiceNo}</p>
+        <p className="text-slate-400 text-xs mb-2">Pending balance: <strong className="text-red-600">₹{(payment.balanceAmount||0).toLocaleString('en-IN')}</strong></p>
+        <p className="text-slate-400 text-xs mb-5 bg-orange-50 border border-orange-100 rounded-xl px-3 py-2">
+          This marks the balance as <strong>never to be collected</strong>. It will be removed from all pending totals and reports. The member can still pay later using the "Pay Now" button.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">Cancel</button>
+          <button onClick={handleConfirm} disabled={saving}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-orange-600 text-white rounded-xl text-sm font-semibold hover:bg-orange-700 transition disabled:opacity-40">
+            {saving ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/> : <Ban size={14}/>}
+            Write Off
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Pay Now Modal (collect written-off balance) ───────────────────────────────
+const PayNowModal = ({ payment, onSave, onClose }) => {
+  const [saving, setSaving] = useState(false);
+  const [errMsg, setErrMsg] = useState('');
+  const [mode, setMode] = useState('cash');
+  const handlePay = async () => {
+    setSaving(true); setErrMsg('');
+    try {
+      await CustomBaseUrl.put(`/reg-payments/${payment._id}`, {
+        paymentMode: mode,
+        paymentType: 'full',
+        advanceAmount: payment.finalAmount,
+        balanceAmount: 0,
+        writtenOff: false,
+        writtenOffAt: null,
+      });
+      onSave();
+      onClose();
+    } catch(e) {
+      setErrMsg(e.response?.data?.message || e.message || 'Update failed');
+    } finally { setSaving(false); }
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()} style={{animation:'su .2s ease'}}>
+        <div className="bg-gradient-to-r from-emerald-600 to-green-600 px-5 py-4 flex items-center justify-between text-white">
+          <div className="flex items-center gap-2"><DollarSign size={18}/><p className="font-bold text-sm">Collect Payment</p></div>
+          <button onClick={onClose}><X size={16} className="opacity-70 hover:opacity-100"/></button>
+        </div>
+        <div className="p-5">
+          <div className="bg-slate-50 rounded-xl p-4 mb-4 text-center">
+            <p className="text-xs text-slate-500 mb-1">{payment.memberName} · {payment.invoiceNo}</p>
+            <p className="text-2xl font-black text-emerald-600">₹{(payment.balanceAmount||0).toLocaleString('en-IN')}</p>
+            <p className="text-xs text-slate-400 mt-0.5">Balance to collect</p>
+          </div>
+          <label className="block text-xs font-semibold text-slate-500 mb-1">Payment Mode</label>
+          <div className="flex gap-2 mb-4">
+            {['cash','upi','card'].map(m => (
+              <button key={m} onClick={() => setMode(m)}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold capitalize transition border ${mode===m ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                {m}
+              </button>
+            ))}
+          </div>
+          {errMsg && <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 mb-3 text-xs text-red-700">{errMsg}</div>}
+          <div className="flex gap-2">
+            <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">Cancel</button>
+            <button onClick={handlePay} disabled={saving}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition disabled:opacity-40">
+              {saving ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/> : <Check size={14}/>}
+              Collect ₹{(payment.balanceAmount||0).toLocaleString('en-IN')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Main Payments Page ────────────────────────────────────────────────────────
 const Payments = () => {
   const navigate = useNavigate();
@@ -658,6 +748,8 @@ const Payments = () => {
   const [invoiceTarget, setInvoiceTarget] = useState(null);
   const [sharingWa, setSharingWa] = useState(false);
   const [waPayment, setWaPayment] = useState(null);
+  const [writeOffTarget, setWriteOffTarget] = useState(null);
+  const [payNowTarget, setPayNowTarget] = useState(null);
   const invoiceShareRef = useRef(null);
   const PER_PAGE = 20;
 
@@ -699,18 +791,32 @@ const Payments = () => {
     } catch(e) { alert('Delete failed: ' + (e.response?.data?.message || e.message)); }
   };
 
+  const handleWriteOff = async () => {
+    if (!writeOffTarget) return;
+    try {
+      await CustomBaseUrl.put(`/reg-payments/${writeOffTarget._id}`, {
+        writtenOff: true,
+        writtenOffAt: new Date().toISOString(),
+      });
+      await fetchAll();
+      setWriteOffTarget(null);
+    } catch(e) { alert('Write-off failed: ' + (e.response?.data?.message || e.message)); }
+  };
+
   const enriched = payments.map(p => {
     const member = members.find(m => String(m._id) === String(p.registrationId));
     return { ...p, memberEmail: member?.emails || p.memberEmail || '' };
   });
 
-  const renewalCount = enriched.filter(p => p.isRenewal).length;
+  const renewalCount   = enriched.filter(p => p.isRenewal).length;
+  const writtenOffCount = enriched.filter(p => p.writtenOff).length;
 
   const filtered = enriched
     .filter(p => {
-      if (filter === 'full')    return !p.balanceAmount || p.balanceAmount <= 0;
-      if (filter === 'pending') return p.balanceAmount && p.balanceAmount > 0;
-      if (filter === 'renewal') return !!p.isRenewal;
+      if (filter === 'full')      return !p.balanceAmount || p.balanceAmount <= 0 || p.writtenOff;
+      if (filter === 'pending')   return !p.writtenOff && p.balanceAmount > 0;
+      if (filter === 'writtenoff') return !!p.writtenOff;
+      if (filter === 'renewal')   return !!p.isRenewal;
       return true;
     })
     .filter(p => {
@@ -726,9 +832,10 @@ const Payments = () => {
   useEffect(() => setPage(1), [filter, search]);
 
   const totalRevenue = payments.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
-  const totalPending = payments.reduce((s, p) => s + (p.balanceAmount || 0), 0);
-  const pendingCount = payments.filter(p => p.balanceAmount > 0).length;
-  const fullCount    = payments.filter(p => !p.balanceAmount || p.balanceAmount <= 0).length;
+  // Written-off balances are excluded from pending totals everywhere
+  const totalPending = payments.reduce((s, p) => s + (p.writtenOff ? 0 : (p.balanceAmount || 0)), 0);
+  const pendingCount = payments.filter(p => !p.writtenOff && p.balanceAmount > 0).length;
+  const fullCount    = payments.filter(p => !p.balanceAmount || p.balanceAmount <= 0 || p.writtenOff).length;
 
   const modeColor = (m) => ({
     cash: 'bg-emerald-100 text-emerald-700', upi: 'bg-violet-100 text-violet-700',
@@ -736,10 +843,11 @@ const Payments = () => {
   }[(m||'').toLowerCase()] || 'bg-slate-100 text-slate-600');
 
   const FILTERS = [
-    { key:'all',     label:`All (${payments.length})`,    icon: CreditCard },
-    { key:'full',    label:`Full Paid (${fullCount})`,     icon: CheckCircle },
-    { key:'pending', label:`Pending (${pendingCount})`,    icon: AlertCircle },
-    { key:'renewal', label:`Renewals (${renewalCount})`,   icon: RefreshCw },
+    { key:'all',        label:`All (${payments.length})`,           icon: CreditCard },
+    { key:'full',       label:`Full Paid (${fullCount})`,            icon: CheckCircle },
+    { key:'pending',    label:`Pending (${pendingCount})`,           icon: AlertCircle },
+    { key:'writtenoff', label:`Written Off (${writtenOffCount})`,    icon: Ban },
+    { key:'renewal',    label:`Renewals (${renewalCount})`,          icon: RefreshCw },
   ];
 
   return (
@@ -764,27 +872,28 @@ const Payments = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
           {[
-            { label:'Total Revenue',   val:`₹${totalRevenue.toLocaleString('en-IN')}`, icon:TrendingUp,  c:'text-emerald-600 bg-emerald-50' },
-            { label:'Total Pending',   val:`₹${totalPending.toLocaleString('en-IN')}`, icon:AlertCircle, c:'text-red-600 bg-red-50' },
-            { label:'Full Payments',   val:fullCount,                                   icon:CheckCircle, c:'text-blue-600 bg-blue-50' },
-            { label:'Pending Members', val:pendingCount,                                icon:Clock,       c:'text-amber-600 bg-amber-50' },
-          ].map(({label,val,icon:Icon,c}) => (
-            <div key={label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-3 flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${c}`}><Icon size={16}/></div>
-              <div><p className="text-xs text-slate-400">{label}</p><p className="text-base font-black text-slate-900">{val}</p></div>
+            { label:'Total Revenue',   val:`₹${totalRevenue.toLocaleString('en-IN')}`,                     icon:TrendingUp,  c:'text-emerald-600 bg-emerald-50' },
+            { label:'Net Income',      val:`₹${(totalRevenue - totalPending).toLocaleString('en-IN')}`,     icon:Wallet,      c:'text-violet-600 bg-violet-50' },
+            { label:'Total Pending',   val:`₹${totalPending.toLocaleString('en-IN')}`,                     icon:AlertCircle, c:'text-red-600 bg-red-50' },
+            { label:'Full Payments',   val:fullCount,                                                        icon:CheckCircle, c:'text-blue-600 bg-blue-50' },
+            { label:'Pending Members', val:pendingCount,                                                     icon:Clock,       c:'text-amber-600 bg-amber-50' },
+          ].map((s) => (
+            <div key={s.label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-3 flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.c}`}>{React.createElement(s.icon, {size: 16})}</div>
+              <div><p className="text-xs text-slate-400">{s.label}</p><p className="text-base font-black text-slate-900">{s.val}</p></div>
             </div>
           ))}
         </div>
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-            {FILTERS.map(({key,label,icon:Icon}) => (
-              <button key={key} onClick={() => setFilter(key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter===key ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                <Icon size={11}/> {label}
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm flex-wrap">
+            {FILTERS.map((f) => (
+              <button key={f.key} onClick={() => setFilter(f.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter===f.key ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                {React.createElement(f.icon, {size: 11})} {f.label}
               </button>
             ))}
           </div>
@@ -813,7 +922,7 @@ const Payments = () => {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-50 flex items-center justify-between">
               <p className="text-xs font-bold text-slate-700">
-                {{ all: 'All Payments', full: 'Full Payments', pending: 'Pending Payments', renewal: 'Renewal Payments' }[filter]} · {filtered.length} records
+                {{ all: 'All Payments', full: 'Full Payments', pending: 'Pending Payments', writtenoff: 'Written-Off Payments', renewal: 'Renewal Payments' }[filter]} · {filtered.length} records
               </p>
               <p className="text-xs text-slate-400">Page {page} of {totalPages||1}</p>
             </div>
@@ -830,17 +939,20 @@ const Payments = () => {
                   {paginated.length === 0 ? (
                     <tr><td colSpan={9} className="text-center py-10 text-slate-400">No records found</td></tr>
                   ) : paginated.map((p, i) => {
-                    const isPending = p.balanceAmount > 0;
+                    const isPending   = !p.writtenOff && p.balanceAmount > 0;
+                    const isWrittenOff = !!p.writtenOff;
                     return (
-                      <tr key={p._id} className={`hover:bg-slate-50 transition ${isPending ? 'bg-amber-50/40' : ''}`}>
+                      <tr key={p._id} className={`hover:bg-slate-50 transition ${isWrittenOff ? 'bg-slate-50/60 opacity-70' : isPending ? 'bg-amber-50/40' : ''}`}>
                         <td className="px-3 py-2.5 text-slate-400 font-mono text-[10px]">{(page-1)*PER_PAGE + i + 1}</td>
                         <td className="px-3 py-2.5"><p className="font-semibold text-slate-800 whitespace-nowrap">{p.memberName || '—'}</p><p className="text-[10px] text-slate-400">{p.memberPhone}</p></td>
                         <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{p.package || '—'}</td>
                         <td className="px-3 py-2.5 font-bold text-emerald-600 whitespace-nowrap">₹{(p.finalAmount || p.amount || 0).toLocaleString('en-IN')}</td>
                         <td className="px-3 py-2.5">
-                          {isPending
-                            ? <span className="font-bold text-red-600 whitespace-nowrap">₹{p.balanceAmount.toLocaleString('en-IN')}</span>
-                            : <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle size={11}/> Paid</span>}
+                          {isWrittenOff
+                            ? <span className="flex items-center gap-1 text-slate-400 font-semibold whitespace-nowrap"><Ban size={11}/> Written Off</span>
+                            : isPending
+                              ? <span className="font-bold text-red-600 whitespace-nowrap">₹{p.balanceAmount.toLocaleString('en-IN')}</span>
+                              : <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle size={11}/> Paid</span>}
                         </td>
                         <td className="px-3 py-2.5"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${modeColor(p.paymentMode)}`}>{p.paymentMode || '—'}</span></td>
                         <td className="px-3 py-2.5">
@@ -856,7 +968,15 @@ const Payments = () => {
                             <button onClick={() => handleShareAsImage(p)} disabled={sharingWa} title="Send invoice image via WhatsApp" className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 transition disabled:opacity-40">{sharingWa ? <Loader size={13} className="animate-spin"/> : <WhatsAppIcon size={13}/>}</button>
                             <button onClick={() => setEditTarget(p)} title="Edit payment" className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 hover:text-blue-700 transition"><Edit3 size={13}/></button>
                             <button onClick={() => setDeleteTarget(p)} title="Delete payment" className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition"><Trash2 size={13}/></button>
-                            {isPending && <button onClick={() => setEmailTarget(p)} title="Send reminder email" className="p-1.5 rounded-lg bg-amber-50 text-amber-500 hover:bg-amber-100 hover:text-amber-700 transition"><Mail size={13}/></button>}
+                            {isPending && (
+                              <>
+                                <button onClick={() => setEmailTarget(p)} title="Send reminder email" className="p-1.5 rounded-lg bg-amber-50 text-amber-500 hover:bg-amber-100 hover:text-amber-700 transition"><Mail size={13}/></button>
+                                <button onClick={() => setWriteOffTarget(p)} title="Write off — mark balance as never to be collected" className="p-1.5 rounded-lg bg-orange-50 text-orange-500 hover:bg-orange-100 hover:text-orange-700 transition"><Ban size={13}/></button>
+                              </>
+                            )}
+                            {isWrittenOff && (
+                              <button onClick={() => setPayNowTarget(p)} title="Member is back — collect the balance now" className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition"><DollarSign size={13}/></button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -891,6 +1011,8 @@ const Payments = () => {
       {emailTarget && <EmailModal payment={emailTarget} onClose={() => setEmailTarget(null)}/>}
       {editTarget && <EditPaymentModal payment={editTarget} onSave={fetchAll} onClose={() => setEditTarget(null)}/>}
       {deleteTarget && <DeletePaymentModal payment={deleteTarget} onConfirm={handleDeleteConfirm} onClose={() => setDeleteTarget(null)}/>}
+      {writeOffTarget && <WriteOffModal payment={writeOffTarget} onConfirm={handleWriteOff} onClose={() => setWriteOffTarget(null)}/>}
+      {payNowTarget && <PayNowModal payment={payNowTarget} onSave={fetchAll} onClose={() => setPayNowTarget(null)}/>}
 
       {/* Hidden invoice template captured by html2canvas for WhatsApp image sharing */}
       <div style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1, pointerEvents: 'none' }}>
