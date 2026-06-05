@@ -1277,13 +1277,13 @@ const AddPayment = () => {
             ))}
           </div>
 
-          {/* UPI QR — replace YOUR_UPI_ID@upi with your real UPI ID e.g. 9876543210@ybl */}
+          {/* UPI QR */}
           {paymentMethod === 'upi' && finalAmount > 0 && (
             <div className="mt-4">
               <UpiQR
                 amount={finalAmount}
-                upiId="manikan2033-1@okhdfcbank"
-                name="WFC Wolverine Fitness"
+                upiId="hari38918@okaxis"
+                name="Harish R"
               />
             </div>
           )}
