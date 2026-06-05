@@ -391,7 +391,7 @@ const Leads = () => {
                           {l.followUpDate ? new Date(l.followUpDate).toLocaleDateString('en-IN') : '—'}
                         </td>
                         <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                          <div className="flex items-center gap-1">
                             <button onClick={() => { setEditLead(l); setShowModal(true); }}
                               className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition" title="Edit">
                               <Edit3 size={12} />
