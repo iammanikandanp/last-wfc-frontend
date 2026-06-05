@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, X, Search, Filter,
-  Edit3, Trash2, Check, ChevronDown, UserPlus,
+  Edit3, Trash2, Check, ChevronDown, UserPlus, Phone,
   Megaphone, TrendingUp, RefreshCw, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
@@ -392,6 +392,12 @@ const Leads = () => {
                         </td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
+                            {l.phone && (
+                              <a href={`tel:${l.phone}`}
+                                className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition" title="Call">
+                                <Phone size={12} />
+                              </a>
+                            )}
                             <button onClick={() => { setEditLead(l); setShowModal(true); }}
                               className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition" title="Edit">
                               <Edit3 size={12} />
