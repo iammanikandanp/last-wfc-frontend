@@ -16,9 +16,15 @@ const PERIODS = [
   { key: 'half',    label: '6 Months',     prevLabel: 'Prev 6 Months',  months: 6  },
   { key: 'year',    label: 'This Year',    prevLabel: 'Last Year',      months: 12 },
   { key: 'all',     label: 'All Time',     prevLabel: 'N/A',            months: 999 },
+  { key: 'custom',  label: 'Custom',       prevLabel: 'N/A',            months: 0  },
 ];
 
-function getCurRange(key) {
+function getCurRange(key, customStart, customEnd) {
+  if (key === 'custom') {
+    const start = customStart ? new Date(customStart + 'T00:00:00') : new Date(2000, 0, 1);
+    const end   = customEnd   ? new Date(customEnd   + 'T23:59:59') : new Date();
+    return { start, end };
+  }
   const end   = new Date();
   const start = new Date();
   if (key === 'all') { start.setFullYear(2000); }
@@ -30,9 +36,9 @@ function getCurRange(key) {
   return { start, end };
 }
 
-function getPrvRange(key) {
-  if (key === 'all') return { start: new Date(2000, 0, 1), end: new Date(2000, 0, 1) };
-  const { start, end } = getCurRange(key);
+function getPrvRange(key, customStart, customEnd) {
+  if (key === 'all' || key === 'custom') return { start: new Date(2000, 0, 1), end: new Date(2000, 0, 1) };
+  const { start, end } = getCurRange(key, customStart, customEnd);
   const dur = end - start;
   return { start: new Date(start - dur), end: new Date(start) };
 }
@@ -200,7 +206,9 @@ function DeltaBadge({ cur, prv, isMoney = true }) {
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function Reports() {
-  const [period,     setPeriod]     = useState('month');
+  const [period,      setPeriod]     = useState('month');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd,   setCustomEnd]   = useState('');
   const [payments,   setPayments]   = useState([]);
   const [members,    setMembers]    = useState([]);
   const [expenses,   setExpenses]   = useState([]);
@@ -248,8 +256,8 @@ export default function Reports() {
   useEffect(() => setTablePage(1), [period]);
 
   // ── Derived data ─────────────────────────────────────────────────────────────
-  const curRange = getCurRange(period);
-  const prvRange = getPrvRange(period);
+  const curRange = getCurRange(period, customStart, customEnd);
+  const prvRange = getPrvRange(period, customStart, customEnd);
 
   const curPay = filterPeriod(payments, 'createdAt', curRange);
   const prvPay = filterPeriod(payments, 'createdAt', prvRange);
@@ -379,22 +387,45 @@ export default function Reports() {
             </h1>
             <p className="text-slate-400 text-xs mt-1">
               {payments.length} total payments · {members.length} total members ·&nbsp;
-              Showing: <strong className="text-slate-600">{periodLabel}</strong> vs <strong className="text-slate-600">{prevLabel}</strong>
+              Showing:{' '}
+              {period === 'custom'
+                ? <strong className="text-slate-600">{customStart && customEnd ? `${customStart} → ${customEnd}` : 'Custom Range'}</strong>
+                : <><strong className="text-slate-600">{periodLabel}</strong> vs <strong className="text-slate-600">{prevLabel}</strong></>
+              }
             </p>
           </div>
 
           {/* Period Selector */}
-          <div className="flex flex-wrap gap-1.5 bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm">
-            {PERIODS.map(p => (
-              <button key={p.key} onClick={() => setPeriod(p.key)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  period === p.key
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                }`}>
-                {p.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap gap-1.5 bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm">
+              {PERIODS.map(p => (
+                <button key={p.key} onClick={() => setPeriod(p.key)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    period === p.key
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  }`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {period === 'custom' && (
+              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-3 py-1.5 shadow-sm">
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={e => { setCustomStart(e.target.value); setTablePage(1); }}
+                  className="text-xs text-slate-700 border-none outline-none bg-transparent cursor-pointer"
+                />
+                <span className="text-slate-300 text-xs">→</span>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={e => { setCustomEnd(e.target.value); setTablePage(1); }}
+                  className="text-xs text-slate-700 border-none outline-none bg-transparent cursor-pointer"
+                />
+              </div>
+            )}
           </div>
         </div>
 

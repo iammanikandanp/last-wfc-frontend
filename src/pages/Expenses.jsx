@@ -19,9 +19,15 @@ const PERIODS = [
   { key: 'half',    label: '6 Months' },
   { key: 'year',    label: 'This Year' },
   { key: 'all',     label: 'All Time' },
+  { key: 'custom',  label: 'Custom' },
 ];
 
-function periodRange(key) {
+function periodRange(key, customStart, customEnd) {
+  if (key === 'custom') {
+    const start = customStart ? new Date(customStart + 'T00:00:00') : new Date(2000, 0, 1);
+    const end   = customEnd   ? new Date(customEnd   + 'T23:59:59') : new Date();
+    return { start, end };
+  }
   const end = new Date();
   const start = new Date();
   if (key === 'week')    { start.setDate(start.getDate() - 7); }
@@ -565,6 +571,8 @@ export default function Expenses() {
 
   const [search, setSearch]           = useState('');
   const [period, setPeriod]           = useState('month');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd,   setCustomEnd]   = useState('');
   const [catFilter, setCatFilter]     = useState('');
   const [methodFilter, setMethodFilter] = useState('');
   const [page, setPage]               = useState(1);
@@ -592,7 +600,7 @@ export default function Expenses() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // ── Filtering ──────────────────────────────────────────────────────────────
-  const range = periodRange(period);
+  const range = periodRange(period, customStart, customEnd);
   const filtered = expenses.filter(e => {
     if (!inRange(e.date, range)) return false;
     if (catFilter && (e.category?._id || e.category) !== catFilter) return false;
@@ -666,13 +674,31 @@ export default function Expenses() {
         </div>
 
         {/* ── Period Selector ────────────────────────────────────────────────── */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {PERIODS.map(p => (
             <button key={p.key} onClick={() => { setPeriod(p.key); setPage(1); }}
               className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition ${period === p.key ? 'bg-indigo-600 text-white border-indigo-600 shadow' : 'border-slate-200 text-slate-600 bg-white hover:border-indigo-400'}`}>
               {p.label}
             </button>
           ))}
+          {period === 'custom' && (
+            <div className="flex items-center gap-2 bg-white border border-indigo-300 rounded-full px-4 py-1.5 shadow-sm">
+              <Calendar size={13} className="text-indigo-500 flex-shrink-0" />
+              <input
+                type="date"
+                value={customStart}
+                onChange={e => { setCustomStart(e.target.value); setPage(1); }}
+                className="text-xs text-slate-700 border-none outline-none bg-transparent cursor-pointer"
+              />
+              <span className="text-slate-300 text-xs">→</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={e => { setCustomEnd(e.target.value); setPage(1); }}
+                className="text-xs text-slate-700 border-none outline-none bg-transparent cursor-pointer"
+              />
+            </div>
+          )}
         </div>
 
         {/* ── KPI Cards ──────────────────────────────────────────────────────── */}
@@ -691,7 +717,12 @@ export default function Expenses() {
         {/* ── Category Breakdown Pills ───────────────────────────────────────── */}
         {Object.keys(byCategory).length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">Category Breakdown — {PERIODS.find(p=>p.key===period)?.label}</h3>
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">
+              Category Breakdown —{' '}
+              {period === 'custom'
+                ? (customStart && customEnd ? `${customStart} → ${customEnd}` : 'Custom Range')
+                : PERIODS.find(p => p.key === period)?.label}
+            </h3>
             <div className="flex flex-wrap gap-2">
               {Object.values(byCategory).sort((a,b)=>b.total-a.total).map(cat => (
                 <div key={cat.name} className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-100 bg-slate-50">
