@@ -5,7 +5,7 @@ import Navbar from '../components/Navbar';
 import {
   Plus, Search, X, User,
   AlertCircle, CheckCircle, Clock, XCircle, Eye, Edit3, Trash2,
-  ChevronLeft, ChevronRight, Upload, FileText, Loader2, RefreshCw
+  ChevronLeft, ChevronRight, Upload, FileText, Loader2, RefreshCw, Phone
 } from 'lucide-react';
 
 const PER_PAGE = 10;
@@ -484,13 +484,23 @@ const MemberCard = ({ member, onEdit, onDelete, onRenew }) => {
   const navigate = useNavigate();
   const status = getMembershipStatus(member.endDate);
   const StatusIcon = status.icon;
+  const [showPhoto, setShowPhoto] = useState(false);
+  const hasPhoto = !!member.images?.profileImage;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex items-center gap-4 hover:shadow-md hover:border-slate-200 transition-all duration-200 group">
-      <div className="relative flex-shrink-0 cursor-pointer" onClick={() => navigate(`/members/${member._id}`)}>
+      <div
+        className="relative flex-shrink-0 cursor-pointer"
+        onClick={e => { if (hasPhoto) { e.stopPropagation(); setShowPhoto(true); } else navigate(`/members/${member._id}`); }}
+      >
         <Avatar src={member.images?.profileImage} name={member.name} />
         <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${status.dot}`} />
       </div>
+      {showPhoto && hasPhoto && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={e => { e.stopPropagation(); setShowPhoto(false); }}>
+          <img src={member.images.profileImage} alt={member.name} className="max-w-full max-h-full rounded-2xl" />
+        </div>
+      )}
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/members/${member._id}`)}>
         <p className="font-semibold text-slate-900 truncate group-hover:text-red-600 transition-colors">{member.name}</p>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -499,6 +509,7 @@ const MemberCard = ({ member, onEdit, onDelete, onRenew }) => {
           <span className="text-xs text-slate-500">{member.gender}</span>
           {member.packages && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 truncate">{member.packages}</span></>}
           {member.attendanceId && <><span className="text-slate-300">·</span><span className="text-xs text-blue-500 font-mono">ID:{member.attendanceId}</span></>}
+          {member.phone && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 flex items-center gap-1"><Phone size={11} className="text-slate-400" />{member.phone}</span></>}
         </div>
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -585,11 +596,16 @@ const Members = () => {
   const [filter,       setFilter]       = useState('all');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [renewTarget,  setRenewTarget]  = useState(null);
-  const [page,         setPage]         = useState(1);
+  const [page,         setPage]         = useState(() => Number(sessionStorage.getItem('membersListPage')) || 1);
   const [showImport,   setShowImport]   = useState(false);
 
+  const isFirstRender = useRef(true);
   useEffect(() => { fetchMembers(); }, []);
-  useEffect(() => { setPage(1); }, [filter, search]);
+  useEffect(() => { sessionStorage.setItem('membersListPage', String(page)); }, [page]);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    setPage(1);
+  }, [filter, search]);
 
   const fetchMembers = async () => {
     try {

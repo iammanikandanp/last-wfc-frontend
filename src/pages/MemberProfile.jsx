@@ -913,6 +913,7 @@ const MemberProfile = () => {
   const [loading,     setLoading]     = useState(true);
   const [activeMonth, setActiveMonth] = useState(null);
 
+  const [showPhoto,     setShowPhoto]     = useState(false);
   const [showDiet,      setShowDiet]      = useState(false);
   const [showWorkout,   setShowWorkout]   = useState(false);
   const [showMeasure,   setShowMeasure]   = useState(false);
@@ -1115,7 +1116,10 @@ const MemberProfile = () => {
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
               <div className="h-20 bg-gradient-to-br from-slate-800 to-slate-900 relative">
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2">
-                  <div className="w-20 h-20 rounded-full ring-4 ring-white overflow-hidden bg-slate-200 flex items-center justify-center shadow-lg">
+                  <div
+                    className={`w-20 h-20 rounded-full ring-4 ring-white overflow-hidden bg-slate-200 flex items-center justify-center shadow-lg ${member.images?.profileImage ? 'cursor-pointer' : ''}`}
+                    onClick={() => member.images?.profileImage && setShowPhoto(true)}
+                  >
                     {member.images?.profileImage
                       ? <img src={member.images.profileImage} alt={member.name} className="w-full h-full object-cover" onError={e=>e.target.style.display='none'}/>
                       : <span className="text-2xl font-black text-slate-600">{member.name?.[0]?.toUpperCase()}</span>
@@ -1443,6 +1447,13 @@ const MemberProfile = () => {
       )}
 
       {showMeasure && <EditMeasurementsModal member={member} onSave={handleSaveMeasurements} onClose={()=>setShowMeasure(false)}/>}
+
+      {/* ── Profile Photo Lightbox ── */}
+      {showPhoto && member.images?.profileImage && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={()=>setShowPhoto(false)}>
+          <img src={member.images.profileImage} alt={member.name} className="max-w-full max-h-full rounded-2xl"/>
+        </div>
+      )}
 
       {/* ── BMI / Weight History Modal ── */}
       {showBmiHistory && (

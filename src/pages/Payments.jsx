@@ -6,7 +6,7 @@ import {
   CreditCard, Plus, Search, X, Filter, Mail, CheckCircle,
   AlertCircle, Clock, ChevronLeft, ChevronRight, Download,
   Wallet, TrendingUp, Users, RefreshCw, Send, Check, Edit3, Trash2, Save,
-  FileText, Loader, Ban, DollarSign
+  FileText, Loader, Ban, DollarSign, UserX, ShieldOff, Unlock
 } from 'lucide-react';
 
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
@@ -62,14 +62,17 @@ const generatePaymentPDF = async (p) => {
   // ── DARK HEADER ──────────────────────────────────────────────────────────────
   doc.setFillColor(...C.dark); doc.rect(0, 0, W, 43, 'F');
 
-  doc.setFontSize(22); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
-  doc.text('WOLVERINE FITNESS CLUB', W / 2, 18, { align: 'center' });
+  doc.setFontSize(19); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
+  doc.text('WOLVERINE FITNESS CLUB', W / 2, 16, { align: 'center' });
 
-  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gold);
-  doc.text('YOUR ULTIMATE FITNESS DESTINATION', W / 2, 27, { align: 'center' });
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gold);
+  doc.text('YOUR ULTIMATE FITNESS DESTINATION', W / 2, 24, { align: 'center' });
+
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.white);
+  doc.text('GSTIN: 33BOAPH6375A1ZF', W / 2, 31, { align: 'center' });
 
   doc.setDrawColor(...C.gold); doc.setLineWidth(0.5);
-  doc.line(pad + 28, 33, W - pad - 28, 33);
+  doc.line(pad + 28, 36, W - pad - 28, 36);
 
   doc.setDrawColor(...C.gold); doc.setLineWidth(1.2);
   doc.line(0, 43, W, 43);
@@ -98,7 +101,7 @@ const generatePaymentPDF = async (p) => {
     doc.setFillColor(...C.green);
     doc.roundedRect(pad, y, 22, 8, 2, 2, 'F');
     doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
-    doc.text('v  PAID', pad + 11, y + 5.5, { align: 'center' });
+    doc.text('PAID', pad + 11, y + 5.5, { align: 'center' });
   } else {
     doc.setFillColor(...C.red);
     doc.roundedRect(pad, y, 26, 8, 2, 2, 'F');
@@ -750,10 +753,40 @@ const Payments = () => {
   const [waPayment, setWaPayment] = useState(null);
   const [writeOffTarget, setWriteOffTarget] = useState(null);
   const [payNowTarget, setPayNowTarget] = useState(null);
+  const [blockList, setBlockList] = useState([]);
+  const [dragOverActive, setDragOverActive] = useState(false);
   const invoiceShareRef = useRef(null);
   const PER_PAGE = 20;
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); fetchBlockList(); }, []);
+
+  const fetchBlockList = async () => {
+    try {
+      const res = await CustomBaseUrl.get('/block-list');
+      setBlockList(res.data?.data || []);
+    } catch (e) { console.warn('Could not load block list:', e.message); }
+  };
+
+  const isBlocked = (p) => blockList.some(b => b.memberPhone === p.memberPhone);
+
+  const handleDropPayment = async (p) => {
+    if (isBlocked(p)) return;
+    try {
+      const res = await CustomBaseUrl.post('/block-list', {
+        registrationId: p.registrationId,
+        memberName: p.memberName,
+        memberPhone: p.memberPhone,
+      });
+      setBlockList(prev => [res.data.data, ...prev]);
+    } catch (e) { alert('Could not block member: ' + (e.response?.data?.message || e.message)); }
+  };
+
+  const handleUnblock = async (b) => {
+    try {
+      await CustomBaseUrl.delete(`/block-list/${b._id}`);
+      setBlockList(prev => prev.filter(x => x._id !== b._id));
+    } catch (e) { alert('Unblock failed: ' + (e.response?.data?.message || e.message)); }
+  };
 
   const handleShareAsImage = async (p) => {
     setWaPayment(p);
@@ -817,6 +850,7 @@ const Payments = () => {
       if (filter === 'pending')   return !p.writtenOff && p.balanceAmount > 0;
       if (filter === 'writtenoff') return !!p.writtenOff;
       if (filter === 'renewal')   return !!p.isRenewal;
+      if (filter === 'blocked')   return isBlocked(p);
       return true;
     })
     .filter(p => {
@@ -836,6 +870,7 @@ const Payments = () => {
   const totalPending = payments.reduce((s, p) => s + (p.writtenOff ? 0 : (p.balanceAmount || 0)), 0);
   const pendingCount = payments.filter(p => !p.writtenOff && p.balanceAmount > 0).length;
   const fullCount    = payments.filter(p => !p.balanceAmount || p.balanceAmount <= 0 || p.writtenOff).length;
+  const blockedCount = payments.filter(p => isBlocked(p)).length;
 
   const modeColor = (m) => ({
     cash: 'bg-emerald-100 text-emerald-700', upi: 'bg-violet-100 text-violet-700',
@@ -848,6 +883,7 @@ const Payments = () => {
     { key:'pending',    label:`Pending (${pendingCount})`,           icon: AlertCircle },
     { key:'writtenoff', label:`Written Off (${writtenOffCount})`,    icon: Ban },
     { key:'renewal',    label:`Renewals (${renewalCount})`,          icon: RefreshCw },
+    { key:'blocked',    label:`Block List (${blockedCount})`,        icon: ShieldOff },
   ];
 
   return (
@@ -890,12 +926,25 @@ const Payments = () => {
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm flex-wrap">
-            {FILTERS.map((f) => (
-              <button key={f.key} onClick={() => setFilter(f.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter===f.key ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                {React.createElement(f.icon, {size: 11})} {f.label}
-              </button>
-            ))}
+            {FILTERS.map((f) => {
+              const isBlockTab = f.key === 'blocked';
+              return (
+                <button key={f.key} onClick={() => setFilter(f.key)}
+                  onDragOver={isBlockTab ? (e) => { e.preventDefault(); setDragOverActive(true); } : undefined}
+                  onDragLeave={isBlockTab ? () => setDragOverActive(false) : undefined}
+                  onDrop={isBlockTab ? (e) => {
+                    e.preventDefault();
+                    setDragOverActive(false);
+                    const data = e.dataTransfer.getData('application/json');
+                    if (!data) return;
+                    handleDropPayment(JSON.parse(data));
+                    setFilter('blocked');
+                  } : undefined}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter===f.key ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'} ${isBlockTab && dragOverActive ? 'ring-2 ring-red-400 bg-red-50 text-red-600' : ''}`}>
+                  {React.createElement(f.icon, {size: 11})} {f.label}
+                </button>
+              );
+            })}
           </div>
           <div className="relative ml-auto">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
@@ -922,7 +971,7 @@ const Payments = () => {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-50 flex items-center justify-between">
               <p className="text-xs font-bold text-slate-700">
-                {{ all: 'All Payments', full: 'Full Payments', pending: 'Pending Payments', writtenoff: 'Written-Off Payments', renewal: 'Renewal Payments' }[filter]} · {filtered.length} records
+                {{ all: 'All Payments', full: 'Full Payments', pending: 'Pending Payments', writtenoff: 'Written-Off Payments', renewal: 'Renewal Payments', blocked: 'Blocked Members' }[filter]} · {filtered.length} records
               </p>
               <p className="text-xs text-slate-400">Page {page} of {totalPages||1}</p>
             </div>
@@ -941,10 +990,22 @@ const Payments = () => {
                   ) : paginated.map((p, i) => {
                     const isPending   = !p.writtenOff && p.balanceAmount > 0;
                     const isWrittenOff = !!p.writtenOff;
+                    const blocked = isBlocked(p);
                     return (
-                      <tr key={p._id} className={`hover:bg-slate-50 transition ${isWrittenOff ? 'bg-slate-50/60 opacity-70' : isPending ? 'bg-amber-50/40' : ''}`}>
+                      <tr key={p._id} draggable
+                        onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({
+                          registrationId: p.registrationId, memberName: p.memberName, memberPhone: p.memberPhone,
+                        }))}
+                        title="Drag to Block List to block this member"
+                        className={`hover:bg-slate-50 transition cursor-grab active:cursor-grabbing ${isWrittenOff ? 'bg-slate-50/60 opacity-70' : isPending ? 'bg-amber-50/40' : ''}`}>
                         <td className="px-3 py-2.5 text-slate-400 font-mono text-[10px]">{(page-1)*PER_PAGE + i + 1}</td>
-                        <td className="px-3 py-2.5"><p className="font-semibold text-slate-800 whitespace-nowrap">{p.memberName || '—'}</p><p className="text-[10px] text-slate-400">{p.memberPhone}</p></td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-semibold text-slate-800 whitespace-nowrap">{p.memberName || '—'}</p>
+                            {blocked && <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-600"><Ban size={9}/> Blocked</span>}
+                          </div>
+                          <p className="text-[10px] text-slate-400">{p.memberPhone}</p>
+                        </td>
                         <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{p.package || '—'}</td>
                         <td className="px-3 py-2.5 font-bold text-emerald-600 whitespace-nowrap">₹{(p.finalAmount || p.amount || 0).toLocaleString('en-IN')}</td>
                         <td className="px-3 py-2.5">
@@ -976,6 +1037,11 @@ const Payments = () => {
                             )}
                             {isWrittenOff && (
                               <button onClick={() => setPayNowTarget(p)} title="Member is back — collect the balance now" className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition"><DollarSign size={13}/></button>
+                            )}
+                            {blocked ? (
+                              <button onClick={() => handleUnblock(blockList.find(b => b.memberPhone === p.memberPhone))} title="Unblock member" className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition"><Unlock size={13}/></button>
+                            ) : (
+                              <button onClick={() => handleDropPayment(p)} title="Move to Block List" className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition"><ShieldOff size={13}/></button>
                             )}
                           </div>
                         </td>

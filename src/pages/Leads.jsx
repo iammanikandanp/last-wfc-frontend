@@ -5,10 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, X, Search, Filter,
   Edit3, Trash2, Check, ChevronDown, UserPlus, Phone,
-  Megaphone, TrendingUp, RefreshCw, ChevronLeft, ChevronRight
+  Megaphone, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Camera, User
 } from 'lucide-react';
 
-const STATUS_CONFIG = {
+const BASE_STATUS_CONFIG = {
   New:        { color: 'bg-blue-100 text-blue-700 border-blue-200',      dot: 'bg-blue-500' },
   Contacted:  { color: 'bg-amber-100 text-amber-700 border-amber-200',    dot: 'bg-amber-500' },
   Interested: { color: 'bg-violet-100 text-violet-700 border-violet-200', dot: 'bg-violet-500' },
@@ -16,31 +16,51 @@ const STATUS_CONFIG = {
   Lost:       { color: 'bg-red-100 text-red-700 border-red-200',          dot: 'bg-red-500' },
 };
 
+const CUSTOM_STATUS_COLORS = [
+  { color: 'bg-pink-100 text-pink-700 border-pink-200',       dot: 'bg-pink-500' },
+  { color: 'bg-cyan-100 text-cyan-700 border-cyan-200',       dot: 'bg-cyan-500' },
+  { color: 'bg-orange-100 text-orange-700 border-orange-200', dot: 'bg-orange-500' },
+  { color: 'bg-lime-100 text-lime-700 border-lime-200',       dot: 'bg-lime-500' },
+  { color: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200', dot: 'bg-fuchsia-500' },
+  { color: 'bg-teal-100 text-teal-700 border-teal-200',       dot: 'bg-teal-500' },
+];
+
 const SOURCES  = ['Walk-in', 'Phone', 'Instagram', 'Facebook', 'WhatsApp', 'Referral', 'Google', 'Other'];
 const INTERESTS= ['Weight Loss', 'Muscle Gain', 'Fitness', 'Yoga', 'Cardio', 'Personal Training', 'Other'];
-const STATUSES = Object.keys(STATUS_CONFIG);
 const PER_PAGE = 10;
 
-const LeadModal = ({ lead, onSave, onClose }) => {
+const LeadModal = ({ lead, statuses, onSave, onClose }) => {
   const isEdit = !!lead;
   const [form, setForm] = useState({
-    name:         lead?.name         || '',
-    phone:        lead?.phone        || '',
-    email:        lead?.email        || '',
-    age:          lead?.age          || '',
-    gender:       lead?.gender       || '',
-    interest:     lead?.interest     || '',
-    source:       lead?.source       || 'Walk-in',
-    message:      lead?.message      || '',
-    status:       lead?.status       || 'New',
-    followUpDate: lead?.followUpDate ? new Date(lead.followUpDate).toISOString().split('T')[0] : '',
-    notes:        lead?.notes        || '',
+    name:          lead?.name          || '',
+    phone:         lead?.phone         || '',
+    email:         lead?.email         || '',
+    age:           lead?.age           || '',
+    gender:        lead?.gender        || '',
+    interest:      lead?.interest      || '',
+    source:        lead?.source        || 'Walk-in',
+    message:       lead?.message       || '',
+    status:        lead?.status        || 'New',
+    followUpDate:  lead?.followUpDate ? new Date(lead.followUpDate).toISOString().split('T')[0] : '',
+    notes:         lead?.notes         || '',
+    referralName:  lead?.referralName  || '',
+    referralPhone: lead?.referralPhone || '',
   });
+  const [imageFile,    setImageFile]    = useState(null);
+  const [imagePreview, setImagePreview] = useState(lead?.profileImage || '');
+  const [showBigImage, setShowBigImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err,    setErr]    = useState('');
 
   const handleChange = (field) => (e) => {
     setForm(f => ({ ...f, [field]: e.target.value }));
+  };
+
+  const handleImagePick = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleSave = async () => {
@@ -50,10 +70,14 @@ const LeadModal = ({ lead, onSave, onClose }) => {
     }
     setSaving(true); setErr('');
     try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ''));
+      if (imageFile) fd.append('profileImage', imageFile);
+
       if (isEdit) {
-        await CustomBaseUrl.put(`/leads/${lead._id}`, form);
+        await CustomBaseUrl.put(`/leads/${lead._id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       } else {
-        await CustomBaseUrl.post(`/leads`, form);
+        await CustomBaseUrl.post(`/leads`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       }
       onSave();
       onClose();
@@ -76,6 +100,22 @@ const LeadModal = ({ lead, onSave, onClose }) => {
         </div>
 
         <div className="p-5 overflow-y-auto space-y-3 flex-1">
+          <div className="flex items-center gap-3">
+            <div className="relative group">
+              <button type="button"
+                onClick={() => imagePreview && setShowBigImage(true)}
+                className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-200 bg-slate-50 flex items-center justify-center">
+                {imagePreview
+                  ? <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />
+                  : <User size={24} className="text-slate-300" />}
+              </button>
+              <label className="absolute -bottom-1 -right-1 p-1.5 bg-blue-600 rounded-full cursor-pointer shadow hover:bg-blue-700 transition">
+                <Camera size={11} className="text-white" />
+                <input type="file" accept="image/*" onChange={handleImagePick} className="hidden" />
+              </label>
+            </div>
+            <p className="text-xs text-slate-400">Profile photo <span className="text-slate-300">(optional)</span></p>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1">Full Name<span className="text-red-500 ml-0.5">*</span></label>
@@ -143,10 +183,26 @@ const LeadModal = ({ lead, onSave, onClose }) => {
               <label className="block text-xs font-semibold text-slate-500 mb-1">Status</label>
               <select value={form.status} onChange={handleChange('status')} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
                 <option value="">Select…</option>
-                {STATUSES.map(o => <option key={o} value={o}>{o}</option>)}
+                {statuses.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
           </div>
+          {form.source === 'Referral' && (
+            <div className="grid grid-cols-2 gap-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Referred By <span className="text-slate-300">(optional)</span></label>
+                <input value={form.referralName} onChange={handleChange('referralName')}
+                  placeholder="Referrer name"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Referrer Phone <span className="text-slate-300">(optional)</span></label>
+                <input value={form.referralPhone} onChange={handleChange('referralPhone')}
+                  placeholder="Referrer contact" type="tel"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
+              </div>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1">Follow-up Date</label>
             <input value={form.followUpDate} onChange={handleChange('followUpDate')} type="date"
@@ -175,14 +231,33 @@ const LeadModal = ({ lead, onSave, onClose }) => {
           </button>
         </div>
       </div>
+      {showBigImage && imagePreview && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80" onClick={() => setShowBigImage(false)}>
+          <img src={imagePreview} alt="Profile large" className="max-w-full max-h-full rounded-2xl" onClick={e => e.stopPropagation()} />
+          <button onClick={() => setShowBigImage(false)} className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20">
+            <X size={20} className="text-white" />
+          </button>
+        </div>
+      )}
       <style>{`@keyframes su{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}`}</style>
     </div>
   );
 };
 
-const StatusBadge = ({ lead, onUpdate }) => {
-  const [open, setOpen] = useState(false);
-  const cfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG.New;
+const StatusBadge = ({ lead, statuses, statusConfig, onUpdate, onAddCategory }) => {
+  const [open, setOpen]   = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [name, setName]   = useState('');
+  const cfg = statusConfig[lead.status] || statusConfig.New;
+
+  const submitNew = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onAddCategory(trimmed);
+    onUpdate(lead._id, { status: trimmed });
+    setName(''); setAdding(false); setOpen(false);
+  };
+
   return (
     <div className="relative">
       <button onClick={() => setOpen(o => !o)}
@@ -192,15 +267,76 @@ const StatusBadge = ({ lead, onUpdate }) => {
         <ChevronDown size={9} />
       </button>
       {open && (
-        <div className="absolute z-20 top-full mt-1 left-0 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden min-w-[120px]">
-          {STATUSES.map(s => (
+        <div className="absolute z-20 top-full mt-1 left-0 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden min-w-[150px]">
+          {statuses.map(s => (
             <button key={s} onClick={() => { onUpdate(lead._id, { status: s }); setOpen(false); }}
               className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 transition ${lead.status===s?'font-bold':''}`}>
-              <span className={`w-2 h-2 rounded-full ${STATUS_CONFIG[s].dot}`} />
+              <span className={`w-2 h-2 rounded-full ${statusConfig[s].dot}`} />
               {s}
               {lead.status===s && <Check size={10} className="ml-auto text-emerald-600" />}
             </button>
           ))}
+          <div className="border-t border-slate-100">
+            {adding ? (
+              <div className="flex items-center gap-1 px-2 py-1.5">
+                <input autoFocus value={name} onChange={e => setName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') submitNew(); if (e.key === 'Escape') setAdding(false); }}
+                  placeholder="Category name"
+                  className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <button onClick={submitNew} className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700"><Check size={11} /></button>
+              </div>
+            ) : (
+              <button onClick={() => setAdding(true)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-blue-600 font-semibold hover:bg-blue-50 transition">
+                <Plus size={11} /> Add category
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Avatar = ({ lead }) => {
+  const [big, setBig] = useState(false);
+  if (!lead.profileImage) {
+    return (
+      <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center">
+        <User size={14} className="text-slate-300" />
+      </div>
+    );
+  }
+  return (
+    <>
+      <button onClick={() => setBig(true)} className="w-8 h-8 rounded-full overflow-hidden border border-slate-200">
+        <img src={lead.profileImage} alt={lead.name} className="w-full h-full object-cover" />
+      </button>
+      {big && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80" onClick={() => setBig(false)}>
+          <img src={lead.profileImage} alt={lead.name} className="max-w-full max-h-full rounded-2xl" onClick={e => e.stopPropagation()} />
+          <button onClick={() => setBig(false)} className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20">
+            <X size={20} className="text-white" />
+          </button>
+        </div>
+      )}
+    </>
+  );
+};
+
+const NotesCell = ({ notes }) => {
+  const [open, setOpen] = useState(false);
+  if (!notes) return <span className="text-slate-300">—</span>;
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(o => !o)}
+        className="text-slate-500 hover:text-slate-800 transition text-left max-w-[140px] truncate block">
+        {notes}
+      </button>
+      {open && (
+        <div className="absolute z-20 top-full mt-1 left-0 bg-white rounded-xl shadow-xl border border-slate-100 p-3 w-64 text-slate-600 whitespace-pre-wrap"
+          onClick={() => setOpen(false)}>
+          {notes}
         </div>
       )}
     </div>
@@ -250,8 +386,31 @@ const Leads = () => {
   const [editLead,  setEditLead]  = useState(null);
   const [delTarget, setDelTarget] = useState(null);
   const [page,      setPage]      = useState(1);
+  const [customStatuses, setCustomStatuses] = useState([]);
 
-  useEffect(() => { fetchLeads(); }, []);
+  const statuses = [...Object.keys(BASE_STATUS_CONFIG), ...customStatuses];
+  const statusConfig = customStatuses.reduce((acc, name, i) => {
+    acc[name] = CUSTOM_STATUS_COLORS[i % CUSTOM_STATUS_COLORS.length];
+    return acc;
+  }, { ...BASE_STATUS_CONFIG });
+
+  const fetchCustomStatuses = async () => {
+    try {
+      const res = await CustomBaseUrl.get(`/leads/statuses`);
+      const names = (res.data?.statuses || []).filter(n => !Object.keys(BASE_STATUS_CONFIG).includes(n));
+      setCustomStatuses(names);
+    } catch(e) { console.error(e); }
+  };
+
+  const handleAddCategory = async (name) => {
+    if (statuses.includes(name)) return;
+    try {
+      await CustomBaseUrl.post(`/leads/statuses`, { name });
+      setCustomStatuses(prev => [...prev, name]);
+    } catch { alert('Failed to add category'); }
+  };
+
+  useEffect(() => { fetchLeads(); fetchCustomStatuses(); }, []);
   useEffect(() => { setPage(1); }, [filter, search]);
 
   const fetchLeads = async () => {
@@ -284,7 +443,7 @@ const Leads = () => {
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  const counts = STATUSES.reduce((acc, s) => { acc[s] = leads.filter(l => l.status === s).length; return acc; }, {});
+  const counts = statuses.reduce((acc, s) => { acc[s] = leads.filter(l => l.status === s).length; return acc; }, {});
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -328,7 +487,7 @@ const Leads = () => {
 
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-            {['All', ...STATUSES].map(s => (
+            {['All', ...statuses].map(s => (
               <button key={s} onClick={() => setFilter(s)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                   filter === s ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
@@ -366,8 +525,8 @@ const Leads = () => {
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50 border-b border-slate-100">
                     <tr>
-                      {['#','Name','Phone','Interest','Source','Status','Follow-up','Actions'].map(h => (
-                        <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                      {['#','','Name','Phone','Interest','Source','Status','Follow-up','Notes','Actions'].map((h,idx) => (
+                        <th key={idx} className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -375,6 +534,7 @@ const Leads = () => {
                     {paginated.map((l, i) => (
                       <tr key={l._id} className="hover:bg-slate-50 transition group">
                         <td className="px-3 py-2.5 text-slate-400 font-mono text-[10px]">{(page-1)*PER_PAGE + i + 1}</td>
+                        <td className="px-3 py-2.5"><Avatar lead={l} /></td>
                         <td className="px-3 py-2.5">
                           <p className="font-semibold text-slate-800 whitespace-nowrap">{l.name}</p>
                           {l.email && <p className="text-[10px] text-slate-400">{l.email}</p>}
@@ -383,13 +543,17 @@ const Leads = () => {
                         <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{l.interest || '—'}</td>
                         <td className="px-3 py-2.5">
                           <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-medium whitespace-nowrap">{l.source}</span>
+                          {l.source === 'Referral' && l.referralName && (
+                            <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">by {l.referralName}</p>
+                          )}
                         </td>
                         <td className="px-3 py-2.5">
-                          <StatusBadge lead={l} onUpdate={handleUpdate} />
+                          <StatusBadge lead={l} statuses={statuses} statusConfig={statusConfig} onUpdate={handleUpdate} onAddCategory={handleAddCategory} />
                         </td>
                         <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">
                           {l.followUpDate ? new Date(l.followUpDate).toLocaleDateString('en-IN') : '—'}
                         </td>
+                        <td className="px-3 py-2.5"><NotesCell notes={l.notes} /></td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
                             {l.phone && (
@@ -426,7 +590,7 @@ const Leads = () => {
       </div>
 
       {showModal && (
-        <LeadModal lead={editLead} onSave={fetchLeads} onClose={() => { setShowModal(false); setEditLead(null); }} />
+        <LeadModal lead={editLead} statuses={statuses} onSave={fetchLeads} onClose={() => { setShowModal(false); setEditLead(null); }} />
       )}
 
       {delTarget && (

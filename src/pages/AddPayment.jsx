@@ -8,6 +8,25 @@ import {
   ArrowLeft, User, Clock, Zap, Star, Gift, Plus, Loader, Mail, RefreshCw
 } from 'lucide-react';
 
+// Parses a 'YYYY-MM-DD' string as a local date instead of UTC (new Date('YYYY-MM-DD')
+// parses as UTC midnight, which can roll back to the previous day in local time).
+const parseLocalDate = (d) => {
+  if (!d) return null;
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split('-').map(Number);
+    return new Date(y, m - 1, day);
+  }
+  return new Date(d);
+};
+
+// Formats a Date as local 'YYYY-MM-DD' (avoids UTC roll-back from toISOString()).
+const toLocalDateStr = (dt) => {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 // ─── Preset packages ────────────────────────────────────────────────────────
 const PRESET_PACKAGES = [
   { id: 'basic', label: 'Basic', price: 1000, months: 1, color: 'bg-slate-100 border-slate-300 text-slate-700', accent: 'bg-slate-600', icon: Star },
@@ -79,7 +98,7 @@ const loadScript = (src) => new Promise((res, rej) => {
 
 // ─── Invoice PDF — Wolverine Fitness Club branded style ──────────────────────
 const generateInvoicePDF = async (invoiceData) => {
-  const { member, pkg, amount, discount, finalAmount, paymentMethod, startDate, endDate, invoiceNo, paymentType, advanceAmount: advPaid, balanceAmount: balAmt } = invoiceData;
+  const { member, pkg, amount, discount, finalAmount, paymentMethod, startDate, endDate, issuedDate, invoiceNo, paymentType, advanceAmount: advPaid, balanceAmount: balAmt } = invoiceData;
   const isPartly = paymentType === 'partly';
 
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
@@ -88,11 +107,11 @@ const generateInvoicePDF = async (invoiceData) => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = 210, H = 297, pad = 15;
 
-  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+  const fmtDate = (d) => d ? parseLocalDate(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
   const fmtAmt  = (n) => `Rs. ${(n || 0).toLocaleString('en-IN')}`;
 
-  const sdObj = startDate ? new Date(startDate) : null;
-  const edObj = endDate   ? new Date(endDate)   : null;
+  const sdObj = startDate ? parseLocalDate(startDate) : null;
+  const edObj = endDate   ? parseLocalDate(endDate)   : null;
   const sdStr = fmtDate(startDate);
   const edStr = fmtDate(endDate);
 
@@ -124,14 +143,17 @@ const generateInvoicePDF = async (invoiceData) => {
   // ── DARK HEADER ──────────────────────────────────────────────────────────────
   doc.setFillColor(...C.dark); doc.rect(0, 0, W, 43, 'F');
 
-  doc.setFontSize(22); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
-  doc.text('WOLVERINE FITNESS CLUB', W / 2, 18, { align: 'center' });
+  doc.setFontSize(19); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
+  doc.text('WOLVERINE FITNESS CLUB', W / 2, 16, { align: 'center' });
 
-  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gold);
-  doc.text('YOUR ULTIMATE FITNESS DESTINATION', W / 2, 27, { align: 'center' });
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gold);
+  doc.text('YOUR ULTIMATE FITNESS DESTINATION', W / 2, 24, { align: 'center' });
+
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.white);
+  doc.text('GSTIN: 33BOAPH6375A1ZF', W / 2, 31, { align: 'center' });
 
   doc.setDrawColor(...C.gold); doc.setLineWidth(0.5);
-  doc.line(pad + 28, 33, W - pad - 28, 33);
+  doc.line(pad + 28, 36, W - pad - 28, 36);
 
   doc.setDrawColor(...C.gold); doc.setLineWidth(1.2);
   doc.line(0, 43, W, 43);
@@ -152,7 +174,7 @@ const generateInvoicePDF = async (invoiceData) => {
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.textGy);
   doc.text('Issued On', pad, y);
   doc.setTextColor(...C.textDk);
-  doc.text(fmtDate(new Date()), pad + 28, y);
+  doc.text(issuedDate ? fmtDate(issuedDate) : fmtDate(new Date()), pad + 28, y);
   y += 10;
 
   // PAID badge (new payments are always paid or partial)
@@ -160,7 +182,7 @@ const generateInvoicePDF = async (invoiceData) => {
     doc.setFillColor(...C.green);
     doc.roundedRect(pad, y, 22, 8, 2, 2, 'F');
     doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.white);
-    doc.text('v  PAID', pad + 11, y + 5.5, { align: 'center' });
+    doc.text('PAID', pad + 11, y + 5.5, { align: 'center' });
   } else {
     doc.setFillColor(...C.red);
     doc.roundedRect(pad, y, 26, 8, 2, 2, 'F');
@@ -325,7 +347,7 @@ const uploadPdfToCloudinary = async (pdfBlob, fileName) => {
 
 // ─── Invoice Modal ───────────────────────────────────────────────────────────
 const InvoiceModal = ({ data, onClose }) => {
-  const { member, pkg, amount, discount, finalAmount, paymentType, advanceAmount: advPaid, balanceAmount: balAmt, paymentMethod, startDate, endDate, invoiceNo } = data;
+  const { member, pkg, amount, discount, finalAmount, paymentType, advanceAmount: advPaid, balanceAmount: balAmt, paymentMethod, startDate, endDate, issuedDate, invoiceNo } = data;
 
   // stages: 'generating' | 'uploading' | 'ready' | 'error'
   const [stage, setStage] = useState('generating');
@@ -443,8 +465,8 @@ const InvoiceModal = ({ data, onClose }) => {
       `💰 *Original Amount:*  ₹${amount.toLocaleString('en-IN')}\n` +
       (discount > 0 ? `🏷️ *Discount Applied:*  ₹${discount.toLocaleString('en-IN')}\n` : ``) +
       `${paymentLine}\n\n` +
-      `📅 *Membership Start:*  ${new Date(startDate).toLocaleDateString('en-IN')}\n` +
-      `📅 *Membership End:*  ${new Date(endDate).toLocaleDateString('en-IN')}\n\n` +
+      `📅 *Membership Start:*  ${parseLocalDate(startDate).toLocaleDateString('en-IN')}\n` +
+      `📅 *Membership End:*  ${parseLocalDate(endDate).toLocaleDateString('en-IN')}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `${pdfSection}` +
       `We look forward to supporting your fitness journey! 💪\n\n` +
@@ -509,9 +531,9 @@ const InvoiceModal = ({ data, onClose }) => {
       ['Advance Paid', `₹${(advPaid || 0).toLocaleString('en-IN')}`],
       ['Balance Due',  `₹${(balAmt  || 0).toLocaleString('en-IN')}`],
     ] : []),
-    ['Start Date', new Date(startDate).toLocaleDateString('en-IN')],
-    ['End Date', new Date(endDate).toLocaleDateString('en-IN')],
-    ['Issued On', new Date().toLocaleDateString('en-IN')],
+    ['Start Date', parseLocalDate(startDate).toLocaleDateString('en-IN')],
+    ['End Date', parseLocalDate(endDate).toLocaleDateString('en-IN')],
+    ['Issued On', issuedDate ? parseLocalDate(issuedDate).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')],
   ];
 
   const stageLabel = {
@@ -562,8 +584,8 @@ const InvoiceModal = ({ data, onClose }) => {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Membership Period</div>
-                <div style={{ fontSize: '12px', color: '#475569', marginTop: '3px' }}>Start: {new Date(startDate).toLocaleDateString('en-IN')}</div>
-                <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>End: &nbsp;&nbsp;{new Date(endDate).toLocaleDateString('en-IN')}</div>
+                <div style={{ fontSize: '12px', color: '#475569', marginTop: '3px' }}>Start: {parseLocalDate(startDate).toLocaleDateString('en-IN')}</div>
+                <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>End: &nbsp;&nbsp;{parseLocalDate(endDate).toLocaleDateString('en-IN')}</div>
                 <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>Mode: {(paymentMethod || '').toUpperCase()}</div>
               </div>
             </div>
@@ -580,7 +602,7 @@ const InvoiceModal = ({ data, onClose }) => {
                 <tr style={{ background: '#f8fafc' }}>
                   <td style={{ padding: '14px', borderBottom: '1px solid #e2e8f0' }}>
                     <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b' }}>{pkg || '—'} Membership</div>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{new Date(startDate).toLocaleDateString('en-IN')} – {new Date(endDate).toLocaleDateString('en-IN')}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{parseLocalDate(startDate).toLocaleDateString('en-IN')} – {parseLocalDate(endDate).toLocaleDateString('en-IN')}</div>
                     <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Payment Mode: {(paymentMethod || '').toUpperCase()}</div>
                   </td>
                   <td style={{ padding: '14px', textAlign: 'center', fontSize: '13px', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>1</td>
@@ -795,6 +817,7 @@ const AddPayment = () => {
   const [durationMonths, setDurationMonths] = useState(1);
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+  const [issuedDate, setIssuedDate] = useState(toLocalDateStr(new Date()));
 
   // Payment
   const [amount, setAmount] = useState('');
@@ -884,8 +907,8 @@ const AddPayment = () => {
     const end = new Date(start);
     end.setMonth(end.getMonth() + durationMonths);
     return {
-      startDate: start.toISOString().split('T')[0],
-      endDate: end.toISOString().split('T')[0],
+      startDate: toLocalDateStr(start),
+      endDate: toLocalDateStr(end),
     };
   };
 
@@ -927,6 +950,7 @@ const AddPayment = () => {
         paymentMode:    paymentMethod,
         startDate,
         endDate,
+        issuedDate,
         invoiceNo,
         isRenewal,
         pdfUrl: '',
@@ -951,6 +975,7 @@ const AddPayment = () => {
         paymentMethod,
         startDate,
         endDate,
+        issuedDate,
         invoiceNo,
         savedPaymentId: res.data.payment._id,
       });
@@ -1129,6 +1154,12 @@ const AddPayment = () => {
                   </div>
                 </div>
               )}
+
+              <div className="mt-4">
+                <label className="text-xs text-slate-500 mb-1 block">Issued Date</label>
+                <input type="date" value={issuedDate} onChange={e => setIssuedDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+              </div>
             </div>
           )}
         </div>
@@ -1278,16 +1309,16 @@ const AddPayment = () => {
           </div>
 
           {/* UPI QR */}
-          {paymentMethod === 'upi' && finalAmount > 0 && (
+          {paymentMethod === 'upi' && (paymentType === 'partly' ? advancePaid : finalAmount) > 0 && (
             <div className="mt-4">
               <UpiQR
-                amount={finalAmount}
+                amount={paymentType === 'partly' ? advancePaid : finalAmount}
                 upiId="hari38918@okaxis"
                 name="Harish R"
               />
             </div>
           )}
-          {paymentMethod === 'upi' && finalAmount === 0 && (
+          {paymentMethod === 'upi' && (paymentType === 'partly' ? advancePaid : finalAmount) === 0 && (
             <p className="mt-3 text-center text-xs text-slate-400">Enter amount above to show QR code</p>
           )}
         </div>
