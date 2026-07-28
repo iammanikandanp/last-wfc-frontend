@@ -567,6 +567,7 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
     balanceAmount: payment.balanceAmount || 0,
     startDate: payment.startDate?.split('T')[0] || '', endDate: payment.endDate?.split('T')[0] || '',
     package: payment.package || '',
+    nextDueDate: payment.nextDueDate?.split('T')[0] || '',
   });
 
   const handleChange = e => {
@@ -615,6 +616,9 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
             <PaymentField label="Start Date" name="startDate" type="date" form={form} onChange={handleChange}/>
             <PaymentField label="End Date" name="endDate" type="date" form={form} onChange={handleChange}/>
           </div>
+          {form.paymentType === 'partly' && (
+            <PaymentField label="Next Due Date" name="nextDueDate" type="date" form={form} onChange={handleChange}/>
+          )}
           <PaymentField label="Package" name="package" form={form} onChange={handleChange}/>
           {errMsg && <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-xs text-red-700">{errMsg}</div>}
         </div>
@@ -692,6 +696,11 @@ const PayNowModal = ({ payment, onSave, onClose }) => {
         writtenOff: false,
         writtenOffAt: null,
       });
+
+      // Note: the backend automatically records the newly collected balance
+      // as Income → Admission when advanceAmount increases (see
+      // regPaymentController.js#updateRegPayment).
+
       onSave();
       onClose();
     } catch(e) {
@@ -748,6 +757,9 @@ const Payments = () => {
   const [emailTarget, setEmailTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingDueDateId, setEditingDueDateId] = useState(null);
+  const [dueDateDraft, setDueDateDraft] = useState('');
+  const [savingDueDate, setSavingDueDate] = useState(false);
   const [invoiceTarget, setInvoiceTarget] = useState(null);
   const [sharingWa, setSharingWa] = useState(false);
   const [waPayment, setWaPayment] = useState(null);
@@ -786,6 +798,31 @@ const Payments = () => {
       await CustomBaseUrl.delete(`/block-list/${b._id}`);
       setBlockList(prev => prev.filter(x => x._id !== b._id));
     } catch (e) { alert('Unblock failed: ' + (e.response?.data?.message || e.message)); }
+  };
+
+  const startEditDueDate = (p) => {
+    setEditingDueDateId(p._id);
+    setDueDateDraft(p.nextDueDate ? p.nextDueDate.slice(0, 10) : '');
+  };
+
+  const cancelEditDueDate = () => {
+    setEditingDueDateId(null);
+    setDueDateDraft('');
+  };
+
+  const saveDueDate = async (p) => {
+    if (!dueDateDraft) return cancelEditDueDate();
+    setSavingDueDate(true);
+    try {
+      const res = await CustomBaseUrl.put(`/reg-payments/${p._id}`, { nextDueDate: dueDateDraft });
+      const updated = res.data?.payment;
+      setPayments(prev => prev.map(x => x._id === p._id ? { ...x, nextDueDate: updated?.nextDueDate || dueDateDraft } : x));
+      cancelEditDueDate();
+    } catch (e) {
+      alert('Failed to update next due date: ' + (e.response?.data?.message || e.message));
+    } finally {
+      setSavingDueDate(false);
+    }
   };
 
   const handleShareAsImage = async (p) => {
@@ -979,14 +1016,14 @@ const Payments = () => {
               <table className="w-full text-xs">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    {['#','Member','Package','Amount','Balance','Mode','Type','Date','Actions'].map(h => (
+                    {['#','Member','Package','Amount','Balance','Next Due','Mode','Type','Date','Actions'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {paginated.length === 0 ? (
-                    <tr><td colSpan={9} className="text-center py-10 text-slate-400">No records found</td></tr>
+                    <tr><td colSpan={10} className="text-center py-10 text-slate-400">No records found</td></tr>
                   ) : paginated.map((p, i) => {
                     const isPending   = !p.writtenOff && p.balanceAmount > 0;
                     const isWrittenOff = !!p.writtenOff;
@@ -1014,6 +1051,34 @@ const Payments = () => {
                             : isPending
                               ? <span className="font-bold text-red-600 whitespace-nowrap">₹{p.balanceAmount.toLocaleString('en-IN')}</span>
                               : <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle size={11}/> Paid</span>}
+                        </td>
+                        <td className="px-3 py-2.5" onDoubleClick={() => p.paymentType === 'partly' && !isWrittenOff && startEditDueDate(p)}>
+                          {p.paymentType !== 'partly' ? (
+                            <span className="text-slate-300">—</span>
+                          ) : editingDueDateId === p._id ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="date"
+                                autoFocus
+                                value={dueDateDraft}
+                                disabled={savingDueDate}
+                                onChange={e => setDueDateDraft(e.target.value)}
+                                onBlur={() => saveDueDate(p)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') saveDueDate(p);
+                                  if (e.key === 'Escape') cancelEditDueDate();
+                                }}
+                                className="px-1.5 py-1 border border-amber-300 rounded-lg text-[11px] font-semibold text-amber-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                              />
+                            </div>
+                          ) : (
+                            <span
+                              title="Double-click to edit"
+                              className={`whitespace-nowrap font-semibold cursor-pointer hover:underline decoration-dotted ${p.nextDueDate ? 'text-amber-700' : 'text-slate-400'}`}
+                            >
+                              {p.nextDueDate ? new Date(p.nextDueDate).toLocaleDateString('en-IN') : 'Set date'}
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-2.5"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${modeColor(p.paymentMode)}`}>{p.paymentMode || '—'}</span></td>
                         <td className="px-3 py-2.5">
@@ -1110,7 +1175,7 @@ const Payments = () => {
               <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
                 <div style={{ flex: 1, background: '#f8fafc', borderRadius: '8px', padding: '14px' }}>
                   <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Payment Info</div>
-                  {[['Invoice No', waPayment.invoiceNo], ['Date', waPayment.createdAt ? new Date(waPayment.createdAt).toLocaleDateString('en-IN') : '—'], ['Pay Mode', (waPayment.paymentMode||'').toUpperCase()], ['Pay Type', waPayment.paymentType === 'partly' ? 'Advance' : 'Full']].map(([k,v]) => (
+                  {[['Invoice No', waPayment.invoiceNo], ['GSTIN', '33BOAPH6375A1ZF'], ['Date', waPayment.createdAt ? new Date(waPayment.createdAt).toLocaleDateString('en-IN') : '—'], ['Pay Mode', (waPayment.paymentMode||'').toUpperCase()], ['Pay Type', waPayment.paymentType === 'partly' ? 'Advance' : 'Full']].map(([k,v]) => (
                     <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#475569', padding: '3px 0' }}><span>{k}</span><span style={{ fontWeight: '600', color: '#1e293b' }}>{v}</span></div>
                   ))}
                 </div>

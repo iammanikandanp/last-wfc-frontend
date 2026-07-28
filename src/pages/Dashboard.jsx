@@ -55,6 +55,65 @@ const MemberModal = ({ title, members, color, onClose }) => {
   );
 };
 
+// Lists members needing action (renewal / balance) with per-row Renew, Pay, Edit buttons
+// so staff pick which member to act on instead of being dropped straight into a blank payment form.
+const ActionMemberModal = ({ title, members, color, mode, onClose }) => {
+  const navigate = useNavigate();
+
+  const goRenew = (m) => {
+    onClose();
+    navigate('/payments/new', { state: { renewMember: m, isRenewal: true } });
+  };
+  const goPay = (m) => {
+    onClose();
+    navigate('/payments/new', { state: { renewMember: m } });
+  };
+  const goEdit = (m) => {
+    onClose();
+    navigate('/register', { state: { editData: m } });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[75vh] flex flex-col overflow-hidden" onClick={e=>e.stopPropagation()} style={{animation:'su .2s ease'}}>
+        <div className={`px-5 py-4 flex items-center justify-between ${color.hBg}`}>
+          <p className={`font-bold text-sm ${color.hTxt}`}>{title} <span className="opacity-60 font-normal">({members.length})</span></p>
+          <button onClick={onClose} className="p-1 rounded-full hover:bg-black/10"><X size={15}/></button>
+        </div>
+        <div className="overflow-y-auto flex-1 divide-y divide-slate-50">
+          {members.length===0 ? (
+            <div className="text-center py-10 text-slate-400"><Users size={28} className="mx-auto mb-2 opacity-25"/><p className="text-xs">No members</p></div>
+          ) : members.map(m => {
+            const diff = m.endDate ? Math.ceil((new Date(m.endDate)-new Date())/86400000) : null;
+            return (
+              <div key={m._id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition">
+                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">{m.name?.[0]?.toUpperCase()||'?'}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{m.name}</p>
+                  <p className="text-[11px] text-slate-400">
+                    {m.phone}
+                    {mode==='balance' && m.balanceAmount>0 && <span className="ml-1.5 font-bold text-violet-600">₹{m.balanceAmount.toLocaleString('en-IN')} due</span>}
+                    {mode==='renewal' && diff!==null && <span className={`ml-1.5 font-bold ${diff<0?'text-red-600':'text-amber-600'}`}>{diff<0?`${Math.abs(diff)}d over`:diff===0?'Today':`${diff}d left`}</span>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {mode==='balance' ? (
+                    <button onClick={()=>goPay(m)} title="Collect Payment" className="p-1.5 rounded-lg text-violet-600 hover:bg-violet-50"><CreditCard size={14}/></button>
+                  ) : (
+                    <button onClick={()=>goRenew(m)} title="Renew" className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50"><RefreshCw size={14}/></button>
+                  )}
+                  <button onClick={()=>goEdit(m)} title="Edit" className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100"><Edit3 size={14}/></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <style>{`@keyframes su{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
+    </div>
+  );
+};
+
 const AddReminderModal = ({ onSave, onClose }) => {
   const [text, setText] = useState('');
   const [type, setType] = useState('note');
@@ -768,6 +827,7 @@ const AdminDashboard = () => {
   const [dietPlans,setDietPlans]= useState([]);
   const [loading,  setLoading]  = useState(true);
   const [modal,    setModal]    = useState(null);
+  const [actionModal, setActionModal] = useState(null);
   const [showAddReminder, setShowAddReminder] = useState(false);
   const [chartReady, setChartReady] = useState(false);
 
@@ -819,8 +879,8 @@ const AdminDashboard = () => {
 
   const autoReminders = [];
   const crit=members.filter(m=>{ const d=Math.ceil((new Date(m.endDate)-new Date())/86400000); return d>=0&&d<=3; });
-  if(crit.length>0) autoReminders.push({ id:'exp3d', type:'urgent', text:`${crit.length} member${crit.length>1?'s':''} expiring in 3 days: ${crit.slice(0,2).map(m=>m.name).join(', ')}${crit.length>2?` +${crit.length-2} more`:''}`, auto:true, action:{label:'Collect Renewal',fn:()=>navigate('/payments/new')}});
-  if(balanceM.length>0) autoReminders.push({ id:'bal', type:'payment', text:`${balanceM.length} member${balanceM.length>1?'s have':' has'} pending balance.`, auto:true, action:{label:'Collect Now',fn:()=>navigate('/payments/new')}});
+  if(crit.length>0) autoReminders.push({ id:'exp3d', type:'urgent', text:`${crit.length} member${crit.length>1?'s':''} expiring in 3 days: ${crit.slice(0,2).map(m=>m.name).join(', ')}${crit.length>2?` +${crit.length-2} more`:''}`, auto:true, action:{label:'Collect Renewal',fn:()=>setActionModal({title:'Expiring Soon',members:crit,mode:'renewal',color:{hBg:'bg-amber-500 text-white',hTxt:'text-white'}})}});
+  if(balanceM.length>0) autoReminders.push({ id:'bal', type:'payment', text:`${balanceM.length} member${balanceM.length>1?'s have':' has'} pending balance.`, auto:true, action:{label:'Collect Now',fn:()=>setActionModal({title:'Pending Balance',members:balanceM,mode:'balance',color:{hBg:'bg-violet-600 text-white',hTxt:'text-white'}})}});
   const dietIds=new Set(dietPlans.map(d=>String(d.registrationId)));
   const noDiet=activeM.filter(m=>!dietIds.has(String(m._id)));
   if(noDiet.length>0) autoReminders.push({ id:'nodiet', type:'diet', text:`${noDiet.length} active member${noDiet.length>1?'s':''} have no diet plan.`, auto:true, action:{label:'Create Diet',fn:()=>navigate('/diet-plans/new')}});
@@ -981,6 +1041,7 @@ const AdminDashboard = () => {
       </div>
 
       {modal&&<MemberModal title={modal.title} members={modal.members} color={modal.color} onClose={()=>setModal(null)}/>}
+      {actionModal&&<ActionMemberModal title={actionModal.title} members={actionModal.members} mode={actionModal.mode} color={actionModal.color} onClose={()=>setActionModal(null)}/>}
       {showAddReminder&&<AddReminderModal onSave={saveManual} onClose={()=>setShowAddReminder(false)}/>}
     </div>
   );

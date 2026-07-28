@@ -460,6 +460,7 @@ const InvoiceModal = ({ data, onClose }) => {
       `🧾 *PAYMENT RECEIPT*\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `📋 *Invoice No:*  ${invoiceNo}\n` +
+      `🏢 *GSTIN:*  33BOAPH6375A1ZF\n` +
       `📦 *Package:*  ${pkg}\n` +
       `💳 *Payment Mode:*  ${paymentMethod.toUpperCase()}\n` +
       `💰 *Original Amount:*  ₹${amount.toLocaleString('en-IN')}\n` +
@@ -552,6 +553,7 @@ const InvoiceModal = ({ data, onClose }) => {
           <div className="text-3xl mb-1">💪</div>
           <h2 className="text-lg font-black tracking-wide">WFC – Wolverine Fitness Club</h2>
           <p className="text-slate-300 text-xs mt-1">Excellence in Fitness | Coimbatore</p>
+          <p className="text-slate-400 text-[11px] mt-0.5">GSTIN: 33BOAPH6375A1ZF</p>
           <div className="mt-3 inline-block bg-white/10 px-3 py-1 rounded-full text-xs font-mono">{invoiceNo}</div>
         </div>
 
@@ -564,6 +566,7 @@ const InvoiceModal = ({ data, onClose }) => {
                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>WFC – Wolverine Fitness Club</div>
                 <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>Excellence in Fitness | Coimbatore, Tamil Nadu</div>
                 <div style={{ color: '#64748b', fontSize: '12px', marginTop: '2px' }}>support@wolverinefitnessclub.com</div>
+                <div style={{ color: '#64748b', fontSize: '12px', marginTop: '2px' }}>GSTIN: 33BOAPH6375A1ZF</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#dc2626', lineHeight: 1 }}>INVOICE</div>
@@ -824,6 +827,7 @@ const AddPayment = () => {
   const [discount, setDiscount] = useState('');
   const [paymentType, setPaymentType] = useState('full');   // 'full' | 'partly'
   const [advanceAmount, setAdvanceAmount] = useState('');
+  const [nextDueDate, setNextDueDate] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
 
   // UI state
@@ -923,6 +927,7 @@ const AddPayment = () => {
     if (!amount || parseFloat(amount) <= 0) return alert('Please enter amount');
     if (selectedPkg === 'custom' && !customPkgName) return alert('Enter custom package name');
     if (durationType === 'custom' && (!customStart || !customEnd)) return alert('Select date range');
+    if (paymentType === 'partly' && !nextDueDate) return alert('Please select the next due date');
 
     setLoading(true);
     try {
@@ -947,6 +952,7 @@ const AddPayment = () => {
         paymentType,                    // 'full' | 'partly'
         advanceAmount:  advPaid,        // amount paid now
         balanceAmount:  balAmt,         // remaining due
+        nextDueDate:    paymentType === 'partly' ? nextDueDate : null,
         paymentMode:    paymentMethod,
         startDate,
         endDate,
@@ -961,6 +967,10 @@ const AddPayment = () => {
       if (!res.data.success) {
         throw new Error(res.data.message || 'Failed to save payment');
       }
+
+      // Note: the backend automatically records the collected amount as
+      // Income → Admission when the reg-payment is created (see
+      // regPaymentController.js#createRegPayment).
 
       // ── Show invoice modal ──────────────────────────────────────────────────
       setInvoiceData({
@@ -1265,6 +1275,21 @@ const AddPayment = () => {
                     readOnly
                     placeholder="0"
                     className="w-full pl-7 pr-3 py-2.5 border border-red-200 rounded-xl text-sm font-bold text-red-600 bg-red-50 cursor-not-allowed focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Next Due Date */}
+              <div className="col-span-2">
+                <label className="text-xs font-semibold text-amber-700 mb-1.5 block">Next Due Date</label>
+                <div className="relative">
+                  <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500" />
+                  <input
+                    type="date"
+                    value={nextDueDate}
+                    onChange={e => setNextDueDate(e.target.value)}
+                    min={toLocalDateStr(new Date())}
+                    className="w-full pl-9 pr-3 py-2.5 border border-amber-300 rounded-xl text-sm font-bold text-amber-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
                   />
                 </div>
               </div>
