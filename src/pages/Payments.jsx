@@ -6,7 +6,7 @@ import {
   CreditCard, Plus, Search, X, Filter, Mail, CheckCircle,
   AlertCircle, Clock, ChevronLeft, ChevronRight, Download,
   Wallet, TrendingUp, Users, RefreshCw, Send, Check, Edit3, Trash2, Save,
-  FileText, Loader, Ban, DollarSign
+  FileText, Loader, Ban, DollarSign, UserX, ShieldOff, Unlock
 } from 'lucide-react';
 
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
@@ -252,6 +252,197 @@ const generatePaymentPDF = async (p) => {
   doc.text('For queries: contact@wolverinefitnessclub.com  |  +91 97869 69711', W / 2, y, { align: 'center' });
 
   return doc;
+};
+
+// ── Export column definitions — shared by the Export modal, CSV and PDF ────────
+const paymentStatus = (p) => p.writtenOff ? 'Written Off' : (p.balanceAmount > 0 ? 'Pending' : 'Paid');
+
+const EXPORT_COLUMNS = [
+  { key: 'sno',      label: '#',            get: (p, i) => i + 1 },
+  { key: 'member',   label: 'Member',       get: (p) => p.memberName || '—' },
+  { key: 'phone',    label: 'Phone',        get: (p) => p.memberPhone || '—' },
+  { key: 'package',  label: 'Package',      get: (p) => p.package || '—' },
+  { key: 'amount',   label: 'Amount',       get: (p) => p.finalAmount || p.amount || 0, money: true },
+  { key: 'balance',  label: 'Balance',      get: (p) => p.balanceAmount || 0, money: true },
+  { key: 'status',   label: 'Status',       get: (p) => paymentStatus(p) },
+  { key: 'mode',     label: 'Payment Mode', get: (p) => p.paymentMode || '—' },
+  { key: 'type',     label: 'Payment Type', get: (p) => p.paymentType === 'partly' ? 'Part' : 'Full' },
+  { key: 'invoice',  label: 'Invoice No',   get: (p) => p.invoiceNo || '—' },
+  { key: 'date',     label: 'Date',         get: (p) => p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—' },
+];
+
+// ── CSV export of the payment list ─────────────────────────────────────────────
+const csvEscape = (val) => {
+  const s = val === null || val === undefined ? '' : String(val);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+const exportPaymentsCSV = (rows, columns, rangeLabel) => {
+  const headers = columns.map(c => c.label);
+  const lines = rows.map((p, i) => columns.map(c => csvEscape(c.get(p, i))).join(','));
+  const csv = [headers.map(csvEscape).join(','), ...lines].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `payments${rangeLabel ? `_${rangeLabel}` : ''}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
+// ── PDF export of the payment list (table) ─────────────────────────────────────
+const exportPaymentsPDF = async (rows, columns, rangeLabel) => {
+  await loadScriptP('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await loadScriptP('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 23, 42);
+  doc.text(GYM_NAME, 14, 14);
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+  doc.text(`Payment Report${rangeLabel ? ` — ${rangeLabel}` : ''}  |  Generated ${new Date().toLocaleDateString('en-IN')}  |  ${rows.length} records`, 14, 20);
+
+  const head = [columns.map(c => c.label)];
+  const body = rows.map((p, i) => columns.map(c => {
+    const v = c.get(p, i);
+    return c.money ? `Rs. ${Number(v).toLocaleString('en-IN')}` : v;
+  }));
+
+  doc.autoTable({
+    head, body, startY: 25, styles: { fontSize: 7.5, cellPadding: 2 },
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+  });
+
+  doc.save(`payments${rangeLabel ? `_${rangeLabel}` : ''}.pdf`);
+};
+
+// ── Export Modal — choose status, date range & columns before exporting ────────
+const EXPORT_STATUSES = [
+  { key: 'paid',       label: 'Paid' },
+  { key: 'pending',    label: 'Pending' },
+  { key: 'writtenoff', label: 'Written Off' },
+];
+
+const ExportModal = ({ allRows, onClose }) => {
+  const [statuses, setStatuses] = useState(['paid', 'pending', 'writtenoff']);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [columns, setColumns] = useState(() => EXPORT_COLUMNS.map(c => c.key));
+  const [exportingPdf, setExportingPdf] = useState(false);
+
+  const toggleStatus = (key) => setStatuses(prev => prev.includes(key) ? prev.filter(s => s !== key) : [...prev, key]);
+  const toggleColumn = (key) => setColumns(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]);
+
+  const rows = allRows
+    .filter(p => statuses.includes(paymentStatus(p) === 'Paid' ? 'paid' : paymentStatus(p) === 'Pending' ? 'pending' : 'writtenoff'))
+    .filter(p => {
+      if (!dateFrom && !dateTo) return true;
+      if (!p.createdAt) return false;
+      const d = new Date(p.createdAt);
+      if (dateFrom && d < new Date(`${dateFrom}T00:00:00`)) return false;
+      if (dateTo && d > new Date(`${dateTo}T23:59:59.999`)) return false;
+      return true;
+    });
+
+  const selectedColumns = EXPORT_COLUMNS.filter(c => columns.includes(c.key));
+  const rangeLabel = dateFrom || dateTo ? `${dateFrom || 'start'}_to_${dateTo || 'today'}` : '';
+  const canExport = rows.length > 0 && selectedColumns.length > 0;
+
+  const handleExportCSV = () => {
+    if (!canExport) return;
+    exportPaymentsCSV(rows, selectedColumns, rangeLabel);
+    onClose();
+  };
+
+  const handleExportPDF = async () => {
+    if (!canExport) return;
+    setExportingPdf(true);
+    try {
+      await exportPaymentsPDF(rows, selectedColumns, rangeLabel);
+      onClose();
+    } catch (e) {
+      alert('PDF export failed: ' + e.message);
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="px-5 py-4 bg-gradient-to-r from-slate-800 to-red-900 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2"><Download size={15}/> Export Payments</h3>
+          <button onClick={onClose}><X size={16} className="text-white/70 hover:text-white"/></button>
+        </div>
+
+        <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+          {/* Status */}
+          <div>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">Status</p>
+            <div className="flex flex-wrap gap-2">
+              {EXPORT_STATUSES.map(s => (
+                <label key={s.key} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition ${statuses.includes(s.key) ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+                  <input type="checkbox" className="hidden" checked={statuses.includes(s.key)} onChange={() => toggleStatus(s.key)}/>
+                  {s.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Date range */}
+          <div>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">Custom Date Range</p>
+            <div className="flex items-center gap-2">
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} max={dateTo || undefined}
+                className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300"/>
+              <span className="text-slate-300 text-xs">to</span>
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} min={dateFrom || undefined}
+                className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300"/>
+              {(dateFrom || dateTo) && (
+                <button onClick={() => { setDateFrom(''); setDateTo(''); }} title="Clear"><X size={13} className="text-slate-400 hover:text-slate-600"/></button>
+              )}
+            </div>
+          </div>
+
+          {/* Columns */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Columns</p>
+              <button onClick={() => setColumns(columns.length === EXPORT_COLUMNS.length ? [] : EXPORT_COLUMNS.map(c => c.key))}
+                className="text-[11px] font-semibold text-red-600 hover:text-red-700">
+                {columns.length === EXPORT_COLUMNS.length ? 'Uncheck all' : 'Check all'}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {EXPORT_COLUMNS.map(c => (
+                <label key={c.key} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                  <input type="checkbox" checked={columns.includes(c.key)} onChange={() => toggleColumn(c.key)}
+                    className="rounded border-slate-300 text-red-600 focus:ring-red-400"/>
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-400">{rows.length} record{rows.length === 1 ? '' : 's'} match the selected filters.</p>
+        </div>
+
+        <div className="px-5 py-4 border-t border-slate-100 flex items-center gap-2">
+          <button onClick={handleExportCSV} disabled={!canExport}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold hover:bg-emerald-100 transition disabled:opacity-40 disabled:cursor-not-allowed">
+            <FileSpreadsheet size={13}/> Export CSV
+          </button>
+          <button onClick={handleExportPDF} disabled={!canExport || exportingPdf}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
+            {exportingPdf ? <Loader size={13} className="animate-spin"/> : <FileText size={13}/>} Export PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // ── Invoice List Modal — opens all invoices for a member ──────────────────────
@@ -568,6 +759,7 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
     startDate: payment.startDate?.split('T')[0] || '', endDate: payment.endDate?.split('T')[0] || '',
     dueDate: payment.dueDate?.split('T')[0] || '',
     package: payment.package || '',
+    nextDueDate: payment.nextDueDate?.split('T')[0] || '',
   });
 
   const handleChange = e => {
@@ -616,9 +808,6 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
             <PaymentField label="Start Date" name="startDate" type="date" form={form} onChange={handleChange}/>
             <PaymentField label="End Date" name="endDate" type="date" form={form} onChange={handleChange}/>
           </div>
-          {form.paymentType === 'partly' && (
-            <PaymentField label="Due Date" name="dueDate" type="date" form={form} onChange={handleChange}/>
-          )}
           <PaymentField label="Package" name="package" form={form} onChange={handleChange}/>
           {errMsg && <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-xs text-red-700">{errMsg}</div>}
         </div>
@@ -696,6 +885,11 @@ const PayNowModal = ({ payment, onSave, onClose }) => {
         writtenOff: false,
         writtenOffAt: null,
       });
+
+      // Note: the backend automatically records the newly collected balance
+      // as Income → Admission when advanceAmount increases (see
+      // regPaymentController.js#updateRegPayment).
+
       onSave();
       onClose();
     } catch(e) {
@@ -748,10 +942,16 @@ const Payments = () => {
   const [fetchError, setFetchError] = useState('');
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [emailTarget, setEmailTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingDueDateId, setEditingDueDateId] = useState(null);
+  const [dueDateDraft, setDueDateDraft] = useState('');
+  const [savingDueDate, setSavingDueDate] = useState(false);
   const [invoiceTarget, setInvoiceTarget] = useState(null);
   const [sharingWa, setSharingWa] = useState(false);
   const [waPayment, setWaPayment] = useState(null);
@@ -760,7 +960,35 @@ const Payments = () => {
   const invoiceShareRef = useRef(null);
   const PER_PAGE = 20;
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); fetchBlockList(); }, []);
+
+  const fetchBlockList = async () => {
+    try {
+      const res = await CustomBaseUrl.get('/block-list');
+      setBlockList(res.data?.data || []);
+    } catch (e) { console.warn('Could not load block list:', e.message); }
+  };
+
+  const isBlocked = (p) => blockList.some(b => b.memberPhone === p.memberPhone);
+
+  const handleDropPayment = async (p) => {
+    if (isBlocked(p)) return;
+    try {
+      const res = await CustomBaseUrl.post('/block-list', {
+        registrationId: p.registrationId,
+        memberName: p.memberName,
+        memberPhone: p.memberPhone,
+      });
+      setBlockList(prev => [res.data.data, ...prev]);
+    } catch (e) { alert('Could not block member: ' + (e.response?.data?.message || e.message)); }
+  };
+
+  const handleUnblock = async (b) => {
+    try {
+      await CustomBaseUrl.delete(`/block-list/${b._id}`);
+      setBlockList(prev => prev.filter(x => x._id !== b._id));
+    } catch (e) { alert('Unblock failed: ' + (e.response?.data?.message || e.message)); }
+  };
 
   const handleShareAsImage = async (p) => {
     setWaPayment(p);
@@ -831,12 +1059,20 @@ const Payments = () => {
       const q = search.toLowerCase();
       return p.memberName?.toLowerCase().includes(q) || p.memberPhone?.includes(q) ||
              p.invoiceNo?.toLowerCase().includes(q) || p.package?.toLowerCase().includes(q);
+    })
+    .filter(p => {
+      if (!dateFrom && !dateTo) return true;
+      if (!p.createdAt) return false;
+      const d = new Date(p.createdAt);
+      if (dateFrom && d < new Date(`${dateFrom}T00:00:00`)) return false;
+      if (dateTo && d > new Date(`${dateTo}T23:59:59.999`)) return false;
+      return true;
     });
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  useEffect(() => setPage(1), [filter, search]);
+  useEffect(() => setPage(1), [filter, search, dateFrom, dateTo]);
 
   const totalRevenue = payments.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
   const totalPending = payments.reduce((s, p) => s + (p.writtenOff ? 0 : (p.balanceAmount || 0)), 0);
@@ -902,12 +1138,17 @@ const Payments = () => {
               </button>
             ))}
           </div>
-          <div className="relative w-full sm:w-auto sm:ml-auto">
+          <div className="relative ml-auto">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
             <input name="search" aria-label="Search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Name / phone / invoice…"
               className="w-full pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 sm:w-48 shadow-sm"/>
             {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X size={11} className="text-slate-400"/></button>}
           </div>
+
+          <button onClick={() => setExportModalOpen(true)} disabled={payments.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition shadow-sm disabled:opacity-40">
+            <Download size={12}/> Export
+          </button>
         </div>
 
         {fetchError && (
@@ -935,14 +1176,14 @@ const Payments = () => {
               <table className="w-full text-xs">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    {['Member', 'Package', 'Start Date', 'End Date', 'Total', 'Paid', 'Pending', 'Due Date', 'Status', 'Actions'].map(h => (
+                    {['#','Member','Package','Amount','Balance','Mode','Type','Date','Actions'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {paginated.length === 0 ? (
-                    <tr><td colSpan={9} className="text-center py-10 text-slate-400">No records found</td></tr>
+                    <tr><td colSpan={10} className="text-center py-10 text-slate-400">No records found</td></tr>
                   ) : paginated.map((p, i) => {
                     const isPending   = !p.writtenOff && p.balanceAmount > 0;
                     const isWrittenOff = !!p.writtenOff;
@@ -974,6 +1215,14 @@ const Payments = () => {
                               ? <span className="flex items-center gap-1 text-red-600 font-semibold whitespace-nowrap"><AlertCircle size={11}/> Pending</span>
                               : <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle size={11}/> Paid</span>}
                         </td>
+                        <td className="px-3 py-2.5"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${modeColor(p.paymentMode)}`}>{p.paymentMode || '—'}</span></td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${p.paymentType === 'partly' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{p.paymentType === 'partly' ? 'Part' : 'Full'}</span>
+                            {p.isRenewal && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">🔄 Renew</span>}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—'}</td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
                             <button onClick={() => setInvoiceTarget(p)} title="View & download invoices" className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"><FileText size={13}/></button>
@@ -1025,6 +1274,7 @@ const Payments = () => {
       {deleteTarget && <DeletePaymentModal payment={deleteTarget} onConfirm={handleDeleteConfirm} onClose={() => setDeleteTarget(null)}/>}
       {writeOffTarget && <WriteOffModal payment={writeOffTarget} onConfirm={handleWriteOff} onClose={() => setWriteOffTarget(null)}/>}
       {payNowTarget && <PayNowModal payment={payNowTarget} onSave={fetchAll} onClose={() => setPayNowTarget(null)}/>}
+      {exportModalOpen && <ExportModal allRows={enriched} onClose={() => setExportModalOpen(false)}/>}
 
       {/* Hidden invoice template captured by html2canvas for WhatsApp image sharing */}
       <div style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1, pointerEvents: 'none' }}>
@@ -1056,7 +1306,7 @@ const Payments = () => {
               <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
                 <div style={{ flex: 1, background: '#f8fafc', borderRadius: '8px', padding: '14px' }}>
                   <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Payment Info</div>
-                  {[['Invoice No', waPayment.invoiceNo], ['Date', waPayment.createdAt ? new Date(waPayment.createdAt).toLocaleDateString('en-IN') : '—'], ['Pay Mode', (waPayment.paymentMode||'').toUpperCase()], ['Pay Type', waPayment.paymentType === 'partly' ? 'Advance' : 'Full']].map(([k,v]) => (
+                  {[['Invoice No', waPayment.invoiceNo], ['GSTIN', '33BOAPH6375A1ZF'], ['Date', waPayment.createdAt ? new Date(waPayment.createdAt).toLocaleDateString('en-IN') : '—'], ['Pay Mode', (waPayment.paymentMode||'').toUpperCase()], ['Pay Type', waPayment.paymentType === 'partly' ? 'Advance' : 'Full']].map(([k,v]) => (
                     <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#475569', padding: '3px 0' }}><span>{k}</span><span style={{ fontWeight: '600', color: '#1e293b' }}>{v}</span></div>
                   ))}
                 </div>
