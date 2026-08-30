@@ -47,7 +47,7 @@ const Training = () => {
   return (
     <div>
       <Navbar />
-      <div className='min-h-screen bg-slate-50'>
+      <div className='min-h-screen bg-slate-200'>
         <div className='max-w-7xl mx-auto px-4 py-8'>
           {/* Header */}
           <div className='flex justify-between items-center mb-8'>

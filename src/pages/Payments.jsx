@@ -6,7 +6,7 @@ import {
   CreditCard, Plus, Search, X, Filter, Mail, CheckCircle,
   AlertCircle, Clock, ChevronLeft, ChevronRight, Download,
   Wallet, TrendingUp, Users, RefreshCw, Send, Check, Edit3, Trash2, Save,
-  FileText, Loader, Ban, DollarSign, UserX, ShieldOff, Unlock
+  FileText, Loader, Ban, DollarSign
 } from 'lucide-react';
 
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
@@ -566,6 +566,7 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
     discount: payment.discount || 0, advanceAmount: payment.advanceAmount || 0,
     balanceAmount: payment.balanceAmount || 0,
     startDate: payment.startDate?.split('T')[0] || '', endDate: payment.endDate?.split('T')[0] || '',
+    dueDate: payment.dueDate?.split('T')[0] || '',
     package: payment.package || '',
   });
 
@@ -575,7 +576,7 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
       const upd = { ...f, [name]: value };
       if (name === 'advanceAmount') upd.balanceAmount = Math.max(0, (upd.finalAmount || 0) - parseFloat(value || 0));
       if (name === 'finalAmount') upd.balanceAmount = Math.max(0, parseFloat(value||0) - (upd.advanceAmount||0));
-      if (name === 'paymentType' && value === 'full') { upd.advanceAmount = upd.finalAmount; upd.balanceAmount = 0; }
+      if (name === 'paymentType' && value === 'full') { upd.advanceAmount = upd.finalAmount; upd.balanceAmount = 0; upd.dueDate = ''; }
       return upd;
     });
   };
@@ -615,6 +616,9 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
             <PaymentField label="Start Date" name="startDate" type="date" form={form} onChange={handleChange}/>
             <PaymentField label="End Date" name="endDate" type="date" form={form} onChange={handleChange}/>
           </div>
+          {form.paymentType === 'partly' && (
+            <PaymentField label="Due Date" name="dueDate" type="date" form={form} onChange={handleChange}/>
+          )}
           <PaymentField label="Package" name="package" form={form} onChange={handleChange}/>
           {errMsg && <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-xs text-red-700">{errMsg}</div>}
         </div>
@@ -753,40 +757,10 @@ const Payments = () => {
   const [waPayment, setWaPayment] = useState(null);
   const [writeOffTarget, setWriteOffTarget] = useState(null);
   const [payNowTarget, setPayNowTarget] = useState(null);
-  const [blockList, setBlockList] = useState([]);
-  const [dragOverActive, setDragOverActive] = useState(false);
   const invoiceShareRef = useRef(null);
   const PER_PAGE = 20;
 
-  useEffect(() => { fetchAll(); fetchBlockList(); }, []);
-
-  const fetchBlockList = async () => {
-    try {
-      const res = await CustomBaseUrl.get('/block-list');
-      setBlockList(res.data?.data || []);
-    } catch (e) { console.warn('Could not load block list:', e.message); }
-  };
-
-  const isBlocked = (p) => blockList.some(b => b.memberPhone === p.memberPhone);
-
-  const handleDropPayment = async (p) => {
-    if (isBlocked(p)) return;
-    try {
-      const res = await CustomBaseUrl.post('/block-list', {
-        registrationId: p.registrationId,
-        memberName: p.memberName,
-        memberPhone: p.memberPhone,
-      });
-      setBlockList(prev => [res.data.data, ...prev]);
-    } catch (e) { alert('Could not block member: ' + (e.response?.data?.message || e.message)); }
-  };
-
-  const handleUnblock = async (b) => {
-    try {
-      await CustomBaseUrl.delete(`/block-list/${b._id}`);
-      setBlockList(prev => prev.filter(x => x._id !== b._id));
-    } catch (e) { alert('Unblock failed: ' + (e.response?.data?.message || e.message)); }
-  };
+  useEffect(() => { fetchAll(); }, []);
 
   const handleShareAsImage = async (p) => {
     setWaPayment(p);
@@ -850,7 +824,6 @@ const Payments = () => {
       if (filter === 'pending')   return !p.writtenOff && p.balanceAmount > 0;
       if (filter === 'writtenoff') return !!p.writtenOff;
       if (filter === 'renewal')   return !!p.isRenewal;
-      if (filter === 'blocked')   return isBlocked(p);
       return true;
     })
     .filter(p => {
@@ -866,11 +839,11 @@ const Payments = () => {
   useEffect(() => setPage(1), [filter, search]);
 
   const totalRevenue = payments.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
-  // Written-off balances are excluded from pending totals everywhere
   const totalPending = payments.reduce((s, p) => s + (p.writtenOff ? 0 : (p.balanceAmount || 0)), 0);
-  const pendingCount = payments.filter(p => !p.writtenOff && p.balanceAmount > 0).length;
+  const pendingMembersCount = new Set(
+    payments.filter(p => !p.writtenOff && p.balanceAmount > 0).map(p => p.registrationId)
+  ).size;
   const fullCount    = payments.filter(p => !p.balanceAmount || p.balanceAmount <= 0 || p.writtenOff).length;
-  const blockedCount = payments.filter(p => isBlocked(p)).length;
 
   const modeColor = (m) => ({
     cash: 'bg-emerald-100 text-emerald-700', upi: 'bg-violet-100 text-violet-700',
@@ -880,76 +853,59 @@ const Payments = () => {
   const FILTERS = [
     { key:'all',        label:`All (${payments.length})`,           icon: CreditCard },
     { key:'full',       label:`Full Paid (${fullCount})`,            icon: CheckCircle },
-    { key:'pending',    label:`Pending (${pendingCount})`,           icon: AlertCircle },
+    { key:'pending',    label:`Pending (${payments.filter(p => !p.writtenOff && p.balanceAmount > 0).length})`,           icon: AlertCircle },
     { key:'writtenoff', label:`Written Off (${writtenOffCount})`,    icon: Ban },
     { key:'renewal',    label:`Renewals (${renewalCount})`,          icon: RefreshCw },
-    { key:'blocked',    label:`Block List (${blockedCount})`,        icon: ShieldOff },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar/>
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Payments</h1>
             <p className="text-xs text-slate-400 mt-0.5">All transactions · {payments.length} records</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={fetchAll} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition shadow-sm">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button onClick={fetchAll} className="flex justify-center items-center p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition shadow-sm">
               <RefreshCw size={14} className={`text-slate-500 ${loading?'animate-spin':''}`}/>
             </button>
             <button onClick={() => navigate('/payments/new')}
-              className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition shadow-sm">
+              className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition shadow-sm">
               <Plus size={14}/> New Payment
             </button>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+        <div className="grid grid-cols-2 md:grid-cols-2 gap-3 mb-5 max-w-2xl">
           {[
-            { label:'Total Revenue',   val:`₹${totalRevenue.toLocaleString('en-IN')}`,                     icon:TrendingUp,  c:'text-emerald-600 bg-emerald-50' },
-            { label:'Net Income',      val:`₹${(totalRevenue - totalPending).toLocaleString('en-IN')}`,     icon:Wallet,      c:'text-violet-600 bg-violet-50' },
-            { label:'Total Pending',   val:`₹${totalPending.toLocaleString('en-IN')}`,                     icon:AlertCircle, c:'text-red-600 bg-red-50' },
-            { label:'Full Payments',   val:fullCount,                                                        icon:CheckCircle, c:'text-blue-600 bg-blue-50' },
-            { label:'Pending Members', val:pendingCount,                                                     icon:Clock,       c:'text-amber-600 bg-amber-50' },
+            { label:'Pending Members', val:pendingMembersCount,                                              icon:Users,       c:'text-amber-600 bg-amber-50' },
+            { label:'Total Pending Amount',   val:`₹${totalPending.toLocaleString('en-IN')}`,                icon:AlertCircle, c:'text-red-600 bg-red-50' },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-3 flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.c}`}>{React.createElement(s.icon, {size: 16})}</div>
-              <div><p className="text-xs text-slate-400">{s.label}</p><p className="text-base font-black text-slate-900">{s.val}</p></div>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${s.c}`}>{React.createElement(s.icon, {size: 16})}</div>
+              <div className="min-w-0"><p className="text-[10px] sm:text-xs text-slate-400 truncate">{s.label}</p><p className="text-sm sm:text-base font-black text-slate-900 truncate">{s.val}</p></div>
             </div>
           ))}
         </div>
 
         {/* Controls */}
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm flex-wrap">
-            {FILTERS.map((f) => {
-              const isBlockTab = f.key === 'blocked';
-              return (
-                <button key={f.key} onClick={() => setFilter(f.key)}
-                  onDragOver={isBlockTab ? (e) => { e.preventDefault(); setDragOverActive(true); } : undefined}
-                  onDragLeave={isBlockTab ? () => setDragOverActive(false) : undefined}
-                  onDrop={isBlockTab ? (e) => {
-                    e.preventDefault();
-                    setDragOverActive(false);
-                    const data = e.dataTransfer.getData('application/json');
-                    if (!data) return;
-                    handleDropPayment(JSON.parse(data));
-                    setFilter('blocked');
-                  } : undefined}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter===f.key ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'} ${isBlockTab && dragOverActive ? 'ring-2 ring-red-400 bg-red-50 text-red-600' : ''}`}>
-                  {React.createElement(f.icon, {size: 11})} {f.label}
-                </button>
-              );
-            })}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm flex-wrap w-full sm:w-auto">
+            {FILTERS.map((f) => (
+              <button key={f.key} onClick={() => setFilter(f.key)}
+                className={`flex-1 sm:flex-none flex justify-center items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter===f.key ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                {React.createElement(f.icon, {size: 11})} <span className="hidden sm:inline">{f.label}</span>
+              </button>
+            ))}
           </div>
-          <div className="relative ml-auto">
+          <div className="relative w-full sm:w-auto sm:ml-auto">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Name / phone / invoice…"
-              className="pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 w-48 shadow-sm"/>
+            <input name="search" aria-label="Search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Name / phone / invoice…"
+              className="w-full pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 sm:w-48 shadow-sm"/>
             {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X size={11} className="text-slate-400"/></button>}
           </div>
         </div>
@@ -971,7 +927,7 @@ const Payments = () => {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-50 flex items-center justify-between">
               <p className="text-xs font-bold text-slate-700">
-                {{ all: 'All Payments', full: 'Full Payments', pending: 'Pending Payments', writtenoff: 'Written-Off Payments', renewal: 'Renewal Payments', blocked: 'Blocked Members' }[filter]} · {filtered.length} records
+                {{ all: 'All Payments', full: 'Full Payments', pending: 'Pending Payments', writtenoff: 'Written-Off Payments', renewal: 'Renewal Payments' }[filter]} · {filtered.length} records
               </p>
               <p className="text-xs text-slate-400">Page {page} of {totalPages||1}</p>
             </div>
@@ -979,7 +935,7 @@ const Payments = () => {
               <table className="w-full text-xs">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    {['#','Member','Package','Amount','Balance','Mode','Type','Date','Actions'].map(h => (
+                    {['Member', 'Package', 'Start Date', 'End Date', 'Total', 'Paid', 'Pending', 'Due Date', 'Status', 'Actions'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -990,39 +946,34 @@ const Payments = () => {
                   ) : paginated.map((p, i) => {
                     const isPending   = !p.writtenOff && p.balanceAmount > 0;
                     const isWrittenOff = !!p.writtenOff;
-                    const blocked = isBlocked(p);
                     return (
-                      <tr key={p._id} draggable
-                        onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({
-                          registrationId: p.registrationId, memberName: p.memberName, memberPhone: p.memberPhone,
-                        }))}
-                        title="Drag to Block List to block this member"
-                        className={`hover:bg-slate-50 transition cursor-grab active:cursor-grabbing ${isWrittenOff ? 'bg-slate-50/60 opacity-70' : isPending ? 'bg-amber-50/40' : ''}`}>
-                        <td className="px-3 py-2.5 text-slate-400 font-mono text-[10px]">{(page-1)*PER_PAGE + i + 1}</td>
+                      <tr key={p._id} className={`hover:bg-slate-50 transition ${isWrittenOff ? 'bg-slate-50/60 opacity-70' : isPending ? 'bg-amber-50/40' : ''}`}>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1.5">
                             <p className="font-semibold text-slate-800 whitespace-nowrap">{p.memberName || '—'}</p>
-                            {blocked && <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-600"><Ban size={9}/> Blocked</span>}
                           </div>
                           <p className="text-[10px] text-slate-400">{p.memberPhone}</p>
                         </td>
                         <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{p.package || '—'}</td>
-                        <td className="px-3 py-2.5 font-bold text-emerald-600 whitespace-nowrap">₹{(p.finalAmount || p.amount || 0).toLocaleString('en-IN')}</td>
+                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '—'}</td>
+                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{p.endDate ? new Date(p.endDate).toLocaleDateString('en-IN') : '—'}</td>
+                        <td className="px-3 py-2.5 font-bold text-slate-700 whitespace-nowrap">₹{(p.finalAmount || p.amount || 0).toLocaleString('en-IN')}</td>
+                        <td className="px-3 py-2.5 font-bold text-emerald-600 whitespace-nowrap">₹{(p.advanceAmount || 0).toLocaleString('en-IN')}</td>
+                        <td className="px-3 py-2.5">
+                          {isPending
+                            ? <span className="font-bold text-red-600 whitespace-nowrap">₹{p.balanceAmount.toLocaleString('en-IN')}</span>
+                            : <span className="text-slate-400 font-semibold">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-amber-600 font-semibold whitespace-nowrap">
+                          {isPending && p.dueDate ? new Date(p.dueDate).toLocaleDateString('en-IN') : '—'}
+                        </td>
                         <td className="px-3 py-2.5">
                           {isWrittenOff
                             ? <span className="flex items-center gap-1 text-slate-400 font-semibold whitespace-nowrap"><Ban size={11}/> Written Off</span>
                             : isPending
-                              ? <span className="font-bold text-red-600 whitespace-nowrap">₹{p.balanceAmount.toLocaleString('en-IN')}</span>
+                              ? <span className="flex items-center gap-1 text-red-600 font-semibold whitespace-nowrap"><AlertCircle size={11}/> Pending</span>
                               : <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle size={11}/> Paid</span>}
                         </td>
-                        <td className="px-3 py-2.5"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${modeColor(p.paymentMode)}`}>{p.paymentMode || '—'}</span></td>
-                        <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${p.paymentType === 'partly' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{p.paymentType === 'partly' ? 'Part' : 'Full'}</span>
-                            {p.isRenewal && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">🔄 Renew</span>}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—'}</td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
                             <button onClick={() => setInvoiceTarget(p)} title="View & download invoices" className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"><FileText size={13}/></button>
@@ -1037,11 +988,6 @@ const Payments = () => {
                             )}
                             {isWrittenOff && (
                               <button onClick={() => setPayNowTarget(p)} title="Member is back — collect the balance now" className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition"><DollarSign size={13}/></button>
-                            )}
-                            {blocked ? (
-                              <button onClick={() => handleUnblock(blockList.find(b => b.memberPhone === p.memberPhone))} title="Unblock member" className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition"><Unlock size={13}/></button>
-                            ) : (
-                              <button onClick={() => handleDropPayment(p)} title="Move to Block List" className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition"><ShieldOff size={13}/></button>
                             )}
                           </div>
                         </td>

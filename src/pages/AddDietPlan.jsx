@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
+import { isMemberBlocked } from '../utils/memberStatus';
 import {
   ArrowLeft, Search, X, Plus, Minus, Flame, Droplets,
   Target, Check, ChevronDown, Apple, Leaf, Zap, Activity
@@ -153,8 +154,13 @@ const AddDietPlan = () => {
 
   const fetchMembers = async () => {
     try {
-      const res = await CustomBaseUrl.get(`/fetch`);
-      setMembers(res.data.data || []);
+      const [membersRes, blockRes] = await Promise.allSettled([
+        CustomBaseUrl.get('/fetch'),
+        CustomBaseUrl.get('/block-list'),
+      ]);
+      const all = membersRes.status === 'fulfilled' ? (membersRes.value.data?.data || []) : [];
+      const blocks = blockRes.status === 'fulfilled' ? (blockRes.value.data?.data || []) : [];
+      setMembers(all.filter(m => !isMemberBlocked(m, blocks)));
     } catch (e) { console.error(e); }
   };
 
@@ -194,7 +200,7 @@ const AddDietPlan = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 py-8">
 
@@ -215,7 +221,7 @@ const AddDietPlan = () => {
           <div className="relative">
             <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-green-400 bg-slate-50">
               <Search size={14} className="text-slate-400" />
-              <input value={search}
+              <input name="search" aria-label="Search" value={search}
                 onChange={e => { setSearch(e.target.value); setShowDrop(true); setSelectedMember(null); }}
                 onFocus={() => setShowDrop(true)}
                 placeholder="Search member by name or phone…"
@@ -323,7 +329,7 @@ const AddDietPlan = () => {
                     color={mc.color} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-600 mb-1 block">Calories</label>
                     <div className="flex items-center gap-2">
@@ -374,7 +380,7 @@ const AddDietPlan = () => {
                   return <div key={i} className={`${color} transition-all`} style={{ width: `${(val / total) * 100}%` }} />;
                 })}
               </div>
-              <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+              <div className="flex flex-wrap justify-between gap-1 text-[10px] text-slate-400 mt-1">
                 <span className="text-blue-500">Protein {Math.round(form.protein / (form.protein + form.carbs + form.fats + form.fiber) * 100)}%</span>
                 <span className="text-amber-500">Carbs {Math.round(form.carbs / (form.protein + form.carbs + form.fats + form.fiber) * 100)}%</span>
                 <span className="text-red-500">Fats {Math.round(form.fats / (form.protein + form.carbs + form.fats + form.fiber) * 100)}%</span>

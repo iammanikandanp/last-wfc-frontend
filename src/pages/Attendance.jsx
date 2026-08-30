@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import CustomBaseUrl from '../hooks/CustomBaseUrl';
+import { isMemberBlocked } from '../utils/memberStatus';
 import {
   Upload, Search, X, Download, Users, Clock,
   CheckCircle, XCircle, Link, AlertCircle,
@@ -57,11 +58,11 @@ const Pill = ({ attend, work }) => {
   return <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${c}`}>{pct}%</span>;
 };
 
-const LinkModal = ({ record, members, onSave, onClose }) => {
+const LinkModal = ({ record, members, blockEntries, onSave, onClose }) => {
   const [search, setSearch] = useState(record.name.toLowerCase());
-  const filtered = members.filter(m =>
+  const filtered = members.filter(m => !isMemberBlocked(m, blockEntries) && (
     m.name?.toLowerCase().includes(search.toLowerCase()) || m.attendanceId === record.attendanceId
-  ).slice(0, 10);
+  )).slice(0, 10);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e=>e.stopPropagation()}>
@@ -74,7 +75,7 @@ const LinkModal = ({ record, members, onSave, onClose }) => {
         </div>
         <div className="p-4">
           <p className="text-xs text-slate-500 mb-2">Select the registered member to link:</p>
-          <input value={search} onChange={e=>setSearch(e.target.value)}
+          <input name="search" aria-label="Search" value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="Search member name..."
             className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-slate-300"/>
           <div className="space-y-1 max-h-52 overflow-y-auto">
@@ -175,6 +176,7 @@ const Attendance = () => {
   const [records,          setRecords]          = useState([]);
   const [months,           setMonths]           = useState([]);
   const [members,          setMembers]          = useState([]);
+  const [blockEntries,     setBlockEntries]     = useState([]);
   const [loading,          setLoading]          = useState(true);
   const [importing,        setImporting]        = useState(false);
   const [importLog,        setImportLog]        = useState([]);
@@ -199,16 +201,22 @@ const Attendance = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [mRes, regRes] = await Promise.allSettled([
+      const [mRes, regRes, blockRes] = await Promise.allSettled([
         CustomBaseUrl.get(`/xls-attendance/months`),
         CustomBaseUrl.get(`/fetch`),
+        CustomBaseUrl.get('/block-list'),
       ]);
       if (mRes.status==='fulfilled') {
         const ms = mRes.value.data?.months || [];
         setMonths(ms);
         if (ms.length > 0) setActiveMonth(ms[0]);
       }
-      if (regRes.status==='fulfilled') setMembers(regRes.value.data?.data || []);
+      if (regRes.status==='fulfilled') {
+        const all = regRes.value.data?.data || [];
+        const blocks = blockRes.status==='fulfilled' ? (blockRes.value.data?.data || []) : [];
+        setBlockEntries(blocks);
+        setMembers(all.filter(m => !isMemberBlocked(m, blocks)));
+      }
     } catch(e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -370,23 +378,23 @@ const Attendance = () => {
   const hasData = records.length > 0 || months.length > 0;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar/>
       <div className="max-w-7xl mx-auto px-4 py-6">
 
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Attendance</h1>
             <p className="text-xs text-slate-400 mt-0.5">Import XLS files · Data saved to DB · Filter by dept & month</p>
           </div>
-          <div className="flex items-center gap-2">
-            {hasData && <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 shadow-sm"><Download size={13}/> CSV</button>}
-            <button onClick={()=>fetchData()} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 shadow-sm"><RefreshCw size={13} className={loading?'animate-spin':''}/></button>
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {hasData && <button onClick={exportCSV} className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 shadow-sm"><Download size={13}/> CSV</button>}
+            <button onClick={()=>fetchData()} className="flex justify-center items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 shadow-sm"><RefreshCw size={13} className={loading?'animate-spin':''}/></button>
             {isAdmin && <>
-              <button onClick={()=>{ setShowCsvImport(v=>!v); setCsvTab('link'); }} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 shadow-sm">
+              <button onClick={()=>{ setShowCsvImport(v=>!v); setCsvTab('link'); }} className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 shadow-sm">
                 <FileText size={13}/> Import CSV
               </button>
-              <button onClick={()=>fileRef.current?.click()} className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold hover:bg-slate-700 shadow-sm">
+              <button onClick={()=>fileRef.current?.click()} className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold hover:bg-slate-700 shadow-sm">
                 <Upload size={13}/> {importing?'Saving to DB…':'Import XLS'}
               </button>
             </>}
@@ -471,7 +479,7 @@ const Attendance = () => {
 
         {hasData && !loading && (
           <>
-            <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               {[
                 {label:'Records',     val:stats.total,   icon:Users,        c:'text-slate-700 bg-slate-100'},
                 {label:'Avg Attend%', val:stats.avgAtt+'%', icon:CheckCircle, c:'text-emerald-700 bg-emerald-100'},
@@ -479,8 +487,8 @@ const Attendance = () => {
                 {label:'Total OT Hrs',val:stats.totalOT, icon:Clock,        c:'text-violet-700 bg-violet-100'},
               ].map(({label,val,icon:Icon,c})=>(
                 <div key={label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-3 flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${c}`}><Icon size={16}/></div>
-                  <div><p className="text-lg font-black text-slate-900">{val}</p><p className="text-[10px] text-slate-400">{label}</p></div>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${c}`}><Icon size={16}/></div>
+                  <div className="min-w-0"><p className="text-lg font-black text-slate-900 truncate">{val}</p><p className="text-[10px] text-slate-400 truncate">{label}</p></div>
                 </div>
               ))}
             </div>
@@ -492,22 +500,22 @@ const Attendance = () => {
               </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+            <div className="flex flex-col xl:flex-row xl:items-center gap-3 mb-4">
+              <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm overflow-x-auto w-full xl:w-auto">
                 {months.map(m=>(
                   <button key={m} onClick={()=>{setActiveMonth(m); setPage(1);}}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${activeMonth===m?'bg-slate-800 text-white':'text-slate-500 hover:text-slate-700'}`}>
+                    className={`flex-none px-2.5 py-1 rounded-lg text-xs font-semibold transition ${activeMonth===m?'bg-slate-800 text-white':'text-slate-500 hover:text-slate-700'}`}>
                     {MONTH_LABELS[m]||m}
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex gap-1.5 overflow-x-auto w-full xl:w-auto pb-1 xl:pb-0">
                 {depts.map(d=>{
                   const cfg=DEPT[d];
                   const cnt=records.filter(r=>d==='ALL'||r.dept===d).length;
                   return (
                     <button key={d} onClick={()=>{setActiveDept(d); setPage(1);}}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+                      className={`flex-none flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
                         activeDept===d ? (cfg?`${cfg.color} text-white border-transparent shadow-sm`:'bg-slate-800 text-white border-transparent') : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                       }`}>
                       {cfg&&<cfg.icon size={11}/>}
@@ -517,11 +525,11 @@ const Attendance = () => {
                   );
                 })}
               </div>
-              <div className="relative ml-auto">
+              <div className="relative w-full xl:w-auto xl:ml-auto">
                 <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
-                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name / ID…"
-                  className="pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 w-40"/>
-                {search&&<button onClick={()=>setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X size={11} className="text-slate-400"/></button>}
+                <input name="search" aria-label="Search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name / ID…"
+                  className="w-full xl:w-48 pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-300" />
+                {search && <button onClick={()=>setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X size={11} className="text-slate-400"/></button>}
               </div>
             </div>
 
@@ -614,7 +622,7 @@ const Attendance = () => {
       </div>
 
       {linkTarget && (
-        <LinkModal record={linkTarget} members={members} onSave={handleLink} onClose={()=>setLinkTarget(null)} />
+        <LinkModal record={linkTarget} members={members} blockEntries={blockEntries} onSave={handleLink} onClose={()=>setLinkTarget(null)} />
       )}
 
       {showDeleteConfirm && (

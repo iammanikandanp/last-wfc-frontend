@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
+import { isMemberBlocked } from '../utils/memberStatus';
 import {
   Plus, Search, X, User,
   AlertCircle, CheckCircle, Clock, XCircle, Eye, Edit3, Trash2,
-  ChevronLeft, ChevronRight, Upload, FileText, Loader2, RefreshCw, Phone
+  ChevronLeft, ChevronRight, Upload, FileText, Loader2, RefreshCw, Phone,
+  Shield, ShieldOff
 } from 'lucide-react';
 
 const PER_PAGE = 10;
@@ -466,7 +468,7 @@ const getMembershipStatus = (endDate) => {
   const diffDays = Math.ceil((new Date(endDate) - new Date()) / (1000 * 60 * 60 * 24));
   if (diffDays < 0)  return { label: 'Expired',             color: 'bg-red-100 text-red-700',     dot: 'bg-red-500',     icon: XCircle };
   if (diffDays <= 7) return { label: `Expires in ${diffDays}d`, color: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500', icon: Clock };
-  return                    { label: 'Active',               color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', icon: CheckCircle };
+  return                    { label: `${diffDays} days remaining`, color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', icon: CheckCircle };
 };
 
 const Avatar = ({ src, name, size = 'md' }) => {
@@ -480,7 +482,7 @@ const Avatar = ({ src, name, size = 'md' }) => {
   return <div className={`${sizeClass} ${color} rounded-full flex items-center justify-center text-white font-bold ring-2 ring-white shadow`}>{initials}</div>;
 };
 
-const MemberCard = ({ member, onEdit, onDelete, onRenew }) => {
+const MemberCard = ({ member, onEdit, onDelete, onRenew, isBlocked, onToggleBlock }) => {
   const navigate = useNavigate();
   const status = getMembershipStatus(member.endDate);
   const StatusIcon = status.icon;
@@ -488,37 +490,50 @@ const MemberCard = ({ member, onEdit, onDelete, onRenew }) => {
   const hasPhoto = !!member.images?.profileImage;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex items-center gap-4 hover:shadow-md hover:border-slate-200 transition-all duration-200 group">
-      <div
-        className="relative flex-shrink-0 cursor-pointer"
-        onClick={e => { if (hasPhoto) { e.stopPropagation(); setShowPhoto(true); } else navigate(`/members/${member._id}`); }}
-      >
-        <Avatar src={member.images?.profileImage} name={member.name} />
-        <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${status.dot}`} />
-      </div>
-      {showPhoto && hasPhoto && (
-        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={e => { e.stopPropagation(); setShowPhoto(false); }}>
-          <img src={member.images.profileImage} alt={member.name} className="max-w-full max-h-full rounded-2xl" />
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-md hover:border-slate-200 transition-all duration-200 group">
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div
+          className="relative flex-shrink-0 cursor-pointer"
+          onClick={e => { if (hasPhoto) { e.stopPropagation(); setShowPhoto(true); } else navigate(`/members/${member._id}`); }}
+        >
+          <Avatar src={member.images?.profileImage} name={member.name} />
+          <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${status.dot}`} />
         </div>
-      )}
-      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/members/${member._id}`)}>
-        <p className="font-semibold text-slate-900 truncate group-hover:text-red-600 transition-colors">{member.name}</p>
-        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-          <span className="text-xs text-slate-500">{member.age} yrs</span>
-          <span className="text-slate-300">·</span>
-          <span className="text-xs text-slate-500">{member.gender}</span>
-          {member.packages && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 truncate">{member.packages}</span></>}
-          {member.attendanceId && <><span className="text-slate-300">·</span><span className="text-xs text-blue-500 font-mono">ID:{member.attendanceId}</span></>}
-          {member.phone && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 flex items-center gap-1"><Phone size={11} className="text-slate-400" />{member.phone}</span></>}
+        {showPhoto && hasPhoto && (
+          <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={e => { e.stopPropagation(); setShowPhoto(false); }}>
+            <img src={member.images.profileImage} alt={member.name} className="max-w-full max-h-full rounded-2xl" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/members/${member._id}`)}>
+          <p className="font-semibold text-slate-900 truncate group-hover:text-red-600 transition-colors">{member.name}</p>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <span className="text-xs text-slate-500">{member.age} yrs</span>
+            <span className="text-slate-300">·</span>
+            <span className="text-xs text-slate-500">{member.gender}</span>
+            {member.packages && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 truncate">{member.packages}</span></>}
+            {member.startDate && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 truncate">Start: {new Date(member.startDate).toLocaleDateString('en-IN')}</span></>}
+            {member.endDate && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 truncate">End: {new Date(member.endDate).toLocaleDateString('en-IN')}</span></>}
+            {member.attendanceId && <><span className="text-slate-300">·</span><span className="text-xs text-blue-500 font-mono">ID:{member.attendanceId}</span></>}
+            {member.phone && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 flex items-center gap-1"><Phone size={11} className="text-slate-400" />{member.phone}</span></>}
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-1.5 flex-shrink-0">
+      <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap mt-2 sm:mt-0 flex-shrink-0">
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
           <StatusIcon size={10} />{status.label}
         </span>
+        {isBlocked && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">
+            <ShieldOff size={10} /> Blocked
+          </span>
+        )}
         <button onClick={() => navigate(`/members/${member._id}`)}
           className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition" title="View profile">
           <Eye size={14} />
+        </button>
+        <button onClick={e => { e.stopPropagation(); onToggleBlock(member); }}
+          className={`p-1.5 rounded-lg transition ${isBlocked ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'}`} title={isBlocked ? 'Unblock member' : 'Block member'}>
+          {isBlocked ? <ShieldOff size={14} /> : <Shield size={14} />}
         </button>
         <button onClick={e => { e.stopPropagation(); onRenew(member); }}
           className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition" title="Renew membership">
@@ -596,6 +611,7 @@ const Members = () => {
   const [filter,       setFilter]       = useState('all');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [renewTarget,  setRenewTarget]  = useState(null);
+  const [blockEntries, setBlockEntries] = useState([]);
   const [page,         setPage]         = useState(() => Number(sessionStorage.getItem('membersListPage')) || 1);
   const [showImport,   setShowImport]   = useState(false);
 
@@ -609,10 +625,43 @@ const Members = () => {
 
   const fetchMembers = async () => {
     try {
-      const res = await CustomBaseUrl.get(`/fetch`);
-      const list = res.data.data || [];
-      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setMembers(list);
+      const [membersRes, blockRes] = await Promise.allSettled([
+        CustomBaseUrl.get('/fetch'),
+        CustomBaseUrl.get('/block-list'),
+      ]);
+
+      let baseList = [];
+      if (membersRes.status === 'fulfilled') {
+        baseList = membersRes.value.data?.data || [];
+        baseList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setMembers(baseList);
+      }
+
+      if (blockRes.status === 'fulfilled') {
+        const entries = blockRes.value.data?.data || [];
+        setBlockEntries(entries);
+
+        // Fetch registration details for blocked entries so they are visible under Blocked tab
+        const blockedIds = Array.from(new Set(entries.map(e => e.registrationId).filter(Boolean)));
+        if (blockedIds.length > 0) {
+          try {
+            const blockedFetches = await Promise.all(blockedIds.map(id =>
+              CustomBaseUrl.get(`/fetchone/${id}`).then(r => r.data?.data).catch(() => null)
+            ));
+            const blockedRegs = blockedFetches.filter(Boolean);
+            if (blockedRegs.length > 0) {
+              setMembers(prev => {
+                const existingIds = new Set(prev.map(m => String(m._id)));
+                const merged = [...blockedRegs.filter(b => !existingIds.has(String(b._id))), ...prev];
+                merged.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                return merged;
+              });
+            }
+          } catch (e) {
+            console.error('Failed to fetch blocked registrations:', e);
+          }
+        }
+      }
     } catch (err) {
       console.error('Error fetching members:', err);
     } finally {
@@ -640,51 +689,107 @@ const Members = () => {
     return 'active';
   };
 
+  const handleBlockToggle = async (member) => {
+    const existingEntry = blockEntries.find(entry => {
+      const entryId = entry.registrationId ? String(entry.registrationId) : '';
+      const entryPhone = (entry.memberPhone || '').trim();
+      return Boolean((entryId && String(member._id) && entryId === String(member._id)) || (entryPhone && (entryPhone === String(member.phone || '').trim())));
+    });
+
+    if (existingEntry) {
+      try {
+        await CustomBaseUrl.delete(`/block-list/${existingEntry._id}`);
+        setBlockEntries(prev => prev.filter(entry => entry._id !== existingEntry._id));
+        // Refresh the registration record so its status is updated in the members list
+        if (existingEntry.registrationId) {
+          try {
+            const res = await CustomBaseUrl.get(`/fetchone/${existingEntry.registrationId}`);
+            const updated = res.data?.data;
+            if (updated) {
+              setMembers(prev => prev.map(m => (String(m._id) === String(updated._id) ? updated : m)));
+            }
+          } catch (e) {
+            console.error('Failed to refresh member after unblock:', e);
+          }
+        }
+      } catch (err) {
+        alert('Unblock failed: ' + (err.response?.data?.message || err.message));
+      }
+      return;
+    }
+
+    try {
+      const res = await CustomBaseUrl.post('/block-list', {
+        registrationId: member._id,
+        memberName: member.name,
+        memberPhone: member.phone || '',
+        reason: 'Blocked from member list',
+      });
+      if (res.data?.success) {
+        const newEntry = res.data.data;
+        setBlockEntries(prev => [newEntry, ...prev]);
+        // Mark the member locally as blocked so counts and lists update immediately
+        if (member._id) {
+          setMembers(prev => prev.map(m => String(m._id) === String(member._id) ? { ...m, status: 'blocked' } : m));
+        }
+      }
+    } catch (err) {
+      alert('Block failed: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const filtered = members.filter(m => {
     const q = search.toLowerCase();
+    const isBlocked = isMemberBlocked(m, blockEntries);
     const matchSearch = !search ||
       m.name?.toLowerCase().includes(q) ||
       m.phone?.includes(q) ||
       m.emails?.toLowerCase().includes(q);
-    const matchFilter = filter === 'all' || getStatus(m) === filter;
+    const matchFilter = filter === 'all'
+      ? true
+      : filter === 'blocked'
+        ? isBlocked
+        : (!isBlocked && getStatus(m) === filter);
     return matchSearch && matchFilter;
   });
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated  = filtered.slice((page-1)*PER_PAGE, page*PER_PAGE);
 
+  const blockedCount = blockEntries.length;
   const counts = {
     all:      members.length,
-    active:   members.filter(m => getStatus(m) === 'active').length,
-    expiring: members.filter(m => getStatus(m) === 'expiring').length,
-    expired:  members.filter(m => getStatus(m) === 'expired').length,
+    active:   members.filter(m => m.status !== 'blocked' && getStatus(m) === 'active').length,
+    expiring: members.filter(m => m.status !== 'blocked' && getStatus(m) === 'expiring').length,
+    expired:  members.filter(m => m.status !== 'blocked' && getStatus(m) === 'expired').length,
+    blocked:  blockedCount,
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar />
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Members</h1>
-            <p className="text-slate-500 text-sm mt-0.5">{members.length} total registered</p>
+            <p className="text-slate-500 text-sm mt-0.5">{members.length} total registered · {blockedCount} blocked</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button onClick={() => setShowImport(true)}
-              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl hover:bg-slate-50 active:scale-95 transition-all text-sm font-semibold shadow-sm">
-              <Upload size={15} /> Import CSV
+              className="flex-1 sm:flex-none flex justify-center items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl hover:bg-slate-50 active:scale-95 transition-all text-sm font-semibold shadow-sm">
+              <Upload size={15} /> <span className="hidden sm:inline">Import CSV</span><span className="sm:hidden">Import</span>
             </button>
             <button onClick={() => navigate('/register')}
-              className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl hover:bg-red-700 active:scale-95 transition-all text-sm font-semibold shadow-sm">
-              <Plus size={16} /> Add Member
+              className="flex-1 sm:flex-none flex justify-center items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl hover:bg-red-700 active:scale-95 transition-all text-sm font-semibold shadow-sm">
+              <Plus size={16} /> <span className="hidden sm:inline">Add Member</span><span className="sm:hidden">Add</span>
             </button>
           </div>
         </div>
 
         <div className="relative mb-4">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
+          <input name="search" aria-label="Search" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search by name, phone or email…"
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-red-400 text-sm shadow-sm" />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={14} className="text-slate-400" /></button>}
@@ -696,6 +801,7 @@ const Members = () => {
             { key:'active',   label:'Active',   color:'text-emerald-600'},
             { key:'expiring', label:'Expiring', color:'text-amber-600'  },
             { key:'expired',  label:'Expired',  color:'text-red-600'    },
+            { key:'blocked',  label:'Blocked',  color:'text-red-600'    },
           ].map(tab => (
             <button key={tab.key} onClick={() => setFilter(tab.key)}
               className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
@@ -730,7 +836,15 @@ const Members = () => {
           <>
             <div className="space-y-2.5">
               {paginated.map(member => (
-                <MemberCard key={member._id} member={member} onEdit={handleEdit} onDelete={setDeleteTarget} onRenew={setRenewTarget} />
+                <MemberCard
+                  key={member._id}
+                  member={member}
+                  onEdit={handleEdit}
+                  onDelete={setDeleteTarget}
+                  onRenew={setRenewTarget}
+                  isBlocked={isMemberBlocked(member, blockEntries)}
+                  onToggleBlock={handleBlockToggle}
+                />
               ))}
             </div>
             <Pagination page={page} totalPages={totalPages} filtered={filtered.length} onPage={setPage} />

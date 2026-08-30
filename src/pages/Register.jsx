@@ -71,7 +71,7 @@ const Register = () => {
   return (
     <div>
       <Navbar />
-      <div className="min-h-screen bg-slate-50 py-8 px-4">
+      <div className="min-h-screen bg-slate-200 py-8 px-4">
         <div className="max-w-lg mx-auto">
 
           <button onClick={() => navigate(-1)}
@@ -104,8 +104,8 @@ const Register = () => {
           <div className="bg-white rounded-2xl shadow-lg p-8">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl">💪</span>
+              <div className="w-24 h-24 bg-white rounded-2xl shadow flex items-center justify-center mx-auto mb-3 overflow-hidden">
+                <img src="/logo.jpeg" alt="WFC logo" className="w-full h-full object-cover" />
               </div>
               <h1 className="text-2xl font-bold text-slate-900">Create User Account</h1>
               <p className="text-slate-500 text-sm mt-1">Admin — create member or trainer login</p>

@@ -6,13 +6,13 @@ const About = () => {
   return (
     <div>
       <Navbar />
-      <div className='min-h-screen bg-slate-50'>
+      <div className='min-h-screen bg-slate-200'>
         <div className='max-w-4xl mx-auto px-4 py-8'>
           {/* Hero Section */}
           <div className='bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg shadow-lg p-8 mb-8 text-center'>
-            <div className='text-5xl mb-4'>💪</div>
+            <img src='/logo.jpeg' alt='WFC logo' className='w-28 h-28 rounded-full object-cover border-2 border-white/80 mx-auto mb-4' />
             <h1 className='text-4xl font-bold mb-2'>WFC – Wolverine Fitness Club</h1>
-            <p className='text-lg'>Your Ultimate Fitness Destination</p>
+            <p className='text-lg'>I'm a lifter not a fighter</p>
           </div>
 
           {/* About Us */}
@@ -115,28 +115,28 @@ const About = () => {
                 <MapPin className='text-red-600 flex-shrink-0' size={24} />
                 <div>
                   <h3 className='font-bold text-slate-900'>Location</h3>
-                  <p className='text-slate-600'>123 Fitness Street, Gym City, State 12345</p>
+                  <p className='text-slate-600'>Sederpalayam,Uthukuli road,Tirupur 641602</p>
                 </div>
               </div>
               <div className='flex space-x-4'>
                 <Phone className='text-red-600 flex-shrink-0' size={24} />
                 <div>
                   <h3 className='font-bold text-slate-900'>Phone</h3>
-                  <p className='text-slate-600'>+1 (555) 123-4567</p>
+                  <p className='text-slate-600'>+91 8680902904</p>
                 </div>
               </div>
               <div className='flex space-x-4'>
                 <Mail className='text-red-600 flex-shrink-0' size={24} />
                 <div>
                   <h3 className='font-bold text-slate-900'>Email</h3>
-                  <p className='text-slate-600'>info@wfcfitness.com</p>
+                  <p className='text-slate-600'>wfcwolverine@gmail.com</p>
                 </div>
               </div>
               <div className='flex space-x-4'>
                 <Clock className='text-red-600 flex-shrink-0' size={24} />
                 <div>
                   <h3 className='font-bold text-slate-900'>Hours</h3>
-                  <p className='text-slate-600'>Mon - Sun: 6:00 AM - 10:00 PM</p>
+                  <p className='text-slate-600'>Mon - sat: 5:30 AM - 9:00 AM and 6:00 PM - 9:30 PM </p>
                 </div>
               </div>
             </div>

@@ -63,6 +63,8 @@ const ImageUploadField = ({ label, name, onFileChange, preview, onRemove }) => (
   </div>
 );
 
+const GOAL_OPTIONS = ["Weight Loss","Weight Gain","Muscle Building","Bodybuilding","Athletic Training","General Fitness","Other"];
+
 // ── Default form state ────────────────────────────────────────────────────────
 const defaultForm = () => ({
   fullName:"", age:"", dateOfBirth:"", phoneNumber:"", email:"",
@@ -70,6 +72,7 @@ const defaultForm = () => ({
   gender:"", height:"", weight:"", waist:"", hip:"", chest:"",
   arm:"", thigh:"", bloodGroup:"", bloodPressure:"", sugarLevel:"",
   bodyFat:"", neck:"", bmi:"", fitnessCategory:"",
+  goal:"", goalOther:"",
   profession:"", address:"", city:"", state:"", pincode:"",
   packages:"Basic", duration:"1", services:"No",
   startDate: new Date().toISOString().split("T")[0],
@@ -131,6 +134,8 @@ export const Register = () => {
       neck:              String(editData.neck    || ""),
       bmi:               String(editData.bmi     || ""),
       fitnessCategory:   editData.statusLevel   || "",
+      goal:              editData.goal && GOAL_OPTIONS.includes(editData.goal) ? editData.goal : (editData.goal ? "Other" : ""),
+      goalOther:         editData.goal && !GOAL_OPTIONS.includes(editData.goal) ? editData.goal : "",
       profession:        editData.profession    || "",
       address:           addr,
       city,
@@ -261,6 +266,7 @@ export const Register = () => {
       fd.append("bloodGroup",    formData.bloodGroup    || "O+");
       fd.append("issues",        formData.issues        || "None");
       fd.append("description",   formData.medicalConditions || "None");
+      fd.append("goal",          formData.goal === "Other" ? formData.goalOther : formData.goal);
       fd.append("packages",      formData.packages);
       fd.append("duration",      formData.duration);
       fd.append("services",      formData.services);
@@ -329,6 +335,10 @@ export const Register = () => {
             className="w-full border-2 border-blue-200 bg-blue-50 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition text-sm" />
           <p className="text-[10px] text-blue-500 mt-1">Links this member to attendance records</p>
         </div>
+        <Select label="Goal" name="goal" value={formData.goal} onChange={handleChange} options={GOAL_OPTIONS} />
+        {formData.goal === "Other" && (
+          <Input label="Custom Goal" name="goalOther" value={formData.goalOther} onChange={handleChange} placeholder="Describe the goal" />
+        )}
         <Input label="Medical Conditions" name="medicalConditions" value={formData.medicalConditions} onChange={handleChange} placeholder="Any conditions (optional)" isTextArea />
       </div>
     </>
@@ -497,7 +507,7 @@ export const Register = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-200 to-blue-200 py-8 px-4">
       <Toaster position="top-right" />
       <div className="max-w-4xl mx-auto">
 
@@ -509,8 +519,8 @@ export const Register = () => {
         <div className="bg-white shadow-xl rounded-2xl p-6 sm:p-8">
           {/* Header */}
           <div className="text-center mb-6">
-            <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <span className="text-2xl">💪</span>
+            <div className="w-24 h-24 bg-white rounded-2xl shadow flex items-center justify-center mx-auto mb-3 overflow-hidden">
+              <img src="/logo.jpeg" alt="WFC logo" className="w-full h-full object-cover" />
             </div>
             <h1 className="text-2xl font-bold text-gray-800">{isEdit ? "Edit Member" : "New Registration"}</h1>
             <p className="text-gray-400 text-sm mt-1">{isEdit ? "Update member details" : "4 steps to complete"}</p>

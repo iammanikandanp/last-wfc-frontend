@@ -11,11 +11,13 @@ const NOW = new Date();
 
 // ─── Period definitions ───────────────────────────────────────────────────────
 const PERIODS = [
-  { key: 'month',   label: 'This Month',   prevLabel: 'Last Month',     months: 1  },
-  { key: 'quarter', label: 'This Quarter', prevLabel: 'Last Quarter',   months: 3  },
-  { key: 'half',    label: '6 Months',     prevLabel: 'Prev 6 Months',  months: 6  },
-  { key: 'year',    label: 'This Year',    prevLabel: 'Last Year',      months: 12 },
-  { key: 'all',     label: 'All Time',     prevLabel: 'N/A',            months: 999 },
+  { key: 'today',   label: 'Today',        prevLabel: 'Yesterday',      months: 0  },
+  { key: 'week',    label: 'Week',         prevLabel: 'Last Week',      months: 0  },
+  { key: 'month',   label: 'Month',        prevLabel: 'Last Month',     months: 1  },
+  { key: 'quarter', label: 'Quarter',      prevLabel: 'Last Quarter',   months: 3  },
+  { key: 'half',    label: 'Six Month',    prevLabel: 'Prev 6 Months',  months: 6  },
+  { key: 'year',    label: 'Year',         prevLabel: 'Last Year',      months: 12 },
+  { key: 'all',     label: 'All',          prevLabel: 'N/A',            months: 999 },
   { key: 'custom',  label: 'Custom',       prevLabel: 'N/A',            months: 0  },
 ];
 
@@ -28,6 +30,8 @@ function getCurRange(key, customStart, customEnd) {
   const end   = new Date();
   const start = new Date();
   if (key === 'all') { start.setFullYear(2000); }
+  else if (key === 'today') { start.setHours(0, 0, 0, 0); end.setHours(23, 59, 59, 999); return { start, end }; }
+  else if (key === 'week') { start.setDate(start.getDate() - 7); start.setHours(0, 0, 0, 0); return { start, end }; }
   else {
     const p = PERIODS.find(p => p.key === key);
     start.setMonth(start.getMonth() - p.months);
@@ -293,7 +297,7 @@ export default function Reports() {
   }));
 
   // Monthly buckets
-  const numMonths = period === 'month' ? 3 : period === 'quarter' ? 4 : period === 'half' ? 6 : 12;
+  const numMonths = period === 'week' ? 1 : period === 'month' ? 3 : period === 'quarter' ? 4 : period === 'half' ? 6 : 12;
   const buckets   = buildMonthBuckets(payments, numMonths);
 
   // Top members
@@ -366,7 +370,7 @@ export default function Reports() {
 
   // ─── Loading / Error ────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="min-h-screen bg-slate-50"><Navbar />
+    <div className="min-h-screen bg-slate-200"><Navbar />
       <div className="flex flex-col items-center justify-center py-36 gap-4 text-slate-400">
         <div className="w-10 h-10 border-4 border-slate-200 border-t-red-500 rounded-full animate-spin" />
         <p className="text-sm font-semibold">Loading report data…</p>
@@ -375,7 +379,7 @@ export default function Reports() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-6">
 
@@ -396,33 +400,33 @@ export default function Reports() {
           </div>
 
           {/* Period Selector */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <div className="flex flex-wrap gap-1.5 bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full md:w-auto overflow-hidden">
+            <div className="flex gap-4 w-full sm:w-auto overflow-x-auto">
               {PERIODS.map(p => (
                 <button key={p.key} onClick={() => setPeriod(p.key)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`flex-none py-2 text-xs font-bold transition-all ${
                     period === p.key
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                      ? 'text-slate-900 border-b border-slate-900'
+                      : 'text-slate-500 hover:text-slate-800'
                   }`}>
                   {p.label}
                 </button>
               ))}
             </div>
             {period === 'custom' && (
-              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-3 py-1.5 shadow-sm">
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-2xl px-2 sm:px-3 py-1.5 shadow-sm w-full sm:w-auto">
                 <input
                   type="date"
                   value={customStart}
                   onChange={e => { setCustomStart(e.target.value); setTablePage(1); }}
-                  className="text-xs text-slate-700 border-none outline-none bg-transparent cursor-pointer"
+                  className="text-xs text-slate-700 border-none outline-none bg-transparent cursor-pointer flex-1"
                 />
                 <span className="text-slate-300 text-xs">→</span>
                 <input
                   type="date"
                   value={customEnd}
                   onChange={e => { setCustomEnd(e.target.value); setTablePage(1); }}
-                  className="text-xs text-slate-700 border-none outline-none bg-transparent cursor-pointer"
+                  className="text-xs text-slate-700 border-none outline-none bg-transparent cursor-pointer flex-1"
                 />
               </div>
             )}

@@ -345,7 +345,7 @@ const MemberDashboard = ({ user }) => {
   const displayName = member?.name || user.name || 'Member';
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar />
       <div className="max-w-6xl mx-auto px-4 py-6">
 
@@ -840,7 +840,7 @@ const AdminDashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar/>
       <div className="max-w-7xl mx-auto px-4 py-5">
 
@@ -857,15 +857,15 @@ const AdminDashboard = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-5 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-4">
           {loading ? [...Array(5)].map((_,i)=>(
             <div key={i} className="h-20 rounded-xl bg-white animate-pulse border border-slate-100"/>
           )) : CARDS.map(c=>(
             <button key={c.title} onClick={()=>setModal({title:c.title,members:c.list,color:c.lc})}
               className={`bg-gradient-to-br ${c.gradient} text-white rounded-xl p-3 text-left shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[.98] transition-all duration-200`}>
               <div className="flex items-start justify-between mb-1">
-                <p className="text-2xl font-black leading-none">{c.value}</p>
-                <span className="text-xl leading-none opacity-80">{c.emoji}</span>
+                <p className="text-xl sm:text-2xl font-black leading-none">{c.value}</p>
+                <span className="text-lg sm:text-xl leading-none opacity-80">{c.emoji}</span>
               </div>
               <p className="text-[11px] font-semibold opacity-90">{c.title}</p>
               <p className="text-[10px] opacity-55 mt-0.5">{c.sub}</p>
@@ -885,7 +885,7 @@ const AdminDashboard = () => {
                 </div>
             }
             {/* Summary stats row */}
-            <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-slate-50">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t border-slate-50">
               {[
                 {label:'New Joined',  val:newThisMonth,    c:'text-blue-600',    bg:'bg-blue-50',    emoji:'🆕'},
                 {label:'Active Now',  val:activeM.length,  c:'text-emerald-600', bg:'bg-emerald-50', emoji:'✅'},
@@ -902,7 +902,7 @@ const AdminDashboard = () => {
           </div>
 
           {/* Reminders */}
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col min-h-0">
+          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex flex-col min-h-[300px] lg:min-h-0">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
                 <Bell size={13} className="text-slate-500"/>
@@ -927,7 +927,7 @@ const AdminDashboard = () => {
                       {r.action&&<button onClick={r.action.fn} className={`text-[10px] font-bold underline underline-offset-1 mt-1 ${rc.title}`}>{r.action.label} →</button>}
                       {!r.auto&&<p className="text-[9px] text-slate-400 mt-0.5">{new Date(r.createdAt).toLocaleDateString('en-IN')}</p>}
                     </div>
-                    <button onClick={()=>r.auto?dismiss(r.id):deleteManual(r.id)} className="opacity-0 group-hover:opacity-100 transition p-0.5 rounded hover:bg-black/10">
+                    <button onClick={()=>r.auto?dismiss(r.id):deleteManual(r.id)} className="opacity-0 lg:group-hover:opacity-100 transition p-1 rounded hover:bg-black/10">
                       <X size={11} className="text-slate-400"/>
                     </button>
                   </div>
@@ -939,23 +939,25 @@ const AdminDashboard = () => {
         </div>
 
         {/* Leads strip */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-4 mb-4 flex items-center gap-4 cursor-pointer hover:shadow-lg transition"
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-4 cursor-pointer hover:shadow-lg transition"
           onClick={() => navigate('/leads')}>
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0"><Megaphone size={20} /></div>
-          <div className="flex-1">
-            <p className="font-bold text-sm">Leads & Enquiries</p>
-            <p className="text-xs opacity-70">Track gym enquiries and convert to members</p>
+          <div className="flex items-center gap-4 flex-1">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0"><Megaphone size={20} /></div>
+            <div className="flex-1">
+              <p className="font-bold text-sm">Leads & Enquiries</p>
+              <p className="text-xs opacity-70">Track gym enquiries and convert to members</p>
+            </div>
           </div>
-          <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="grid grid-cols-4 sm:flex sm:items-center gap-2 sm:gap-4 flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
             {[
               {label:'Total',    val:leadStats.total,     c:'text-white'},
               {label:'New',      val:leadStats.new||0,    c:'text-blue-200'},
               {label:'Hot 🔥',   val:(leadStats.interested||0), c:'text-yellow-300'},
               {label:'Converted',val:leadStats.converted||0,c:'text-emerald-300'},
             ].map(({label,val,c})=>(
-              <div key={label} className="text-center">
-                <p className={`text-xl font-black leading-none ${c}`}>{val}</p>
-                <p className="text-[9px] opacity-60 whitespace-nowrap">{label}</p>
+              <div key={label} className="text-center bg-white/10 sm:bg-transparent rounded-lg p-2 sm:p-0">
+                <p className={`text-lg sm:text-xl font-black leading-none ${c}`}>{val}</p>
+                <p className="text-[9px] opacity-80 sm:opacity-60 whitespace-nowrap mt-1 sm:mt-0">{label}</p>
               </div>
             ))}
           </div>

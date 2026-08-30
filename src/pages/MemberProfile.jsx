@@ -7,7 +7,7 @@ import {
   Apple, Upload, X, Check, Scale, Plus,
   Phone, Mail, MapPin, User, RefreshCw, Download,
   Flame, Droplets, Target, Dumbbell, Sun, Moon,
-  ChevronDown, ChevronUp, Trash2, ExternalLink,
+  ChevronDown, ChevronUp, Trash2, ExternalLink, ShieldOff,
 } from 'lucide-react';
 
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday'];
@@ -145,6 +145,27 @@ const Ring = ({ pct, size = 60 }) => {
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#e2e8f0" strokeWidth="5"/>
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5"
         strokeDasharray={`${(pct/100)*circ} ${circ}`} strokeLinecap="round"/>
+    </svg>
+  );
+};
+
+const MiniLineChart = ({ points = [], color = '#3b82f6', unit = '' }) => {
+  const filtered = points.filter(p => p.y != null && !isNaN(p.y));
+  if (!filtered.length) return <div className="text-xs text-slate-400">No data</div>;
+  const W = 220, H = 60, PAD = { l: 10, r: 10, t: 6, b: 14 };
+  const iW = W - PAD.l - PAD.r, iH = H - PAD.t - PAD.b;
+  const xs = filtered.map(p => p.x.getTime());
+  const ys = filtered.map(p => Number(p.y));
+  const loX = Math.min(...xs), hiX = Math.max(...xs);
+  const loY = Math.min(...ys), hiY = Math.max(...ys);
+  const xOf = (t) => PAD.l + (hiX === loX ? iW/2 : ((t - loX) / (hiX - loX)) * iW);
+  const yOf = (v) => PAD.t + iH - ((v - loY) / (hiY - loY || 1)) * iH;
+  const pts = filtered.map(p => [xOf(p.x.getTime()), yOf(p.y)]);
+  const path = pts.map((p, i) => `${i===0?'M':'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16">
+      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {pts.map((p,i)=>(<circle key={i} cx={p[0]} cy={p[1]} r="2" fill="#fff" stroke={color} strokeWidth="1"/>))}
     </svg>
   );
 };
@@ -633,6 +654,94 @@ const bfCategory = (gender, bf) => {
   return             { label: 'Obese',          color: 'text-red-600' };
 };
 
+const WeightRecordModal = ({ member, onSave, onClose }) => {
+  const [form, setForm] = useState({ weight: member.weight || '', notes: '' });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 bg-slate-800 text-white flex items-center justify-between">
+          <div>
+            <p className="font-bold text-sm">New Weight Record</p>
+            <p className="text-[10px] opacity-60 mt-0.5">Track latest weight and keep history</p>
+          </div>
+          <button onClick={onClose}><X size={16}/></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Weight (kg)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={form.weight}
+              onChange={e => setForm(f => ({ ...f, weight: e.target.value }))}
+              placeholder="Enter weight"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Notes (optional)</label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              rows="3"
+              placeholder="Add context for this reading"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+            />
+          </div>
+        </div>
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">Cancel</button>
+          <button onClick={() => onSave({ weight: form.weight, notes: form.notes })} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700">Save</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const BloodPressureModal = ({ member, onSave, onClose }) => {
+  const [form, setForm] = useState({ bloodPressure: member.bloodPressure || '', sugarLevel: member.sugarLevel || '' });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 bg-slate-800 text-white flex items-center justify-between">
+          <div>
+            <p className="font-bold text-sm">+ New Record</p>
+            <p className="text-[10px] opacity-60 mt-0.5">Add Blood Pressure and Sugar Level</p>
+          </div>
+          <button onClick={onClose}><X size={16}/></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Blood Pressure</label>
+            <input
+              value={form.bloodPressure}
+              onChange={e => setForm(f => ({ ...f, bloodPressure: e.target.value }))}
+              placeholder="e.g. 120/80"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Sugar Level (mg/dL)</label>
+            <input
+              type="number"
+              value={form.sugarLevel}
+              onChange={e => setForm(f => ({ ...f, sugarLevel: e.target.value }))}
+              placeholder="e.g. 120"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+            />
+          </div>
+        </div>
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">Cancel</button>
+          <button onClick={() => onSave({ bloodPressure: form.bloodPressure, sugarLevel: form.sugarLevel })} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700">Save</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const EditMeasurementsModal = ({ member, onSave, onClose }) => {
   const gender = member.gender || '';
   const [form, setForm] = useState({
@@ -640,6 +749,7 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
     waist:  member.waist  || '', hip:    member.hip    || '',
     neck:   member.neck   || '', chest:  member.chest  || '',
     arm:    member.arm    || '', thigh:  member.thigh  || '',
+    notes:  '',
   });
 
   const handleChange = (name, value) => setForm(f => ({ ...f, [name]: value }));
@@ -659,7 +769,7 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-4 bg-slate-800 text-white flex items-center justify-between">
           <div>
-            <p className="font-bold text-sm">Edit Measurements</p>
+            <p className="font-bold text-sm">New Measurement Record</p>
             {gender && <p className="text-[10px] opacity-50 mt-0.5">{gender} · Navy formula body fat</p>}
           </div>
           <button onClick={onClose}><X size={16}/></button>
@@ -673,6 +783,17 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
           <MeasureField label="Chest"  name="chest"  unit="cm" value={form.chest}  onChange={handleChange}/>
           <MeasureField label="Arm"    name="arm"    unit="cm" value={form.arm}    onChange={handleChange}/>
           <MeasureField label="Thigh"  name="thigh"  unit="cm" value={form.thigh}  onChange={handleChange}/>
+        </div>
+
+        <div className="px-5 pb-3">
+          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Notes (optional)</label>
+          <textarea
+            value={form.notes}
+            onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+            rows="3"
+            placeholder="Add context for this record"
+            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+          />
         </div>
 
         {/* Live calculated results */}
@@ -838,6 +959,18 @@ const BmiHistoryModal = ({ member, bmiHistory, onClose }) => {
                       <span className={`w-2 h-2 rounded-full ${chartTab==='bmi'?'bg-white':'bg-rose-500'}`}/>
                       BMI
                     </button>
+                    <button
+                      onClick={()=>setChartTab('waist')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${chartTab==='waist'?'bg-amber-500 text-white shadow-sm':'bg-white text-slate-500 hover:text-slate-700 border border-slate-200'}`}>
+                      <span className={`w-2 h-2 rounded-full ${chartTab==='waist'?'bg-white':'bg-amber-500'}`}/>
+                      Waist
+                    </button>
+                    <button
+                      onClick={()=>setChartTab('bodyFat')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${chartTab==='bodyFat'?'bg-emerald-500 text-white shadow-sm':'bg-white text-slate-500 hover:text-slate-700 border border-slate-200'}`}>
+                      <span className={`w-2 h-2 rounded-full ${chartTab==='bodyFat'?'bg-white':'bg-emerald-500'}`}/>
+                      Body Fat
+                    </button>
                     {chartTab==='bmi' && (
                       <div className="ml-auto flex items-center gap-2 text-[9px] font-semibold">
                         <span className="text-blue-500">{'<18.5 Under'}</span>
@@ -849,9 +982,17 @@ const BmiHistoryModal = ({ member, bmiHistory, onClose }) => {
                     {chartTab==='weight' && (
                       <span className="ml-auto text-[10px] text-slate-400 font-semibold">kg</span>
                     )}
+                    {chartTab==='waist' && (
+                      <span className="ml-auto text-[10px] text-slate-400 font-semibold">cm</span>
+                    )}
+                    {chartTab==='bodyFat' && (
+                      <span className="ml-auto text-[10px] text-slate-400 font-semibold">%</span>
+                    )}
                   </div>
-                  {chartTab==='weight' && makeChart('weight','#3b82f6','wGrad','kg')}
-                  {chartTab==='bmi'    && makeChart('bmi',   '#f43f5e','bGrad','')}
+                  {chartTab==='weight'  && makeChart('weight', '#3b82f6','wGrad','kg')}
+                  {chartTab==='bmi'     && makeChart('bmi',    '#f43f5e','bGrad','')}
+                  {chartTab==='waist'   && makeChart('waist',  '#f59e0b','waGrad','cm')}
+                  {chartTab==='bodyFat' && makeChart('bodyFat','#10b981','bfGrad','%')}
                 </div>
               )}
 
@@ -898,9 +1039,111 @@ const BmiHistoryModal = ({ member, bmiHistory, onClose }) => {
   );
 };
 
+const HealthRecordsModal = ({ records = [], member, onClose }) => {
+  const sorted = (records || []).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const bpPoints = (records||[]).map(r => ({ x: new Date(r.date), y: r.systolic || null }));
+  const sugarPoints = (records||[]).map(r => ({ x: new Date(r.date), y: r.sugarLevel != null ? Number(r.sugarLevel) : null }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-auto" onClick={e=>e.stopPropagation()}>
+        <div className="px-5 py-4 bg-gradient-to-r from-slate-700 to-slate-900 text-white flex items-center justify-between">
+          <div>
+            <p className="font-bold text-sm">Health Records</p>
+            <p className="text-xs opacity-60">{member?.name} · {records.length} record{records.length!==1?'s':''}</p>
+          </div>
+          <button onClick={onClose}><X size={16}/></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-xl p-3 bg-slate-50">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">BP Trend</p>
+              {bpPoints.length<2? <p className="text-xs text-slate-400">Not enough data</p> : <MiniLineChart points={bpPoints} color="#f59e0b" />}
+            </div>
+            <div className="rounded-xl p-3 bg-slate-50">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Sugar Trend</p>
+              {sugarPoints.length<2? <p className="text-xs text-slate-400">Not enough data</p> : <MiniLineChart points={sugarPoints} color="#7c3aed" unit="mg/dL" />}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-100 p-3">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-slate-400">
+                <tr><th className="text-left">Date</th><th>Time</th><th>BP</th><th>Sugar</th><th>By</th></tr>
+              </thead>
+              <tbody>
+                {sorted.map(r => (
+                  <tr key={r._id} className="border-t border-slate-50">
+                    <td className="py-2">{new Date(r.date).toLocaleDateString('en-IN')}</td>
+                    <td className="py-2">{r.time || new Date(r.date).toTimeString().slice(0,5)}</td>
+                    <td className="py-2 font-bold">{r.bloodPressure || '—'}</td>
+                    <td className="py-2">{r.sugarLevel != null ? `${r.sugarLevel} mg/dL` : '—'}</td>
+                    <td className="py-2 text-xs text-slate-500">{r.recordedBy ? r.recordedBy : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  Main MemberProfile Page
 // ══════════════════════════════════════════════════════════════════════════════
+const WeightTrendChart = ({ history }) => {
+  const points = (history || []).filter(h => Number(h.weight) > 0).map((h, i) => ({
+    weight: Number(h.weight),
+    label: new Date(h.recordDate || h.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+  }));
+
+  if (!points.length) {
+    return <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-[11px] text-slate-400">No weight history yet</div>;
+  }
+
+  const W = 480, H = 180, PAD = { t: 16, r: 16, b: 26, l: 28 };
+  const innerW = W - PAD.l - PAD.r;
+  const innerH = H - PAD.t - PAD.b;
+  const vals = points.map(p => p.weight);
+  const minV = Math.min(...vals);
+  const maxV = Math.max(...vals);
+  const padV = Math.max(1, (maxV - minV) * 0.2);
+  const lo = minV - padV;
+  const hi = maxV + padV;
+  const xOf = (i) => PAD.l + (points.length <= 1 ? innerW / 2 : (i / (points.length - 1)) * innerW);
+  const yOf = (v) => PAD.t + innerH - ((v - lo) / (hi - lo || 1)) * innerH;
+  const linePoints = points.map((p, i) => [xOf(i), yOf(p.weight)]);
+  const linePath = linePoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const areaPath = `${linePath} L${linePoints[linePoints.length - 1][0].toFixed(1)},${H - PAD.b} L${linePoints[0][0].toFixed(1)},${H - PAD.b} Z`;
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-44">
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => {
+          const y = PAD.t + innerH * ratio;
+          return <g key={index}><line x1={PAD.l} y1={y} x2={W - PAD.r} y2={y} stroke="#e2e8f0" strokeWidth="1" /><text x={PAD.l - 8} y={y + 3} textAnchor="end" fontSize="9" fill="#94a3b8">{(hi - (hi - lo) * ratio).toFixed(1)}</text></g>;
+        })}
+        <path d={areaPath} fill="url(#weightArea)" />
+        <path d={linePath} fill="none" stroke="#dc2626" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+        {linePoints.map((p, i) => (
+          <g key={i}>
+            <circle cx={p[0]} cy={p[1]} r="4" fill="#fff" stroke="#dc2626" strokeWidth="2" />
+            <text x={p[0]} y={H - 8} textAnchor="middle" fontSize="8" fill="#64748b">{points[i].label}</text>
+          </g>
+        ))}
+        <defs>
+          <linearGradient id="weightArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fca5a5" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#fca5a5" stopOpacity="0.04" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  );
+};
+
 const MemberProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -921,7 +1164,19 @@ const MemberProfile = () => {
   const [addonsForm,    setAddonsForm]    = useState({ personalTraining:'No', customWorkout:'No', customDiet:'No', rehabTherapy:'No' });
   const [addonsSaving, setAddonsSaving]  = useState(false);
   const [bmiHistory,    setBmiHistory]    = useState([]);
+  const [weightHistory, setWeightHistory]  = useState([]);
   const [showBmiHistory,setShowBmiHistory]= useState(false);
+  const [showWeightRecord, setShowWeightRecord] = useState(false);
+  const [showBloodPressureRecord, setShowBloodPressureRecord] = useState(false); // (deprecated)
+  const [healthRecords, setHealthRecords] = useState([]);
+  const [showHealthModal, setShowHealthModal] = useState(false);
+  const [showHealthRecords, setShowHealthRecords] = useState(false);
+
+  // New states for Progress Photos & Measurements Inspect
+  const [progressPhotoSessions, setProgressPhotoSessions] = useState([]);
+  const [showProgressPhotoUpload, setShowProgressPhotoUpload] = useState(false);
+  const [inspectProgressPhoto, setInspectProgressPhoto] = useState(null);
+  const [inspectMeasurement, setInspectMeasurement] = useState(null);
 
   useEffect(()=>{ if(id) fetchAll(); },[id]);
 
@@ -943,15 +1198,28 @@ const MemberProfile = () => {
     } catch { return null; }
   };
 
+  const sortWeightEntries = (entries) => [...entries].sort((a, b) => {
+    const aDate = new Date(a.recordDate || a.createdAt || 0).getTime();
+    const bDate = new Date(b.recordDate || b.createdAt || 0).getTime();
+    if (aDate !== bDate) return aDate - bDate;
+    const aTime = a.recordTime || "";
+    const bTime = b.recordTime || "";
+    return aTime.localeCompare(bTime);
+  });
+
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [mR, dR, wR, aR, pR] = await Promise.allSettled([
+      const [mR, dR, wR, aR, pR, prR, whR, hrR, ppsR] = await Promise.allSettled([
         CustomBaseUrl.get(`/fetchone/${id}`),
         CustomBaseUrl.get(`/reg-diet-plans/member/${id}`),
         CustomBaseUrl.get(`/reg-workout-plans/member/${id}`),
         CustomBaseUrl.get(`/xls-attendance/member/${id}`),
         CustomBaseUrl.get(`/reg-payments/member/${id}`),
+        CustomBaseUrl.get(`/member-progress/member/${id}`),
+        CustomBaseUrl.get(`/weight-history/member/${id}`),
+        CustomBaseUrl.get(`/health-records/member/${id}`),
+        CustomBaseUrl.get(`/progress-photo-session/member/${id}`),
       ]);
       if(mR.status==='fulfilled') setMember(mR.value.data?.data);
 
@@ -973,33 +1241,60 @@ const MemberProfile = () => {
       }
       if(pR.status==='fulfilled') setPayments(pR.value.data?.payments||[]);
 
-      // Load measurement history from localStorage
-      try {
-        const stored = localStorage.getItem(`bmi_history_${id}`);
-        setBmiHistory(stored ? JSON.parse(stored) : []);
-      } catch { setBmiHistory([]); }
+      if(prR.status==='fulfilled') setBmiHistory(prR.value.data?.data||[]);
+      if(whR.status==='fulfilled') setWeightHistory(sortWeightEntries(whR.value.data?.records || []));
+      if(hrR && hrR.status==='fulfilled') setHealthRecords(hrR.value.data?.data || []);
+      if(ppsR && ppsR.status==='fulfilled') setProgressPhotoSessions(ppsR.value.data?.data || []);
     } catch(e){console.error(e);}
     finally{setLoading(false);}
   };
 
-  const pushBmiHistory = (form, bmi) => {
-    const entry = {
-      date: new Date().toISOString(),
-      weight: parseFloat(form.weight) || null,
-      height: parseFloat(form.height) || null,
-      bmi:    parseFloat(bmi)         || null,
-      waist:  parseFloat(form.waist)  || null,
-      hip:    parseFloat(form.hip)    || null,
-      neck:   parseFloat(form.neck)   || null,
-      chest:  parseFloat(form.chest)  || null,
-      bodyFat: parseFloat(form.bodyFat) || null,
-    };
-    setBmiHistory(prev => {
-      const next = [...prev, entry];
-      try { localStorage.setItem(`bmi_history_${id}`, JSON.stringify(next)); } catch(e) { void e; }
-      return next;
+  const pushBmiHistory = async (form, bmi) => {
+    const res = await CustomBaseUrl.post('/member-progress', {
+      registrationId: id,
+      weight: form.weight || undefined,
+      height: form.height || undefined,
+      bmi:    bmi         || undefined,
+      waist:  form.waist   || undefined,
+      hip:    form.hip     || undefined,
+      neck:   form.neck    || undefined,
+      chest:  form.chest   || undefined,
+      bodyFat: form.bodyFat || undefined,
     });
+    setBmiHistory(prev => [...prev, res.data.data]);
   };
+
+  const pushWeightHistory = async (form) => {
+    const payload = {
+      registrationId: id,
+      memberName: member?.name || '',
+      weight: form.weight ?? member?.weight,
+      recordDate: new Date().toISOString(),
+      recordTime: new Date().toTimeString().slice(0, 5),
+      notes: form.notes || '',
+      recordType: 'update',
+    };
+    const res = await CustomBaseUrl.post('/weight-history', payload);
+    setWeightHistory(prev => sortWeightEntries([...prev, res.data.entry]));
+    return res.data.entry;
+  };
+
+  const buildMemberPayload = (updates = {}) => ({
+    ...member,
+    ...updates,
+    name: member.name,
+    age: member.age,
+    gender: member.gender,
+    emails: member.emails,
+    phone: member.phone,
+    address: member.address,
+    pincode: member.pincode,
+    packages: member.packages,
+    duration: member.duration,
+    services: member.services,
+    startDate: member.startDate?.split?.('T')[0],
+    endDate: member.endDate?.split?.('T')[0],
+  });
 
   // ── Diet import handler ─────────────────────────────────────────────────────
   const handleDietImport = async (rows, gsheetLink = '') => {
@@ -1066,21 +1361,44 @@ const MemberProfile = () => {
       ? (parseFloat(form.weight) / Math.pow(parseFloat(form.height)/100, 2)).toFixed(1)
       : member.bmi;
     const bodyFat = form.bodyFat || calcBodyFat(member.gender, form.height, form.waist, form.neck, form.hip) || member.bodyFat || '';
-    await CustomBaseUrl.post(`/update/${id}`, {
-      ...member, ...form, bmi, bodyFat,
-      name: member.name, age: member.age, gender: member.gender,
-      emails: member.emails, phone: member.phone, address: member.address, pincode: member.pincode,
-      packages: member.packages, duration: member.duration, services: member.services,
-      startDate: member.startDate?.split?.('T')[0], endDate: member.endDate?.split?.('T')[0],
-    });
-    pushBmiHistory({ ...form, bodyFat }, bmi);
-    setMember(m => ({ ...m, ...form, bmi, bodyFat }));
+    const newWeight = form.weight !== undefined && form.weight !== '' ? form.weight : member.weight;
+    await CustomBaseUrl.post(`/update/${id}`, buildMemberPayload({ ...form, bmi, bodyFat }));
+    const weightEntry = await pushWeightHistory({ ...form, weight: newWeight, notes: form.notes || '' });
+    await pushBmiHistory({ ...form, bodyFat }, bmi);
+    setMember(m => ({ ...m, ...form, weight: weightEntry?.weight ?? newWeight, bmi, bodyFat }));
     setShowMeasure(false);
   };
 
+  const handleSaveWeightRecord = async ({ weight, notes }) => {
+    const parsedWeight = parseFloat(weight);
+    const newWeight = parsedWeight > 0 ? parsedWeight : member.weight;
+    const bmi = (parsedWeight > 0 && parseFloat(member.height))
+      ? (parsedWeight / Math.pow(parseFloat(member.height) / 100, 2)).toFixed(1)
+      : member.bmi;
+    await CustomBaseUrl.post(`/update/${id}`, buildMemberPayload({ weight: newWeight, bmi }));
+    const weightEntry = await pushWeightHistory({ weight: newWeight, notes: notes || '' });
+    await pushBmiHistory({ weight: newWeight, height: member.height, notes: notes || '' }, bmi);
+    setMember(m => ({ ...m, weight: weightEntry?.weight ?? newWeight, bmi }));
+    setShowWeightRecord(false);
+  };
+
+  const handleSaveHealthRecord = async ({ bloodPressure, sugarLevel }) => {
+    try {
+      const payload = { registrationId: id, bloodPressure: bloodPressure || undefined, sugarLevel: sugarLevel !== undefined && sugarLevel !== '' ? Number(sugarLevel) : undefined };
+      const res = await CustomBaseUrl.post('/health-records', payload);
+      if (res.data && res.data.data) {
+        setHealthRecords(prev => [...prev, res.data.data]);
+        setMember(m => ({ ...m, bloodPressure: bloodPressure || m.bloodPressure, sugarLevel: sugarLevel !== undefined && sugarLevel !== '' ? sugarLevel : m.sugarLevel }));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setShowHealthModal(false);
+  };
+
   // ── Loading / not found ─────────────────────────────────────────────────────
-  if(loading) return <div className="min-h-screen bg-slate-50"><Navbar/><div className="flex items-center justify-center py-24"><RefreshCw size={24} className="animate-spin text-slate-300"/></div></div>;
-  if(!member) return <div className="min-h-screen bg-slate-50"><Navbar/><div className="text-center py-24 text-slate-400"><User size={40} className="mx-auto mb-3 opacity-30"/><p>Member not found</p><button onClick={()=>navigate('/members')} className="mt-4 text-red-600 underline text-sm">← Back</button></div></div>;
+  if(loading) return <div className="min-h-screen bg-slate-200"><Navbar/><div className="flex items-center justify-center py-24"><RefreshCw size={24} className="animate-spin text-slate-300"/></div></div>;
+  if(!member) return <div className="min-h-screen bg-slate-200"><Navbar/><div className="text-center py-24 text-slate-400"><User size={40} className="mx-auto mb-3 opacity-30"/><p>Member not found</p><button onClick={()=>navigate('/members')} className="mt-4 text-red-600 underline text-sm">← Back</button></div></div>;
 
   const status = getStatus(member.endDate);
   const bmi    = parseFloat(member.bmi)||0;
@@ -1090,8 +1408,44 @@ const MemberProfile = () => {
   const selAtt = attendance.find(r=>r.month===activeMonth);
   const attPct = selAtt?.workDays>0?Math.round((selAtt.attendDays/selAtt.workDays)*100):0;
 
+  const handleProfileImageEdit = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('profileImage', file);
+
+    // Append existing fields to pass backend validation and avoid wiping out data
+    const fieldsToKeep = [
+      'name', 'age', 'gender', 'emails', 'height', 'weight', 'bmi', 'bloodGroup',
+      'issues', 'description', 'profession', 'phone', 'address', 'pincode',
+      'packages', 'duration', 'services', 'startDate', 'endDate',
+      'bodyFat', 'waist', 'neck', 'hip', 'sugarLevel', 'bloodPressure',
+      'attendanceId', 'personalTraining', 'customWorkout', 'customDiet', 'rehabTherapy', 'goal'
+    ];
+    fieldsToKeep.forEach(field => {
+      if (member[field] !== undefined && member[field] !== null) {
+        formData.append(field, member[field]);
+      }
+    });
+
+    try {
+      setLoading(true);
+      const res = await CustomBaseUrl.post(`/update/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (res.data && res.data.data) { setMember(res.data.data); }
+    } catch (err) { console.error(err); } finally { setLoading(false); }
+  };
+
+  const handleProgressPhotoSessionUpload = async (formData) => {
+    try {
+      formData.append('registrationId', id);
+      const res = await CustomBaseUrl.post(`/progress-photo-session`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (res.data && res.data.data) { setProgressPhotoSessions(prev => [res.data.data, ...prev].sort((a,b)=>new Date(b.date)-new Date(a.date))); }
+      setShowProgressPhotoUpload(false);
+    } catch (err) { console.error(err); }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar/>
       <div className="max-w-7xl mx-auto px-4 py-6">
 
@@ -1116,14 +1470,15 @@ const MemberProfile = () => {
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
               <div className="h-20 bg-gradient-to-br from-slate-800 to-slate-900 relative">
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2">
-                  <div
-                    className={`w-20 h-20 rounded-full ring-4 ring-white overflow-hidden bg-slate-200 flex items-center justify-center shadow-lg ${member.images?.profileImage ? 'cursor-pointer' : ''}`}
-                    onClick={() => member.images?.profileImage && setShowPhoto(true)}
-                  >
+                  <div className="w-20 h-20 rounded-full ring-4 ring-white overflow-hidden bg-slate-200 flex items-center justify-center shadow-lg relative group">
                     {member.images?.profileImage
-                      ? <img src={member.images.profileImage} alt={member.name} className="w-full h-full object-cover" onError={e=>e.target.style.display='none'}/>
+                      ? <img src={member.images.profileImage} alt={member.name} className="w-full h-full object-cover cursor-pointer" onError={e=>e.target.style.display='none'} onClick={() => setShowPhoto(true)} />
                       : <span className="text-2xl font-black text-slate-600">{member.name?.[0]?.toUpperCase()}</span>
                     }
+                    <label className="absolute bottom-0 inset-x-0 h-6 bg-black/50 text-white flex justify-center items-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-[9px] font-bold uppercase tracking-wider">
+                      Edit
+                      <input type="file" className="hidden" accept="image/*" onChange={handleProfileImageEdit} />
+                    </label>
                   </div>
                 </div>
               </div>
@@ -1135,6 +1490,7 @@ const MemberProfile = () => {
                     <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`}/>{status.label}
                   </span>
                   {member.attendanceId&&<span className="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">ID:{member.attendanceId}</span>}
+                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{member.packages || 'No package'}</span>
                 </div>
                 <div className="mt-4 space-y-2 text-left">
                   {member.phone  &&<div className="flex items-center gap-2 text-xs text-slate-600"><Phone  size={11} className="text-slate-400"/>{member.phone}</div>}
@@ -1145,7 +1501,7 @@ const MemberProfile = () => {
               <div className="border-t border-slate-100 px-5 py-4">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Membership</p>
                 <div className="space-y-1.5">
-                  {[['Package',member.packages],['Duration',(() => {
+                  {[['Package',member.packages],['Goal',member.goal],['Duration',(() => {
                     if (member.startDate && member.endDate) {
                       const months = Math.round((new Date(member.endDate) - new Date(member.startDate)) / (1000 * 60 * 60 * 24 * 30));
                       return months > 0 ? `${months} month(s)` : '—';
@@ -1162,18 +1518,73 @@ const MemberProfile = () => {
                     </div>
                   ))}
                 </div>
+
+                <div className="mt-3 rounded-xl bg-slate-50 p-3">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Current Active Package</p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">{member.packages || '—'}</p>
+                  <p className="mt-1 text-[10px] text-slate-500">{member.startDate ? `Started ${new Date(member.startDate).toLocaleDateString('en-IN')}` : 'Start date not set'}</p>
+                </div>
+
+                <div className="mt-3">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Package Renewal History</p>
+                  {payments.length === 0 ? (
+                    <p className="text-[11px] text-slate-400">No renewals recorded yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {payments.slice().sort((a, b) => new Date(b.issuedDate || b.createdAt || b.startDate || 0) - new Date(a.issuedDate || a.createdAt || a.startDate || 0)).map((payment) => (
+                        <div key={payment._id} className="rounded-xl border border-slate-100 bg-white p-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold text-slate-800">{payment.package || 'Package'}</p>
+                            {payment.isRenewal && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[9px] font-bold text-violet-700">Renewal</span>}
+                          </div>
+                          <p className="mt-1 text-[10px] text-slate-500">{payment.startDate ? `From ${new Date(payment.startDate).toLocaleDateString('en-IN')}` : '—'} · {payment.endDate ? `To ${new Date(payment.endDate).toLocaleDateString('en-IN')}` : '—'}</p>
+                          <p className="mt-1 text-[10px] text-slate-500">Amount: ₹{(payment.finalAmount || payment.amount || 0).toLocaleString('en-IN')} · {payment.paymentStatus || 'completed'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Health */}
+            {/* Health Records */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-3"><Heart size={13} className="text-red-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Health</p></div>
-              <div className="grid grid-cols-2 gap-3">
-                {[['Blood Group',member.bloodGroup],['BP',member.bloodPressure],
-                  ['Sugar',member.sugarLevel?`${member.sugarLevel} mg/dL`:null],['Issues',member.issues||'None']
-                ].map(([l,v])=>(
-                  <div key={l}><p className="text-[9px] text-slate-400 uppercase">{l}</p><p className="text-sm font-bold text-slate-800">{v||'—'}</p></div>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2"><Heart size={13} className="text-red-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Health Records</p></div>
+                <div className="flex items-center gap-2">
+                  <button onClick={()=>setShowHealthModal(true)} className="flex items-center gap-1.5 bg-emerald-600 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-emerald-700 transition">+ New Record</button>
+                  <button onClick={()=>setShowHealthRecords(true)} className="text-[10px] font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition">View Records</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {(() => {
+                  const latest = healthRecords && healthRecords.length ? healthRecords[healthRecords.length - 1] : null;
+                  return [
+                    ['Latest BP', latest?.bloodPressure || member.bloodPressure || '—', 'bg-amber-50 text-amber-700'],
+                    ['Latest Sugar', latest?.sugarLevel ? `${latest.sugarLevel} mg/dL` : (member.sugarLevel ? `${member.sugarLevel} mg/dL` : '—'), 'bg-violet-50 text-violet-700'],
+                  ].map(([label, value, classes]) => (
+                    <div key={label} className={`rounded-xl p-3 ${classes}`}>
+                      <p className="text-[9px] font-bold uppercase opacity-70">{label}</p>
+                      <p className="text-sm font-black mt-0.5">{value}</p>
+                    </div>
+                  ));
+                })()}
+              </div>
+              <div className="mt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl p-3 bg-slate-50">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">BP Trend</p>
+                    {healthRecords.length < 2 ? <p className="text-xs text-slate-400">Not enough data</p> : (
+                      <MiniLineChart points={healthRecords.map(r => ({ x: new Date(r.date), y: r.systolic || null }))} color="#f59e0b" unit="" />
+                    )}
+                  </div>
+                  <div className="rounded-xl p-3 bg-slate-50">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Sugar Trend</p>
+                    {healthRecords.length < 2 ? <p className="text-xs text-slate-400">Not enough data</p> : (
+                      <MiniLineChart points={healthRecords.map(r => ({ x: new Date(r.date), y: r.sugarLevel != null ? Number(r.sugarLevel) : null }))} color="#7c3aed" unit="mg/dL" />
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1194,14 +1605,34 @@ const MemberProfile = () => {
               }
             </div>
 
-            {/* Photos */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-3"><Activity size={13} className="text-slate-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progress Photos</p></div>
-              <div className="grid grid-cols-3 gap-2">
-                <BodyTile src={member.images?.frontBodyImage} label="Front"/>
-                <BodyTile src={member.images?.sideBodyImage}  label="Side"/>
-                <BodyTile src={member.images?.backBodyImage}  label="Back"/>
+            {/* ═══ Progress Photos Sessions List ═══ */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Activity size={13} className="text-slate-500"/>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progress Photos</p>
+                </div>
+                <button onClick={() => setShowProgressPhotoUpload(true)} className="flex items-center gap-1 text-xs text-blue-600 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition"><Plus size={11}/>New</button>
               </div>
+              
+              {progressPhotoSessions.length === 0 ? (
+                <div className="text-center py-6 border border-dashed border-slate-200 rounded-xl bg-slate-50">
+                  <p className="text-xs text-slate-400 font-medium">No sessions uploaded</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {progressPhotoSessions.map((session, i) => (
+                    <div key={i} onClick={() => setInspectProgressPhoto(session)} className="aspect-square rounded-xl overflow-hidden relative cursor-pointer group bg-slate-100 border border-slate-200">
+                      <img src={session.frontImage || session.sideImage || session.backImage} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" onError={e=>e.target.style.display='none'} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-2 opacity-90">
+                        <div>
+                          <p className="text-[10px] font-bold text-white">{new Date(session.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -1216,7 +1647,7 @@ const MemberProfile = () => {
                   <button onClick={()=>setShowBmiHistory(true)} className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition">
                     <Activity size={10}/> History
                   </button>
-                  <button onClick={()=>setShowMeasure(true)} className="flex items-center gap-1 text-xs text-red-600 font-semibold"><Edit3 size={11}/>Edit</button>
+                  <button onClick={()=>setShowMeasure(true)} className="flex items-center gap-1 text-xs text-red-600 font-semibold"><Plus size={11}/>New Record</button>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl mb-3">
@@ -1242,59 +1673,49 @@ const MemberProfile = () => {
                   </div>
                 ))}
               </div>
+
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Measurement History</p>
+                    <p className="text-xs text-slate-500">Historical records of body measurements</p>
+                  </div>
+                  <span className="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-red-600">{bmiHistory.length} record{bmiHistory.length === 1 ? '' : 's'}</span>
+                </div>
+                
+                {bmiHistory.length === 0 ? (
+                  <div className="text-center py-6 border border-dashed border-slate-200 rounded-xl bg-slate-50">
+                    <p className="text-xs text-slate-400 font-medium">No measurements yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {[...bmiHistory].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0, 5).map((record, i) => (
+                      <div key={i} onClick={() => setInspectMeasurement(record)} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 cursor-pointer transition">
+                        <div>
+                          <p className="text-xs font-bold text-slate-700">{new Date(record.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                          {record.notes && <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[150px]">{record.notes}</p>}
+                        </div>
+                        <div className="flex gap-3 text-right">
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Height</p>
+                            <p className="text-xs font-bold text-slate-700">{record.height ? `${record.height}cm` : '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Weight</p>
+                            <p className="text-xs font-bold text-slate-700">{record.weight ? `${record.weight}kg` : '—'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {bmiHistory.length > 5 && (
+                      <button onClick={() => setShowBmiHistory(true)} className="w-full py-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">View all records & charts</button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Attendance */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2"><Calendar size={13} className="text-slate-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attendance</p></div>
-                {member.attendanceId&&<span className="text-[10px] font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">ID:{member.attendanceId}</span>}
-              </div>
-              {attendance.length===0
-                ?<div className="text-center py-5 text-slate-400"><Calendar size={24} className="mx-auto mb-2 opacity-20"/><p className="text-xs">No records found</p>{!member.attendanceId&&<p className="text-[10px] mt-1 text-amber-600">Set Attendance ID in Edit Member</p>}</div>
-                :<>
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {attendance.map(r=>{
-                      const p=r.workDays>0?Math.round((r.attendDays/r.workDays)*100):0;
-                      const dot=p>=80?'bg-emerald-500':p>=50?'bg-amber-500':'bg-red-500';
-                      return(
-                        <button key={r.month} onClick={()=>setActiveMonth(r.month)}
-                          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition ${activeMonth===r.month?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-500 border-slate-200'}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeMonth===r.month?'bg-white':dot}`}/>
-                          {MONTH_LABELS[r.month]||r.month}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {selAtt&&(
-                    <div className="bg-slate-50 rounded-xl p-3">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="relative shrink-0" style={{width:56,height:56}}>
-                          <Ring pct={attPct} size={56}/>
-                          <div className="absolute inset-0 flex items-center justify-center"><span className="text-xs font-black text-slate-700">{attPct}%</span></div>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-800">{selAtt.attendDays} of {selAtt.workDays} days</p>
-                          {selAtt.dept&&<p className="text-[10px] text-slate-400">{selAtt.dept} · {selAtt.shift}</p>}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {[{l:'Present',v:selAtt.attendDays,c:'text-emerald-600',bg:'bg-emerald-50'},
-                          {l:'Absent',v:selAtt.absentDays,c:'text-red-500',bg:'bg-red-50'},
-                          {l:'Work',v:selAtt.workDays,c:'text-slate-700',bg:'bg-white'}
-                        ].map(s=>(
-                          <div key={s.l} className={`text-center rounded-lg py-2 ${s.bg}`}>
-                            <p className={`text-base font-black ${s.c}`}>{s.v}</p>
-                            <p className="text-[9px] text-slate-400">{s.l}</p>
-                          </div>
-                        ))}
-                      </div>
-                      {selAtt.lateTimes>0&&<p className="text-[10px] text-amber-600 font-semibold mt-2">⏰ Late {selAtt.lateTimes}× ({selAtt.lateMins} min)</p>}
-                    </div>
-                  )}
-                </>
-              }
-            </div>
+            {/* Attendance moved to Diet Plan column (see spec) */}
           </div>
 
           {/* ═══ COL 3: Diet Plan ═══ */}
@@ -1319,7 +1740,59 @@ const MemberProfile = () => {
                   <button onClick={downloadDietTemplate} className="flex items-center gap-1 text-[11px] text-green-600 font-semibold mx-auto hover:underline"><Download size={11}/>Download CSV template</button>
                 </div>
               }
-            </div>
+              </div>
+
+              {/* Attendance (moved from Measurements column) */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2"><Calendar size={13} className="text-slate-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attendance</p></div>
+                  {member.attendanceId&&<span className="text-[10px] font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">ID:{member.attendanceId}</span>}
+                </div>
+                {attendance.length===0
+                  ?<div className="text-center py-5 text-slate-400"><Calendar size={24} className="mx-auto mb-2 opacity-20"/><p className="text-xs">No records found</p>{!member.attendanceId&&<p className="text-[10px] mt-1 text-amber-600">Set Attendance ID in Edit Member</p>}</div>
+                  :<>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {attendance.map(r=>{
+                        const p=r.workDays>0?Math.round((r.attendDays/r.workDays)*100):0;
+                        const dot=p>=80?'bg-emerald-500':p>=50?'bg-amber-500':'bg-red-500';
+                        return(
+                          <button key={r.month} onClick={()=>setActiveMonth(r.month)}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition ${activeMonth===r.month?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-500 border-slate-200'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeMonth===r.month?'bg-white':dot}`}/>
+                            {MONTH_LABELS[r.month]||r.month}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {selAtt&&(
+                      <div className="bg-slate-50 rounded-xl p-3">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="relative shrink-0" style={{width:56,height:56}}>
+                            <Ring pct={attPct} size={56}/>
+                            <div className="absolute inset-0 flex items-center justify-center"><span className="text-xs font-black text-slate-700">{attPct}%</span></div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{selAtt.attendDays} of {selAtt.workDays} days</p>
+                            {selAtt.dept&&<p className="text-[10px] text-slate-400">{selAtt.dept} · {selAtt.shift}</p>}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[{l:'Present',v:selAtt.attendDays,c:'text-emerald-600',bg:'bg-emerald-50'},
+                            {l:'Absent',v:selAtt.absentDays,c:'text-red-500',bg:'bg-red-50'},
+                            {l:'Work',v:selAtt.workDays,c:'text-slate-700',bg:'bg-white'}
+                          ].map(s=>(
+                            <div key={s.l} className={`text-center rounded-lg py-2 ${s.bg}`}>
+                              <p className={`text-base font-black ${s.c}`}>{s.v}</p>
+                              <p className="text-[9px] text-slate-400">{s.l}</p>
+                            </div>
+                          ))}
+                        </div>
+                        {selAtt.lateTimes>0&&<p className="text-[10px] text-amber-600 font-semibold mt-2">⏰ Late {selAtt.lateTimes}× ({selAtt.lateMins} min)</p>}
+                      </div>
+                    )}
+                  </>
+                }
+              </div>
           </div>
 
           {/* ═══ COL 4: Workout Plan ═══ */}
@@ -1463,6 +1936,24 @@ const MemberProfile = () => {
           onClose={()=>setShowBmiHistory(false)}
         />
       )}
+      {showWeightRecord && (
+        <WeightRecordModal
+          member={member}
+          onSave={handleSaveWeightRecord}
+          onClose={() => setShowWeightRecord(false)}
+        />
+      )}
+      {showHealthModal && (
+        <BloodPressureModal
+          member={member}
+          onSave={handleSaveHealthRecord}
+          onClose={() => setShowHealthModal(false)}
+        />
+      )}
+
+      {showHealthRecords && (
+        <HealthRecordsModal records={healthRecords} member={member} onClose={() => setShowHealthRecords(false)} />
+      )}
 
       {/* ── Add-on Services Modal ── */}
       {showAddons && (
@@ -1501,6 +1992,169 @@ const MemberProfile = () => {
           </div>
         </div>
       )}
+
+      {showProgressPhotoUpload && <ProgressPhotoUploadModal onClose={() => setShowProgressPhotoUpload(false)} onUpload={handleProgressPhotoSessionUpload} />}
+      {inspectProgressPhoto && <ProgressPhotoInspectModal session={inspectProgressPhoto} onClose={() => setInspectProgressPhoto(null)} />}
+      {inspectMeasurement && <MeasurementDetailsModal record={inspectMeasurement} onClose={() => setInspectMeasurement(null)} />}
+    </div>
+  );
+};
+// ══════════════════════════════════════════════════════════════════════════════
+//  Progress Photo Upload Modal
+// ══════════════════════════════════════════════════════════════════════════════
+const ProgressPhotoUploadModal = ({ onClose, onUpload }) => {
+  const [form, setForm] = useState({ frontImage: null, sideImage: null, backImage: null, notes: '' });
+  const [previews, setPreviews] = useState({ frontImage: null, sideImage: null, backImage: null });
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = (e, type) => {
+    const file = e.target.files[0];
+    if (file) {
+      setForm(f => ({ ...f, [type]: file }));
+      setPreviews(p => ({ ...p, [type]: URL.createObjectURL(file) }));
+    }
+  };
+
+  const handleSave = async () => {
+    if (!form.frontImage && !form.sideImage && !form.backImage) return alert('Select at least one image');
+    setUploading(true);
+    const formData = new FormData();
+    if (form.frontImage) formData.append('frontImage', form.frontImage);
+    if (form.sideImage) formData.append('sideImage', form.sideImage);
+    if (form.backImage) formData.append('backImage', form.backImage);
+    if (form.notes) formData.append('notes', form.notes);
+    await onUpload(formData);
+    setUploading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={!uploading ? onClose : undefined}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 bg-slate-800 text-white flex items-center justify-between">
+          <p className="font-bold text-sm">New Progress Photo Session</p>
+          {!uploading && <button onClick={onClose}><X size={16}/></button>}
+        </div>
+        <div className="p-5">
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {['frontImage', 'sideImage', 'backImage'].map(type => (
+              <div key={type} className="flex flex-col">
+                <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">{type.replace('Image', '')}</label>
+                <label className="flex-1 min-h-[120px] rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center cursor-pointer hover:bg-slate-100 overflow-hidden relative">
+                  {previews[type] ? (
+                    <img src={previews[type]} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-slate-400"><Upload size={20}/></span>
+                  )}
+                  <input type="file" className="hidden" accept="image/*" onChange={e => handleFileChange(e, type)} disabled={uploading} />
+                </label>
+              </div>
+            ))}
+          </div>
+          <div className="mb-4">
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Notes (optional)</label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              rows="2"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              disabled={uploading}
+            />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onClose} disabled={uploading} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+            <button onClick={handleSave} disabled={uploading} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 flex justify-center items-center gap-2 disabled:opacity-50">
+              {uploading && <RefreshCw size={14} className="animate-spin"/>}
+              {uploading ? 'Uploading...' : 'Save Session'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Progress Photo Inspect Modal
+// ══════════════════════════════════════════════════════════════════════════════
+const ProgressPhotoInspectModal = ({ session, onClose }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-white" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 flex items-center justify-between border-b border-white/10">
+          <div>
+            <p className="font-bold text-sm">Progress Photos</p>
+            <p className="text-xs opacity-60">{new Date(session.date).toLocaleDateString('en-IN')} {new Date(session.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+          </div>
+          <button onClick={onClose} className="hover:bg-white/10 p-1.5 rounded-full"><X size={16}/></button>
+        </div>
+        <div className="flex-1 overflow-auto p-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {['Front', 'Side', 'Back'].map(view => {
+              const url = session[`${view.toLowerCase()}Image`];
+              return (
+                <div key={view} className="flex flex-col">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 text-center">{view}</p>
+                  <div className="bg-black/50 rounded-xl flex-1 flex items-center justify-center min-h-[300px] overflow-hidden">
+                    {url ? (
+                      <img src={url} alt={view} className="max-w-full max-h-full object-contain" />
+                    ) : (
+                      <span className="text-slate-600 text-sm">Not provided</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {session.notes && (
+            <div className="mt-5 bg-white/5 rounded-xl p-4 text-sm">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Notes</p>
+              <p>{session.notes}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Measurement Details Modal
+// ══════════════════════════════════════════════════════════════════════════════
+const MeasurementDetailsModal = ({ record, onClose }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 bg-gradient-to-r from-slate-700 to-slate-900 text-white flex items-center justify-between">
+          <div>
+            <p className="font-bold text-sm">Measurement Details</p>
+            <p className="text-xs opacity-60">{new Date(record.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+          </div>
+          <button onClick={onClose}><X size={16}/></button>
+        </div>
+        <div className="p-5 grid grid-cols-2 gap-y-4 gap-x-2 border-b border-slate-100">
+          {[
+            { l: 'Height', v: record.height, u: 'cm' }, { l: 'Weight', v: record.weight, u: 'kg' },
+            { l: 'Waist', v: record.waist, u: 'cm' }, { l: 'Hip', v: record.hip, u: 'cm' },
+            { l: 'Neck', v: record.neck, u: 'cm' }, { l: 'Chest', v: record.chest, u: 'cm' },
+            { l: 'Arm', v: record.arm, u: 'cm' }, { l: 'Thigh', v: record.thigh, u: 'cm' },
+            { l: 'Body Fat', v: record.bodyFat, u: '%' }, { l: 'BMI', v: record.bmi, u: '' },
+          ].map(m => (
+            <div key={m.l} className="bg-slate-50 p-2.5 rounded-xl">
+              <p className="text-[9px] font-bold uppercase text-slate-400">{m.l}</p>
+              <p className="text-sm font-semibold text-slate-800 mt-0.5">{m.v || '—'} <span className="text-xs font-normal text-slate-400">{m.v ? m.u : ''}</span></p>
+            </div>
+          ))}
+        </div>
+        {record.notes && (
+          <div className="p-5 pb-2 text-sm">
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Notes</p>
+            <p className="text-slate-700 bg-amber-50 p-3 rounded-xl border border-amber-100">{record.notes}</p>
+          </div>
+        )}
+        <div className="p-5 pt-4">
+          <button onClick={onClose} className="w-full py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-200">Close</button>
+        </div>
+      </div>
     </div>
   );
 };

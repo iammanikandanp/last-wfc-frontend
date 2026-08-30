@@ -38,13 +38,13 @@ const Login = () => {
   };
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4'>
+    <div className='min-h-screen bg-slate-200 flex items-center justify-center p-4'>
       <div className='w-full max-w-md'>
         <div className='bg-white rounded-lg shadow-2xl p-8'>
           {/* Header */}
           <div className='text-center mb-8'>
-            <div className='inline-block bg-red-600 p-3 rounded-lg mb-4'>
-              <span className='text-3xl'>💪</span>
+            <div className='inline-flex bg-white p-1.5 rounded-full shadow mb-4'>
+              <img src='/logo.jpeg' alt='WFC logo' className='w-24 h-24 rounded-full object-cover' />
             </div>
             <h1 className='text-3xl font-bold text-slate-900'>WFC Fitness</h1>
             <p className='text-slate-600 text-sm mt-2'>Wolverine Fitness Club</p>

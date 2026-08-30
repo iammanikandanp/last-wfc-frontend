@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 // Pages
@@ -18,10 +18,21 @@ import Training from "./pages/Training";
 import AddTrainer from "./pages/AddTrainer";
 import Reports from "./pages/Reports";
 import Expenses from "./pages/Expenses";
+import Cafeteria from "./pages/Cafeteria";
 import About from "./pages/About";
 import Leads from "./pages/Leads";
 import ForgotPassword from "./pages/ForgotPassword";
 import DietLog from "./pages/DietLog";
+
+// Resets scroll position on every route change so navigating never
+// leaves the new page mid-scroll under the fixed navbar.
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+};
 
 // Role-aware Protected Route
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -35,12 +46,12 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 };
 
 const Unauthorized = () => (
-  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-    <div className="text-center text-white">
+  <div className="min-h-screen bg-slate-200 flex items-center justify-center">
+    <div className="text-center text-slate-800">
       <div className="text-8xl font-bold text-red-500 mb-4">403</div>
       <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
-      <p className="text-slate-400 mb-8">You don't have permission to view this page.</p>
-      <a href="/dashboard" className="bg-red-600 px-6 py-2.5 rounded-lg hover:bg-red-700 transition font-semibold">
+      <p className="text-slate-500 mb-8">You don't have permission to view this page.</p>
+      <a href="/dashboard" className="bg-red-600 px-6 py-2.5 rounded-lg hover:bg-red-700 transition font-semibold text-white">
         Back to Dashboard
       </a>
     </div>
@@ -57,6 +68,7 @@ function App() {
 
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         {/* Auth Routes */}
         <Route path="/login"           element={<Login />} />
@@ -103,6 +115,7 @@ function App() {
         {/* Reports, Expenses & About */}
         <Route path="/reports"       element={<ProtectedRoute allowedRoles={["admin"]}><Reports /></ProtectedRoute>} />
         <Route path="/expenses"      element={<ProtectedRoute allowedRoles={["admin"]}><Expenses /></ProtectedRoute>} />
+        <Route path="/cafeteria"     element={<ProtectedRoute allowedRoles={["admin"]}><Cafeteria /></ProtectedRoute>} />
         <Route path="/about"         element={<ProtectedRoute allowedRoles={["admin","trainer","member"]}><About /></ProtectedRoute>} />
 
         {/* Default Route */}

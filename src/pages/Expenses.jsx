@@ -14,16 +14,17 @@ const rupee   = n => '₹' + Number(n || 0).toLocaleString('en-IN');
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const PERIODS = [
+  { key: 'today',   label: 'Today'   },
   { key: 'week',    label: 'Week'    },
   { key: 'month',   label: 'Month'   },
   { key: 'quarter', label: 'Quarter' },
-  { key: 'half',    label: '6 Mo'    },
+  { key: 'half',    label: 'Six Month' },
   { key: 'year',    label: 'Year'    },
   { key: 'all',     label: 'All'     },
   { key: 'custom',  label: 'Custom'  },
 ];
 const PERIOD_FULL = {
-  week: 'This Week', month: 'This Month', quarter: 'This Quarter',
+  today: 'Today', week: 'This Week', month: 'This Month', quarter: 'This Quarter',
   half: '6 Months', year: 'This Year', all: 'All Time', custom: 'Custom',
 };
 
@@ -35,7 +36,8 @@ function periodRange(key, s, e) {
     };
   }
   const end = new Date(), start = new Date();
-  if      (key === 'week')    start.setDate(start.getDate() - 7);
+  if      (key === 'today')   { start.setHours(0, 0, 0, 0); end.setHours(23, 59, 59, 999); return { start, end }; }
+  else if (key === 'week')    start.setDate(start.getDate() - 7);
   else if (key === 'month')   { start.setMonth(start.getMonth() - 1); start.setDate(1); }
   else if (key === 'quarter') { start.setMonth(start.getMonth() - 3); start.setDate(1); }
   else if (key === 'half')    { start.setMonth(start.getMonth() - 6); start.setDate(1); }
@@ -164,7 +166,7 @@ function MiniChart({ data, categories, mode }) {
             ))}
           </div>
           <div className="flex bg-slate-100 rounded-lg p-0.5">
-            {PERIODS.slice(0, 5).map(p => (
+            {PERIODS.filter(p => ['week', 'month', 'quarter', 'half', 'year'].includes(p.key)).map(p => (
               <button key={p.key} onClick={() => setPeriod(p.key)}
                 className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition ${period === p.key ? 'bg-white shadow text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}>
                 {p.label}
@@ -209,9 +211,9 @@ function CategoryModal({ onClose, onSaved, existing, apiBase }) {
           <button onClick={onClose}><X size={18} className="text-slate-400 hover:text-slate-600"/></button>
         </div>
         <div className="space-y-3">
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Name *"
+          <input aria-label="Name" name="name" value={name} onChange={e => setName(e.target.value)} placeholder="Name *"
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-          <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Description (optional)"
+          <input aria-label="Description" name="description" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Description (optional)"
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           <div className="flex flex-wrap gap-2">
             {CAT_COLORS.map(c => (
@@ -219,7 +221,7 @@ function CategoryModal({ onClose, onSaved, existing, apiBase }) {
                 className={`w-6 h-6 rounded-full transition-all ${color === c ? 'ring-2 ring-offset-1 ring-slate-500 scale-110' : ''}`}
                 style={{ backgroundColor: c }} />
             ))}
-            <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-6 h-6 rounded-full cursor-pointer border-0 p-0" />
+            <input aria-label="Color" name="color" type="color" value={color} onChange={e => setColor(e.target.value)} className="w-6 h-6 rounded-full cursor-pointer border-0 p-0" />
           </div>
           <div className="flex gap-2 pt-1">
             <button onClick={onClose} className="flex-1 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
@@ -322,18 +324,18 @@ function ExpenseModal({ onClose, onSaved, existing, categories }) {
           <button onClick={onClose}><X size={18} className="text-slate-400"/></button>
         </div>
         <div className="space-y-3">
-          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Title *"
+          <input aria-label="Title" name="title" value={title} onChange={e => setTitle(e.target.value)} placeholder="Title *"
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           <div className="grid grid-cols-2 gap-3">
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
-              <input type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount *"
+              <input aria-label="Amount" name="amount" type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount *"
                 className="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
             </div>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            <input aria-label="Date" name="date" type="date" value={date} onChange={e => setDate(e.target.value)}
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
-          <select value={catId} onChange={e => setCatId(e.target.value)}
+          <select aria-label="Category" name="category" value={catId} onChange={e => setCatId(e.target.value)}
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
             <option value="">Select category *</option>
             {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
@@ -347,18 +349,18 @@ function ExpenseModal({ onClose, onSaved, existing, categories }) {
             ))}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <input value={vendor} onChange={e => setVendor(e.target.value)} placeholder="Vendor (optional)"
+            <input aria-label="Vendor" name="vendor" value={vendor} onChange={e => setVendor(e.target.value)} placeholder="Vendor (optional)"
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-            <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Description (optional)"
+            <input aria-label="Description" name="description" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Description (optional)"
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Notes (optional)"
+          <textarea aria-label="Notes" name="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Notes (optional)"
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none" />
           <div onClick={() => fileRef.current?.click()}
             className="border-2 border-dashed border-slate-200 rounded-xl p-3 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-indigo-400 transition min-h-[70px]">
             {previewUrl ? <img src={previewUrl} alt="receipt" className="max-h-20 object-contain rounded-lg" />
               : <><Upload size={18} className="text-slate-400" /><span className="text-xs text-slate-400">Upload receipt (optional)</span></>}
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files[0]; if (f) { setReceipt(f); setPreviewUrl(URL.createObjectURL(f)); } }} />
+            <input aria-label="Upload Receipt" name="receipt" ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files[0]; if (f) { setReceipt(f); setPreviewUrl(URL.createObjectURL(f)); } }} />
           </div>
           {previewUrl && <button onClick={() => { setPreviewUrl(''); setReceipt(null); }} className="text-xs text-red-500 hover:underline">Remove receipt</button>}
           <div className="flex gap-2 pt-1">
@@ -419,18 +421,18 @@ function IncomeModal({ onClose, onSaved, existing, categories }) {
               <ArrowDownCircle size={13}/> Loss
             </button>
           </div>
-          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Title *"
+          <input aria-label="Title" name="title" value={title} onChange={e => setTitle(e.target.value)} placeholder="Title *"
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           <div className="grid grid-cols-2 gap-3">
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
-              <input type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount *"
+              <input aria-label="Amount" name="amount" type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount *"
                 className="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             </div>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            <input aria-label="Date" name="date" type="date" value={date} onChange={e => setDate(e.target.value)}
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
-          <select value={catId} onChange={e => setCatId(e.target.value)}
+          <select aria-label="Category" name="category" value={catId} onChange={e => setCatId(e.target.value)}
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
             <option value="">Select category *</option>
             {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
@@ -443,9 +445,9 @@ function IncomeModal({ onClose, onSaved, existing, categories }) {
               </button>
             ))}
           </div>
-          <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Description (optional)"
+          <input aria-label="Description" name="description" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Description (optional)"
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Notes (optional)"
+          <textarea aria-label="Notes" name="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Notes (optional)"
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none" />
           <div className="flex gap-2 pt-1">
             <button onClick={onClose} className="flex-1 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
@@ -664,7 +666,7 @@ export default function Expenses() {
   const changeCustEnd   = v => { setCustEnd(v);   setExpPage(1); setIncPage(1); };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-5 space-y-4">
 
@@ -684,10 +686,14 @@ export default function Expenses() {
 
           {/* Period pills */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <div className="flex bg-white border border-slate-200 rounded-xl p-0.5 shadow-sm flex-wrap gap-0.5">
+            <div className="flex gap-4 flex-wrap">
               {PERIODS.map(p => (
                 <button key={p.key} onClick={() => changePeriod(p.key)}
-                  className={`px-3 py-1.5 rounded-[9px] text-xs font-semibold transition-all ${period === p.key ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}>
+                  className={`py-1.5 text-xs font-semibold transition-all ${
+                    period === p.key 
+                      ? 'text-slate-900 border-b border-slate-900' 
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}>
                   {p.label}
                 </button>
               ))}
@@ -695,36 +701,36 @@ export default function Expenses() {
             {period === 'custom' && (
               <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl px-3 py-1.5 shadow-sm">
                 <Calendar size={12} className="text-slate-400" />
-                <input type="date" value={custStart} onChange={e => changeCustStart(e.target.value)}
+                <input aria-label="Custom Start Date" name="customStart" type="date" value={custStart} onChange={e => changeCustStart(e.target.value)}
                   className="text-xs text-slate-700 border-none outline-none bg-transparent cursor-pointer" />
                 <span className="text-slate-300 text-xs">→</span>
-                <input type="date" value={custEnd} onChange={e => changeCustEnd(e.target.value)}
+                <input aria-label="Custom End Date" name="customEnd" type="date" value={custEnd} onChange={e => changeCustEnd(e.target.value)}
                   className="text-xs text-slate-700 border-none outline-none bg-transparent cursor-pointer" />
               </div>
             )}
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
             {activeTab === 'expenses' ? (
               <>
                 <button onClick={() => setShowExpCats(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-medium text-slate-700 hover:border-indigo-400 hover:text-indigo-600 transition shadow-sm">
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-medium text-slate-700 hover:border-indigo-400 hover:text-indigo-600 transition shadow-sm">
                   <Tag size={13}/> Categories
                 </button>
                 <button onClick={() => setShowAddExp(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition shadow-sm">
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition shadow-sm">
                   <Plus size={13}/> Add Expense
                 </button>
               </>
             ) : (
               <>
                 <button onClick={() => setShowIncCats(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-medium text-slate-700 hover:border-emerald-400 hover:text-emerald-600 transition shadow-sm">
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-medium text-slate-700 hover:border-emerald-400 hover:text-emerald-600 transition shadow-sm">
                   <Tag size={13}/> Categories
                 </button>
                 <button onClick={() => setShowAddInc(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition shadow-sm">
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition shadow-sm">
                   <Plus size={13}/> Add Income
                 </button>
               </>
@@ -778,7 +784,7 @@ export default function Expenses() {
         {activeTab === 'expenses' && (
           <>
             {/* 3 stat pills */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center flex-shrink-0"><IndianRupee size={16} className="text-white"/></div>
                 <div><div className="text-base font-black text-slate-800">{rupee(expTotal)}</div><div className="text-[11px] text-slate-400">{periodLabel} total · {filteredExp.length} records</div></div>
@@ -834,7 +840,7 @@ export default function Expenses() {
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex flex-wrap gap-2 items-center">
               <div className="relative flex-1 min-w-[180px]">
                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                <input value={expSearch} onChange={e => { setExpSearch(e.target.value); setExpPage(1); }}
+                <input aria-label="Search Expenses" name="expenseSearch" value={expSearch} onChange={e => { setExpSearch(e.target.value); setExpPage(1); }}
                   placeholder="Search title, vendor, category…"
                   className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400" />
               </div>
@@ -845,12 +851,12 @@ export default function Expenses() {
               <button onClick={fetchExpenses} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition" title="Refresh"><RefreshCw size={14}/></button>
               {showExpFilters && (
                 <>
-                  <select value={expCatFilter} onChange={e => { setExpCatFilter(e.target.value); setExpPage(1); }}
+                  <select aria-label="Expense Category Filter" name="expCatFilter" value={expCatFilter} onChange={e => { setExpCatFilter(e.target.value); setExpPage(1); }}
                     className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-slate-700">
                     <option value="">All Categories</option>
                     {expCats.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                   </select>
-                  <select value={expMethodFilter} onChange={e => { setExpMethodFilter(e.target.value); setExpPage(1); }}
+                  <select aria-label="Expense Method Filter" name="expMethodFilter" value={expMethodFilter} onChange={e => { setExpMethodFilter(e.target.value); setExpPage(1); }}
                     className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-slate-700">
                     <option value="">All Methods</option>
                     {Object.entries(PAYMENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -926,7 +932,7 @@ export default function Expenses() {
         {activeTab === 'income' && (
           <>
             {/* 3 stat pills */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0"><ArrowUpCircle size={16} className="text-white"/></div>
                 <div><div className="text-base font-black text-emerald-600">+{rupee(incGain)}</div><div className="text-[11px] text-slate-400">{periodLabel} · {filteredInc.filter(e=>e.type!=='loss').length} income</div></div>
@@ -983,7 +989,7 @@ export default function Expenses() {
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex flex-wrap gap-2 items-center">
               <div className="relative flex-1 min-w-[180px]">
                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                <input value={incSearch} onChange={e => { setIncSearch(e.target.value); setIncPage(1); }}
+                <input aria-label="Search Income" name="incomeSearch" value={incSearch} onChange={e => { setIncSearch(e.target.value); setIncPage(1); }}
                   placeholder="Search title, category…"
                   className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400" />
               </div>
@@ -994,12 +1000,12 @@ export default function Expenses() {
               <button onClick={fetchIncomes} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition"><RefreshCw size={14}/></button>
               {showIncFilters && (
                 <>
-                  <select value={incCatFilter} onChange={e => { setIncCatFilter(e.target.value); setIncPage(1); }}
+                  <select aria-label="Income Category Filter" name="incCatFilter" value={incCatFilter} onChange={e => { setIncCatFilter(e.target.value); setIncPage(1); }}
                     className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white text-slate-700">
                     <option value="">All Categories</option>
                     {incCats.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                   </select>
-                  <select value={incTypeFilter} onChange={e => { setIncTypeFilter(e.target.value); setIncPage(1); }}
+                  <select aria-label="Income Type Filter" name="incTypeFilter" value={incTypeFilter} onChange={e => { setIncTypeFilter(e.target.value); setIncPage(1); }}
                     className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white text-slate-700">
                     <option value="">All Types</option>
                     <option value="income">Income / Gain</option>

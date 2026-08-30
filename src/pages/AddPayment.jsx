@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import CustomBaseUrl, { PUBLIC_SERVER_URL } from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
+import { isMemberBlocked } from '../utils/memberStatus';
 import {
   Search, X, ChevronDown, Calendar, CreditCard, Smartphone,
   Banknote, Tag, Check, FileText, MessageCircle, Download,
@@ -549,7 +550,7 @@ const InvoiceModal = ({ data, onClose }) => {
 
         {/* Header */}
         <div className="bg-gradient-to-br from-slate-900 to-red-900 text-white p-6 text-center">
-          <div className="text-3xl mb-1">💪</div>
+          <img src="/logo.jpeg" alt="WFC logo" className="w-16 h-16 rounded-full object-cover mx-auto mb-1 border-2 border-white/80" />
           <h2 className="text-lg font-black tracking-wide">WFC – Wolverine Fitness Club</h2>
           <p className="text-slate-300 text-xs mt-1">Excellence in Fitness | Coimbatore</p>
           <div className="mt-3 inline-block bg-white/10 px-3 py-1 rounded-full text-xs font-mono">{invoiceNo}</div>
@@ -806,6 +807,7 @@ const AddPayment = () => {
 
   // Member search
   const [members, setMembers] = useState([]);
+  const [blockEntries, setBlockEntries] = useState([]);
   const [search, setSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
@@ -824,6 +826,7 @@ const AddPayment = () => {
   const [discount, setDiscount] = useState('');
   const [paymentType, setPaymentType] = useState('full');   // 'full' | 'partly'
   const [advanceAmount, setAdvanceAmount] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
 
   // UI state
@@ -861,16 +864,20 @@ const AddPayment = () => {
 
   const fetchMembers = async () => {
     try {
-      const res = await CustomBaseUrl.get(`/fetch`);
-      setMembers(res.data.data || []);
+      const [membersRes, blockRes] = await Promise.allSettled([
+        CustomBaseUrl.get('/fetch'),
+        CustomBaseUrl.get('/block-list'),
+      ]);
+      if (membersRes.status === 'fulfilled') setMembers(membersRes.value.data?.data || []);
+      if (blockRes.status === 'fulfilled') setBlockEntries(blockRes.value.data?.data || []);
     } catch (e) { console.error(e); }
   };
 
   // Filtered members for dropdown
-  const filtered = members.filter(m =>
-    m.name?.toLowerCase().includes(search.toLowerCase()) ||
-    m.phone?.includes(search)
-  ).slice(0, 8);
+  const filtered = members.filter(m => {
+    if (isMemberBlocked(m, blockEntries)) return false;
+    return m.name?.toLowerCase().includes(search.toLowerCase()) || m.phone?.includes(search);
+  }).slice(0, 8);
 
   const selectMember = (m) => {
     setSelectedMember(m);
@@ -945,14 +952,18 @@ const AddPayment = () => {
         discount:       parseFloat(discount) || 0,
         finalAmount:    totalAftDiscount,
         paymentType,                    // 'full' | 'partly'
+        isRenewal,
         advanceAmount:  advPaid,        // amount paid now
         balanceAmount:  balAmt,         // remaining due
+        dueDate:        paymentType === 'partly' && dueDate ? dueDate : null, // due date for pending balance
         paymentMode:    paymentMethod,
         startDate,
         endDate,
         issuedDate,
         invoiceNo,
-        isRenewal,
+        renewalDate: new Date().toISOString(),
+        duration: durationType === 'months' ? Number(durationMonths) : null,
+        paymentStatus: 'completed',
         pdfUrl: '',
       };
 
@@ -992,7 +1003,7 @@ const AddPayment = () => {
     : PRESET_PACKAGES.find(p => p.id === selectedPkg)?.label || '';
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar />
 
       <div className="max-w-2xl mx-auto px-4 py-8">
@@ -1075,7 +1086,7 @@ const AddPayment = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">2 · Package</p>
 
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {PRESET_PACKAGES.map(pkg => {
               const Icon = pkg.icon;
               const active = selectedPkg === pkg.id;
@@ -1127,7 +1138,7 @@ const AddPayment = () => {
               </div>
 
               {durationType === 'months' ? (
-                <div className="grid grid-cols-6 gap-1.5">
+                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
                   {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
                     <button
                       key={m}
@@ -1141,7 +1152,7 @@ const AddPayment = () => {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-slate-500 mb-1 block">From</label>
                     <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
@@ -1169,7 +1180,7 @@ const AddPayment = () => {
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">3 · Amount</p>
 
           {/* Amount + Discount */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <div>
               <label className="text-xs text-slate-500 mb-1.5 block">Amount (₹)</label>
               <div className="relative">
@@ -1237,7 +1248,7 @@ const AddPayment = () => {
 
           {/* Partly payment fields */}
           {paymentType === 'partly' && (
-            <div className="grid grid-cols-2 gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
               {/* Advance Amount */}
               <div>
                 <label className="text-xs font-semibold text-amber-700 mb-1.5 block">Advance Paid (₹)</label>
@@ -1269,9 +1280,23 @@ const AddPayment = () => {
                 </div>
               </div>
 
+              {/* Due Date */}
+              <div className="sm:col-span-2">
+                <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Due Date (Optional)</label>
+                <div className="relative">
+                  <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={e => setDueDate(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+              </div>
+
               {/* Summary row */}
               {advanceAmount && (
-                <div className="col-span-2 flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-200 text-xs">
+                <div className="sm:col-span-2 flex flex-wrap items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-200 text-xs">
                   <span className="text-slate-500">Total <span className="font-bold text-slate-800">₹{totalAfterDiscount.toLocaleString('en-IN')}</span></span>
                   <span className="text-slate-300">−</span>
                   <span className="text-slate-500">Advance <span className="font-bold text-amber-700">₹{advancePaid.toLocaleString('en-IN')}</span></span>

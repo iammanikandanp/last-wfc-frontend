@@ -240,37 +240,37 @@ const MemberDietPage = ({ userObj }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar />
       <div className="max-w-4xl mx-auto px-4 py-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
               <Apple size={24} className="text-green-500" /> My Diet Plan
             </h1>
             <p className="text-slate-500 text-sm mt-0.5">Your personal nutrition plan assigned by your trainer</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button onClick={() => navigate('/diet-log')}
-              className="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-orange-600 transition shadow-sm">
+              className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 bg-orange-500 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-orange-600 transition shadow-sm">
               <BarChart2 size={13} /> Track Calories
             </button>
-            <button onClick={fetchPlan} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 text-xs font-medium px-3 py-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 transition">
+            <button onClick={fetchPlan} className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 text-slate-500 hover:text-slate-800 text-xs font-medium px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition">
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''}/> Refresh
             </button>
           </div>
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {stats.map(({ label, value, icon: Ic, color }) => (
             <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}><Ic size={20} /></div>
-              <div>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}><Ic size={20} /></div>
+              <div className="min-w-0">
                 <p className="text-xs text-slate-500">{label}</p>
-                <p className="text-lg font-bold text-slate-900 truncate max-w-[140px]">{loading ? '…' : value}</p>
+                <p className="text-lg font-bold text-slate-900 truncate">{loading ? '…' : value}</p>
               </div>
             </div>
           ))}
@@ -488,10 +488,10 @@ const AdminDietPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar />
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-7">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-7 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
               <Apple size={24} className="text-green-500" /> Diet Plans
@@ -499,27 +499,27 @@ const AdminDietPage = () => {
             <p className="text-slate-500 text-sm mt-0.5">Manage member nutrition plans</p>
           </div>
           <button onClick={() => navigate('/diet-plans/new')}
-            className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 active:scale-95 transition-all font-semibold text-sm shadow-sm">
+            className="flex justify-center items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 active:scale-95 transition-all font-semibold text-sm shadow-sm w-full sm:w-auto">
             <Plus size={16} /> New Diet Plan
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[
             { label:'Active Plans', value:stats.total,                    icon:Apple,  color:'text-green-600 bg-green-50' },
             { label:'Avg Calories', value:`${stats.avgCalories} kcal`,    icon:Flame,  color:'text-orange-600 bg-orange-50' },
             { label:'Unique Goals', value:stats.goals,                    icon:Target, color:'text-violet-600 bg-violet-50' },
           ].map(({ label, value, icon: Ic, color }) => (
             <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}><Ic size={20} /></div>
-              <div><p className="text-xs text-slate-500">{label}</p><p className="text-xl font-bold text-slate-900">{value}</p></div>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}><Ic size={20} /></div>
+              <div className="min-w-0"><p className="text-xs text-slate-500">{label}</p><p className="text-xl font-bold text-slate-900 truncate">{value}</p></div>
             </div>
           ))}
         </div>
 
         <div className="relative mb-5">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+          <input name="search" aria-label="Search" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search by member name or goal…"
             className="w-full pl-10 pr-9 py-2.5 border border-slate-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-400 shadow-sm" />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={14} className="text-slate-400" /></button>}

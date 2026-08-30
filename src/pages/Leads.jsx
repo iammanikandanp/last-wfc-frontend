@@ -260,7 +260,7 @@ const StatusBadge = ({ lead, statuses, statusConfig, onUpdate, onAddCategory }) 
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen(o => !o)}
+      <button onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
         className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer ${cfg.color}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
         {lead.status}
@@ -329,7 +329,7 @@ const NotesCell = ({ notes }) => {
   if (!notes) return <span className="text-slate-300">—</span>;
   return (
     <div className="relative">
-      <button onClick={() => setOpen(o => !o)}
+      <button onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
         className="text-slate-500 hover:text-slate-800 transition text-left max-w-[140px] truncate block">
         {notes}
       </button>
@@ -397,7 +397,7 @@ const Leads = () => {
   const fetchCustomStatuses = async () => {
     try {
       const res = await CustomBaseUrl.get(`/leads/statuses`);
-      const names = (res.data?.statuses || []).filter(n => !Object.keys(BASE_STATUS_CONFIG).includes(n));
+      const names = (res.data?.statuses || []).filter(n => !Object.keys(BASE_STATUS_CONFIG).includes(n) && n.toLowerCase() !== 'never');
       setCustomStatuses(names);
     } catch(e) { console.error(e); }
   };
@@ -446,29 +446,29 @@ const Leads = () => {
   const counts = statuses.reduce((acc, s) => { acc[s] = leads.filter(l => l.status === s).length; return acc; }, {});
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-200">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-6">
 
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
           <div>
             <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Megaphone size={20} className="text-blue-600" /> Leads
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">Gym enquiries · Track & convert to members</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={fetchLeads} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 shadow-sm">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button onClick={fetchLeads} className="flex justify-center items-center p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 shadow-sm">
               <RefreshCw size={14} className={`text-slate-500 ${loading?'animate-spin':''}`} />
             </button>
             <button onClick={() => { setEditLead(null); setShowModal(true); }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-sm">
+              className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-sm">
               <Plus size={14} /> New Lead
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-5">
           {[
             { label:'Total',    val:leads.length,       color:'text-slate-700', bg:'bg-white' },
             { label:'New',      val:counts.New||0,       color:'text-blue-600',  bg:'bg-blue-50' },
@@ -485,20 +485,20 @@ const Leads = () => {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm overflow-x-auto w-full sm:w-auto">
             {['All', ...statuses].map(s => (
               <button key={s} onClick={() => setFilter(s)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                className={`flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                   filter === s ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}>{s}</button>
             ))}
           </div>
-          <div className="relative ml-auto">
+          <div className="relative w-full sm:w-auto sm:ml-auto">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)}
+            <input name="search" aria-label="Search" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search name / phone…"
-              className="pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 w-44 shadow-sm" />
+              className="w-full sm:w-48 pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 shadow-sm" />
             {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X size={11} className="text-slate-400" /></button>}
           </div>
         </div>
@@ -521,7 +521,7 @@ const Leads = () => {
                 <p className="text-xs mt-1">Click "New Lead" to add your first enquiry</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto min-h-[350px]">
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50 border-b border-slate-100">
                     <tr>
