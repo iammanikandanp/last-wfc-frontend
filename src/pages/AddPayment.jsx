@@ -90,10 +90,23 @@ const UpiQR = ({ amount, upiId, name }) => {
 };
 
 // ─── Shared script loader ─────────────────────────────────────────────────────
-const loadScript = (src) => new Promise((res, rej) => {
-  if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+const loadScript = (src, globalVar) => new Promise((res, rej) => {
+  if (globalVar && window[globalVar]) return res();
+  const existing = document.querySelector(`script[src="${src}"]`);
+  if (existing) {
+    const check = setInterval(() => { if (!globalVar || window[globalVar]) { clearInterval(check); res(); } }, 50);
+    return;
+  }
   const s = document.createElement('script');
-  s.src = src; s.onload = res; s.onerror = rej;
+  s.src = src; 
+  s.onload = () => {
+    if (globalVar && !window[globalVar]) {
+      const check = setInterval(() => { if (window[globalVar]) { clearInterval(check); res(); } }, 50);
+    } else {
+      res();
+    }
+  };
+  s.onerror = rej;
   document.head.appendChild(s);
 });
 
@@ -102,7 +115,7 @@ const generateInvoicePDF = async (invoiceData) => {
   const { member, pkg, amount, discount, finalAmount, paymentMethod, startDate, endDate, issuedDate, invoiceNo, paymentType, advanceAmount: advPaid, balanceAmount: balAmt } = invoiceData;
   const isPartly = paymentType === 'partly';
 
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf');
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -830,6 +843,7 @@ const AddPayment = () => {
   const [paymentType, setPaymentType] = useState('full');   // 'full' | 'partly'
   const [advanceAmount, setAdvanceAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [nextDueDate, setNextDueDate] = useState('');
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -958,6 +972,7 @@ const AddPayment = () => {
         isRenewal,
         advanceAmount:  advPaid,        // amount paid now
         balanceAmount:  balAmt,         // remaining due
+        nextDueDate:    paymentType === 'partly' ? nextDueDate : null,
         paymentMode:    paymentMethod,
         startDate,
         endDate,
@@ -1296,6 +1311,17 @@ const AddPayment = () => {
                   <span className="text-slate-500">Balance <span className="font-bold text-red-600">₹{balanceAmount.toLocaleString('en-IN')}</span></span>
                 </div>
               )}
+
+              {/* Next Due Date */}
+              <div className="sm:col-span-2 mt-2">
+                <label className="text-xs font-semibold text-amber-700 mb-1.5 block">Next Due Date</label>
+                <input
+                  type="date"
+                  value={nextDueDate}
+                  onChange={e => setNextDueDate(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-amber-300 rounded-xl text-sm text-amber-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
             </div>
           )}
         </div>

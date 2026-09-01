@@ -12,15 +12,29 @@ import {
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
 
 // ── Script loader ─────────────────────────────────────────────────────────────
-const loadScriptP = (src) => new Promise((res, rej) => {
-  if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
-  const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej;
+const loadScriptP = (src, globalVar) => new Promise((res, rej) => {
+  if (globalVar && window[globalVar]) return res();
+  const existing = document.querySelector(`script[src="${src}"]`);
+  if (existing) {
+    const check = setInterval(() => { if (!globalVar || window[globalVar]) { clearInterval(check); res(); } }, 50);
+    return;
+  }
+  const s = document.createElement('script');
+  s.src = src; 
+  s.onload = () => {
+    if (globalVar && !window[globalVar]) {
+      const check = setInterval(() => { if (window[globalVar]) { clearInterval(check); res(); } }, 50);
+    } else {
+      res();
+    }
+  };
+  s.onerror = rej;
   document.head.appendChild(s);
 });
 
 // ── Invoice PDF generator — same structure as AddPayment invoice ───────────────
 const generatePaymentPDF = async (p) => {
-  await loadScriptP('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await loadScriptP('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = 210, H = 297, pad = 15;
@@ -294,7 +308,7 @@ const exportPaymentsCSV = (rows, columns, rangeLabel) => {
 
 // ── PDF export of the payment list (table) ─────────────────────────────────────
 const exportPaymentsPDF = async (rows, columns, rangeLabel) => {
-  await loadScriptP('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await loadScriptP('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf');
   await loadScriptP('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -957,6 +971,7 @@ const Payments = () => {
   const [waPayment, setWaPayment] = useState(null);
   const [writeOffTarget, setWriteOffTarget] = useState(null);
   const [payNowTarget, setPayNowTarget] = useState(null);
+  const [blockList, setBlockList] = useState([]);
   const invoiceShareRef = useRef(null);
   const PER_PAGE = 20;
 
@@ -1176,7 +1191,7 @@ const Payments = () => {
               <table className="w-full text-xs">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    {['#','Member','Package','Amount','Balance','Mode','Type','Date','Actions'].map(h => (
+                    {['Member','Package','Start Date','End Date','Amount','Advance','Balance','Due Date','Status','Mode','Type','Actions'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -1206,7 +1221,7 @@ const Payments = () => {
                             : <span className="text-slate-400 font-semibold">—</span>}
                         </td>
                         <td className="px-3 py-2.5 text-amber-600 font-semibold whitespace-nowrap">
-                          {isPending && p.dueDate ? new Date(p.dueDate).toLocaleDateString('en-IN') : '—'}
+                          {isPending && (p.nextDueDate || p.dueDate) ? new Date(p.nextDueDate || p.dueDate).toLocaleDateString('en-IN') : '—'}
                         </td>
                         <td className="px-3 py-2.5">
                           {isWrittenOff
@@ -1222,7 +1237,6 @@ const Payments = () => {
                             {p.isRenewal && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">🔄 Renew</span>}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—'}</td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
                             <button onClick={() => setInvoiceTarget(p)} title="View & download invoices" className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"><FileText size={13}/></button>

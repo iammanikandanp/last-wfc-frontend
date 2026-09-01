@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import toast from 'react-hot-toast';
-import { Plus, Search, Box, Coffee, X, Filter, Calendar } from 'lucide-react';
+import { Plus, Search, Box, Coffee, X, Filter, Calendar, Trash2 } from 'lucide-react';
 
 const rupee = (value) => '₹' + Number(value || 0).toLocaleString('en-IN');
 const fmtDate = (value) => value ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -146,7 +146,31 @@ export default function Cafeteria() {
       const res = await CustomBaseUrl.get(`/cafeteria/transactions`);
       setTransactions(res.data?.data || []);
     } catch {
-      toast.error('Failed to load transactions');
+    }
+  };
+
+  const handleDeleteStock = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this stock item?')) return;
+    try {
+      await CustomBaseUrl.delete(`/cafeteria/stock/${id}`);
+      toast.success('Stock item deleted');
+      fetchStockItems();
+      fetchDashboard();
+    } catch (e) {
+      toast.error('Failed to delete stock item');
+    }
+  };
+
+  const handleDeleteTransaction = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this transaction? Stock will be refunded.')) return;
+    try {
+      await CustomBaseUrl.delete(`/cafeteria/transactions/${id}`);
+      toast.success('Transaction deleted');
+      fetchTransactions();
+      fetchDashboard();
+      fetchStockItems();
+    } catch (e) {
+      toast.error('Failed to delete transaction');
     }
   };
 
@@ -340,7 +364,7 @@ export default function Cafeteria() {
 
   // ── Modify / Refill Stock Modal
   const ModifyStockModal = ({ stock, onClose }) => {
-    const [form, setForm] = useState({ itemName: stock.itemName, unit: stock.unit || 'Piece', quantity: stock.quantity, lowStockThreshold: stock.lowStockThreshold || 5 });
+    const [form, setForm] = useState({ itemName: stock.itemName, unit: stock.unit || 'Piece', quantity: stock.quantity, lowStockThreshold: stock.lowStockThreshold || 5, costPerUnit: stock.costPerUnit || 0 });
     const [refillQty, setRefillQty] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -353,6 +377,7 @@ export default function Cafeteria() {
           unit: form.unit,
           lowStockThreshold: Number(form.lowStockThreshold || 0),
           quantity: Number(form.quantity),
+          costPerUnit: Number(form.costPerUnit),
         });
         // Refill if requested
         if (refillQty && Number(refillQty) > 0) {
@@ -388,9 +413,15 @@ export default function Cafeteria() {
                 <input id="modMinStock" name="lowStockThreshold" type="number" value={form.lowStockThreshold} onChange={e => setForm(f => ({ ...f, lowStockThreshold: e.target.value }))} className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
               </div>
             </div>
-            <div>
-              <label htmlFor="modQuantity" className="text-sm text-slate-600">Set Quantity (current: {stock.quantity})</label>
-              <input id="modQuantity" name="quantity" type="number" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="modQuantity" className="text-sm text-slate-600">Set Quantity (current: {stock.quantity})</label>
+                <input id="modQuantity" name="quantity" type="number" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
+              </div>
+              <div>
+                <label htmlFor="modCost" className="text-sm text-slate-600">Price per unit</label>
+                <input id="modCost" name="costPerUnit" type="number" value={form.costPerUnit} onChange={e => setForm(f => ({ ...f, costPerUnit: e.target.value }))} className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
+              </div>
             </div>
             <div>
               <label htmlFor="modRefill" className="text-sm text-slate-600">Refill Quantity (add)</label>
@@ -540,7 +571,8 @@ export default function Cafeteria() {
                     <th className="pb-3 pr-3">Extra Paid</th>
                     <th className="pb-3 pr-3">Status</th>
                     <th className="pb-3 pr-3">Date</th>
-                    <th className="pb-3">Time</th>
+                    <th className="pb-3 pr-3">Time</th>
+                    <th className="pb-3">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -559,7 +591,10 @@ export default function Cafeteria() {
                         <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold ${tx.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{tx.paymentStatus}</span>
                       </td>
                       <td className="py-3 pr-3 text-slate-500">{fmtDate(tx.transactionDate)}</td>
-                      <td className="py-3 rounded-r-2xl text-slate-500">{fmtTime(tx.transactionDate)}</td>
+                      <td className="py-3 pr-3 text-slate-500">{fmtTime(tx.transactionDate)}</td>
+                      <td className="py-3 rounded-r-2xl">
+                        <button onClick={() => handleDeleteTransaction(tx._id)} className="text-slate-400 hover:text-rose-600 transition p-1"><Trash2 size={16}/></button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -606,6 +641,7 @@ export default function Cafeteria() {
                           <div className="flex items-center gap-3">
                             <span className={`px-2 py-1 rounded-full text-xs ${status === 'Normal' ? 'bg-emerald-100 text-emerald-700' : status === 'Low Stock' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{status}</span>
                             <button onClick={() => setEditingStock(it)} className="text-sm px-3 py-2 bg-slate-900 text-white rounded-xl">Modify</button>
+                            <button onClick={() => handleDeleteStock(it._id)} className="text-sm px-3 py-2 bg-rose-100 text-rose-700 rounded-xl hover:bg-rose-200 transition"><Trash2 size={16}/></button>
                           </div>
                         </div>
                       );
