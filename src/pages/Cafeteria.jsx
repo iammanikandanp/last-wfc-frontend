@@ -76,6 +76,7 @@ export default function Cafeteria() {
   const [memberSearch, setMemberSearch] = useState('');
   const [itemSearch, setItemSearch] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [billItems, setBillItems] = useState([]);
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [showItemDropdown, setShowItemDropdown] = useState(false);
   const [selectedHistoryMember, setSelectedHistoryMember] = useState(null);
@@ -87,8 +88,10 @@ export default function Cafeteria() {
   const selectedItem = stockItems.find((item) => item._id === recordForm.itemId);
   const selectedMember = members.find((member) => member._id === recordForm.memberId);
   const itemAmount = selectedItem ? Number(selectedItem.costPerUnit || 0) * Number(recordForm.quantity || 0) : 0;
-  const currentAmount = itemAmount + Number(recordForm.extraAmount || 0);
-  const totalPayable = settlePrevious ? Math.max(0, currentAmount - memberBalance) : currentAmount;
+  
+  // Calculate bill total dynamically from added items
+  const currentBillTotal = billItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalPayable = settlePrevious ? Math.max(0, currentBillTotal - memberBalance) : currentBillTotal;
   const balance = Math.max(0, totalPayable - Number(recordForm.paidAmount || 0));
 
   const getStockStatus = (item) => {
@@ -108,7 +111,7 @@ export default function Cafeteria() {
 
   const filteredMembers = members.filter((member) => {
     const term = (memberSearch || '').trim().toLowerCase();
-    if (!term) return true;
+    if (!term) return false;
     return member.name?.toLowerCase().includes(term) || member.phone?.includes(term);
   }).slice(0, 8);
 
@@ -171,8 +174,28 @@ export default function Cafeteria() {
       fetchTransactions();
       fetchDashboard();
       fetchStockItems();
+      if (selectedHistoryMember) {
+        setSelectedHistoryMember(prev => ({
+          ...prev,
+          history: prev.history.filter(tx => tx._id !== id)
+        }));
+      }
     } catch (e) {
       toast.error('Failed to delete transaction');
+    }
+  };
+
+  const handleDeleteAllTransactions = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL cafeteria transactions? This cannot be undone and stock will be refunded.')) return;
+    try {
+      await CustomBaseUrl.delete(`/cafeteria/transactions`);
+      toast.success('All transactions deleted');
+      fetchTransactions();
+      fetchDashboard();
+      fetchStockItems();
+      setSelectedHistoryMember(null);
+    } catch (e) {
+      toast.error('Failed to delete all transactions');
     }
   };
 
@@ -283,31 +306,54 @@ export default function Cafeteria() {
 
 
 
-  const saveTransaction = async () => {
-    if (!recordForm.memberId) return toast.error('Select a member');
+  const handleAddBillItem = () => {
     if (!recordForm.itemId) return toast.error('Select an item');
-    if (!recordForm.quantity || Number(recordForm.quantity) <= 0) return toast.error('Enter quantity');
-
+    if (!recordForm.quantity || Number(recordForm.quantity) <= 0) return toast.error('Enter a valid quantity');
+    
     if (selectedItem && Number(recordForm.quantity) > selectedItem.quantity) {
       return toast.error(`Only ${selectedItem.quantity} ${selectedItem.unit || 'units'} available in stock`);
     }
+
+    const itemCost = Number(selectedItem.costPerUnit || 0);
+    const qty = Number(recordForm.quantity);
+    const amount = itemCost * qty;
+
+    setBillItems(prev => [...prev, {
+      itemId: selectedItem._id,
+      itemName: selectedItem.itemName,
+      quantity: qty,
+      amount
+    }]);
+
+    // Reset item selection fields
+    setRecordForm(prev => ({ ...prev, itemId: '', quantity: '' }));
+    setItemSearch('');
+  };
+
+  const saveTransaction = async () => {
+    if (!recordForm.memberId) return toast.error('Select a member');
+    if (billItems.length === 0) return toast.error('Add at least one item to the bill');
+
     setRecordLoading(true);
     try {
+      // Create transactions sequentially
       await CustomBaseUrl.post('/cafeteria/transactions', {
         memberId: recordForm.memberId,
-        itemId: recordForm.itemId,
-        quantity: Number(recordForm.quantity),
+        items: billItems.map(item => ({
+          itemId: item.itemId,
+          quantity: Number(item.quantity)
+        })),
         paidAmount: Number(recordForm.paidAmount || 0),
-        extraAmount: Number(recordForm.extraAmount || 0),
-        paymentStatus: recordForm.paymentStatus,
         paymentMode: recordForm.paymentMode,
         settlePreviousBalance: settlePrevious,
       });
+
       toast.success('Transaction saved successfully');
       setShowRecordModal(false);
       setRecordForm({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid', paymentMode: 'Cash' });
       setMemberSearch('');
       setItemSearch('');
+      setBillItems([]);
       setSettlePrevious(false);
       await Promise.all([refreshData(), fetchStockItems()]);
     } catch (err) {
@@ -493,7 +539,7 @@ export default function Cafeteria() {
                       <p className="text-xs text-slate-500">{fmtDate(item.date)} at {fmtTime(item.date)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-slate-700">Cost: {rupee(item.totalCost)}</p>
+                      <p className="text-sm font-bold text-slate-700">Cost: {rupee(item.totalRefillAmount)}</p>
                     </div>
                   </div>
                 ))}
@@ -661,7 +707,7 @@ export default function Cafeteria() {
               <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Transaction history</p>
               <h2 className="text-lg font-bold text-slate-900">All cafeteria records</h2>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {STATUS_TABS.map((tab) => (
                 <button
                   key={tab.key}
@@ -670,6 +716,12 @@ export default function Cafeteria() {
                   {tab.label}
                 </button>
               ))}
+              <div className="w-px h-6 bg-slate-200 mx-1"></div>
+              <button
+                onClick={handleDeleteAllTransactions}
+                className="rounded-2xl px-4 py-2 text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 transition flex items-center gap-2">
+                <Trash2 size={16} /> Delete All
+              </button>
             </div>
           </div>
 
@@ -736,19 +788,27 @@ export default function Cafeteria() {
                     const extra = Math.max(0, tx.paidAmount - tx.totalAmount);
                     return (
                     <tr key={tx._id} className="bg-slate-50">
-                      <td className="py-3 pr-3 pl-3 rounded-l-2xl text-slate-500">{fmtDate(tx.transactionDate)}</td>
-                      <td className="py-3 pr-3 font-semibold text-slate-800">{tx.memberName}</td>
-                      <td className="py-3 pr-3 text-slate-600">{tx.itemName}</td>
-                      <td className="py-3 pr-3 text-slate-600">{tx.quantity}</td>
-                      <td className="py-3 pr-3 text-slate-600">{tx.totalAmount === 0 ? '—' : rupee(tx.totalAmount)}</td>
-                      <td className="py-3 pr-3 text-slate-600">{tx.paidAmount === 0 ? '—' : rupee(tx.paidAmount)}</td>
-                      <td className={`py-3 pr-3 ${remaining > 0 ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{remaining === 0 ? '—' : rupee(remaining)}</td>
-                      <td className={`py-3 pr-3 ${extra > 0 ? 'text-emerald-600 font-semibold' : 'text-slate-600'}`}>{extra === 0 ? '—' : rupee(extra)}</td>
-                      <td className="py-3 pr-3">
+                      <td className="py-3 pr-3 pl-3 rounded-l-2xl text-slate-500 align-top">{fmtDate(tx.transactionDate)}</td>
+                      <td className="py-3 pr-3 font-semibold text-slate-800 align-top">{tx.memberName}</td>
+                      <td className="py-3 pr-3 text-slate-600 align-top">
+                        {tx.items && tx.items.length > 0 
+                          ? tx.items.map((i, idx) => <div key={idx} className="whitespace-nowrap">{i.itemName}</div>)
+                          : tx.itemName}
+                      </td>
+                      <td className="py-3 pr-3 text-slate-600 align-top">
+                        {tx.items && tx.items.length > 0 
+                          ? tx.items.map((i, idx) => <div key={idx} className="whitespace-nowrap">{i.quantity}</div>)
+                          : tx.quantity}
+                      </td>
+                      <td className="py-3 pr-3 text-slate-600 align-top">{tx.totalAmount === 0 ? '—' : rupee(tx.totalAmount)}</td>
+                      <td className="py-3 pr-3 text-slate-600 align-top">{tx.paidAmount === 0 ? '—' : rupee(tx.paidAmount)}</td>
+                      <td className={`py-3 pr-3 align-top ${remaining > 0 ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{remaining === 0 ? '—' : rupee(remaining)}</td>
+                      <td className={`py-3 pr-3 align-top ${extra > 0 ? 'text-emerald-600 font-semibold' : 'text-slate-600'}`}>{extra === 0 ? '—' : rupee(extra)}</td>
+                      <td className="py-3 pr-3 align-top">
                         <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold ${tx.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{tx.paymentStatus}</span>
                       </td>
-                      <td className="py-3 pr-3 text-slate-500">{tx.paymentMode || '—'}</td>
-                      <td className="py-3 rounded-r-2xl">
+                      <td className="py-3 pr-3 text-slate-500 align-top">{tx.paymentMode || '—'}</td>
+                      <td className="py-3 rounded-r-2xl align-top">
                         <button onClick={() => setEditingRecord(tx)} className="text-slate-400 hover:text-slate-900 transition p-1 mr-1" title="Add Payment"><Edit size={16}/></button>
                         <button onClick={() => handleDeleteTransaction(tx._id)} className="text-slate-400 hover:text-rose-600 transition p-1" title="Delete"><Trash2 size={16}/></button>
                       </td>
@@ -832,21 +892,17 @@ export default function Cafeteria() {
 
       {showRecordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6 sm:p-6 overflow-y-auto">
-          <div className="relative w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl my-auto">
-            {/* Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/80 px-6 py-5 backdrop-blur-md rounded-t-3xl">
-              <div>
+          <div className="relative w-full max-w-4xl rounded-3xl bg-white border border-slate-200 shadow-2xl my-auto flex flex-col md:flex-row max-h-[90vh]">
+            {/* LEFT COLUMN */}
+            <div className="w-full md:w-1/2 flex flex-col border-b md:border-b-0 md:border-r border-slate-100 p-6 overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-slate-900">New Cafeteria Record</h2>
+                <button onClick={() => setShowRecordModal(false)} className="md:hidden text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full p-2 transition">
+                  <X size={18} />
+                </button>
               </div>
-              <button onClick={() => setShowRecordModal(false)} className="text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full p-2 transition">
-                <X size={18} />
-              </button>
-            </div>
 
-            {/* Scrollable Content */}
-            <div className="p-6 max-h-[70vh] overflow-y-auto space-y-5">
-              {/* Select Member & Previous Balance */}
-              <div className="space-y-3">
+              <div className="space-y-5">
                 <div className="relative">
                   <label htmlFor="memberSearch" className="text-sm font-semibold text-slate-700">Select Member</label>
                   <div className="mt-1.5 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
@@ -861,7 +917,8 @@ export default function Cafeteria() {
                     <div className="absolute top-full left-0 right-0 z-40 mt-1 max-h-48 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
                       {filteredMembers.map((member) => (
                         <button key={member._id} onMouseDown={() => { setRecordForm((prev) => ({ ...prev, memberId: member._id })); setMemberSearch(member.name); setShowMemberDropdown(false); }}
-                          className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100">
+                          className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-3">
+                          {member.profilePhoto ? <img src={member.profilePhoto} alt={member.name} className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">{member.name.charAt(0).toUpperCase()}</div>}
                           <div className="font-semibold">{member.name}</div>
                         </button>
                       ))}
@@ -869,133 +926,138 @@ export default function Cafeteria() {
                   )}
                 </div>
 
-                {recordForm.memberId && (
-                  <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Previous Balance</p>
-                      <p className={`text-base font-black ${memberBalance < 0 ? 'text-rose-600' : memberBalance > 0 ? 'text-emerald-600' : 'text-slate-900'}`}>
-                        {memberBalance < 0 ? `- ${rupee(Math.abs(memberBalance))}` : memberBalance > 0 ? `+ ${rupee(memberBalance)}` : '₹0'}
-                      </p>
+                <div className="flex gap-2 items-end">
+                  <div className="relative flex-1">
+                    <label htmlFor="itemSearch" className="text-sm font-semibold text-slate-700">Select Item</label>
+                    <div className="mt-1.5 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                      <Filter size={16} className="text-slate-400" />
+                      <input id="itemSearch" name="itemSearch" type="text" value={itemSearch || ''}
+                        onFocus={() => setShowItemDropdown(true)}
+                        onChange={(e) => { setItemSearch(e.target.value); setShowItemDropdown(true); }}
+                        onBlur={() => setTimeout(() => setShowItemDropdown(false), 200)}
+                        placeholder="Search item..." className="w-full bg-transparent text-sm text-slate-900 outline-none" />
                     </div>
-                    {memberBalance !== 0 && (
-                      <label htmlFor="settlePrevious" className="flex items-center gap-2 cursor-pointer bg-white border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-50 transition">
-                        <input id="settlePrevious" name="settlePrevious" type="checkbox" checked={settlePrevious} onChange={(e) => setSettlePrevious(e.target.checked)} className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900" />
-                        <span className="text-xs font-bold text-slate-700">Settle Balance</span>
-                      </label>
+                    {showItemDropdown && filteredItems.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-40 mt-1 max-h-48 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                        {filteredItems.map((item) => (
+                          <button key={item._id} onMouseDown={() => { setRecordForm((prev) => ({ ...prev, itemId: item._id })); setItemSearch(item.itemName); setShowItemDropdown(false); }}
+                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100">
+                            <div className="font-semibold">{item.itemName}</div>
+                            <div className="text-xs text-slate-400">₹{item.costPerUnit || 0} · {item.quantity} {item.unit || 'units'} left</div>
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
-                )}
+                  <div className="w-24">
+                    <label htmlFor="recordQuantity" className="text-sm font-semibold text-slate-700">Qty</label>
+                    <input id="recordQuantity" name="recordQuantity" type="number" value={recordForm.quantity} onChange={(e) => setRecordForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                      placeholder="1" className="mt-1.5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200" />
+                  </div>
+                  <button onClick={handleAddBillItem} className="mt-1.5 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center">
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN */}
+            <div className="w-full md:w-1/2 flex flex-col p-6 overflow-y-auto bg-slate-50 rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-900">{selectedMember ? selectedMember.name : 'Billing Details'}</h3>
+                <button onClick={() => setShowRecordModal(false)} className="hidden md:block text-slate-400 hover:text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-full p-2 transition">
+                  <X size={18} />
+                </button>
               </div>
 
-              {/* Select Item & Quantity */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 relative">
-                  <label htmlFor="itemSearch" className="text-sm font-semibold text-slate-700">Select Item</label>
-                  <div className="mt-1.5 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-                    <Filter size={16} className="text-slate-400" />
-                    <input id="itemSearch" name="itemSearch" type="text" value={itemSearch || ''}
-                      onFocus={() => setShowItemDropdown(true)}
-                      onChange={(e) => { setItemSearch(e.target.value); setShowItemDropdown(true); }}
-                      onBlur={() => setTimeout(() => setShowItemDropdown(false), 200)}
-                      placeholder="Search item..." className="w-full bg-transparent text-sm text-slate-900 outline-none" />
-                  </div>
-                  {showItemDropdown && filteredItems.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-40 mt-1 max-h-48 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
-                      {filteredItems.map((item) => (
-                        <button key={item._id} onMouseDown={() => { setRecordForm((prev) => ({ ...prev, itemId: item._id })); setItemSearch(item.itemName); setShowItemDropdown(false); }}
-                          className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100">
-                          <div className="font-semibold">{item.itemName}</div>
-                          <div className="text-xs text-slate-400">₹{item.costPerUnit || 0} · {item.quantity} {item.unit || 'units'} left</div>
+              <div className="flex-1 overflow-y-auto mb-4 border border-slate-200 rounded-2xl bg-white p-3 space-y-2 min-h-[150px]">
+                {billItems.length === 0 ? (
+                  <p className="text-sm text-slate-400 text-center mt-10">No items added yet</p>
+                ) : (
+                  billItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{item.itemName}</p>
+                        <p className="text-xs text-slate-500">Qty: {item.quantity}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-slate-700">{rupee(item.amount)}</span>
+                        <button onClick={() => setBillItems(prev => prev.filter((_, i) => i !== idx))} className="text-rose-400 hover:text-rose-600 transition">
+                          <Trash2 size={16} />
                         </button>
-                      ))}
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="col-span-1">
-                  <label htmlFor="recordQuantity" className="text-sm font-semibold text-slate-700">Quantity</label>
-                  <input id="recordQuantity" name="recordQuantity" type="number" value={recordForm.quantity} onChange={(e) => setRecordForm((prev) => ({ ...prev, quantity: e.target.value }))}
-                    placeholder="1" className="mt-1.5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200" />
-                </div>
-              </div>
-
-              {/* Amount & Amount Paid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-semibold text-slate-700">Amount</label>
-                  <div className="mt-1.5 rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-900 flex items-center">
-                    {rupee(currentAmount)}
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="paidAmount" className="text-sm font-semibold text-slate-700">Amount Paid</label>
-                  <input id="paidAmount" name="paidAmount" type="number" value={recordForm.paidAmount} onChange={(e) => setRecordForm((prev) => ({ ...prev, paidAmount: e.target.value, paymentStatus: (Number(e.target.value || 0) >= totalPayable ? 'Paid' : 'Unpaid') }))}
-                    placeholder="0" className="mt-1.5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200" />
-                </div>
-              </div>
-
-              {/* Summary / Calculation Box */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
-                <div className="flex items-center justify-between text-sm text-slate-500">
-                  <span>Current Transaction</span>
-                  <span className="font-semibold text-slate-700">{rupee(currentAmount)}</span>
-                </div>
-                {settlePrevious && memberBalance !== 0 && (
-                  <div className="flex items-center justify-between text-sm text-slate-500">
-                    <span>{memberBalance < 0 ? 'Previous Due Settled' : 'Credit Applied'}</span>
-                    <span className={`font-semibold ${memberBalance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                      {memberBalance < 0 ? `+ ${rupee(Math.abs(memberBalance))}` : `- ${rupee(Math.min(memberBalance, currentAmount))}`}
-                    </span>
-                  </div>
+                  ))
                 )}
-                <div className="flex items-center justify-between text-sm font-bold text-slate-900 border-t border-slate-200 pt-2 mt-1">
+              </div>
+
+              {selectedMember && memberBalance !== 0 && (
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 mb-4">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Previous Balance</p>
+                    <p className={`text-sm font-black ${memberBalance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {memberBalance < 0 ? `- ${rupee(Math.abs(memberBalance))}` : `+ ${rupee(memberBalance)}`}
+                    </p>
+                  </div>
+                  <label htmlFor="settlePrevious" className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition">
+                    <input id="settlePrevious" name="settlePrevious" type="checkbox" checked={settlePrevious} onChange={(e) => setSettlePrevious(e.target.checked)} className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900" />
+                    <span className="text-xs font-bold text-slate-700">Settle Balance</span>
+                  </label>
+                </div>
+              )}
+
+              <div className="border-t border-slate-200 pt-4 space-y-4">
+                <div className="flex items-center justify-between text-base font-bold text-slate-900">
                   <span>Total Payable</span>
                   <span>{rupee(totalPayable)}</span>
                 </div>
-              </div>
 
-              {/* Extra Amount / Balance & Payment Status */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 flex flex-col justify-center">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">
-                    {Number(recordForm.paidAmount || 0) > totalPayable ? 'Extra Credit' : 'Remaining Due'}
-                  </span>
-                  <span className={`text-base font-black ${Number(recordForm.paidAmount || 0) > totalPayable ? 'text-emerald-600' : Number(recordForm.paidAmount || 0) < totalPayable ? 'text-rose-600' : 'text-slate-900'}`}>
-                    {Number(recordForm.paidAmount || 0) > totalPayable
-                      ? `+ ${rupee(Number(recordForm.paidAmount || 0) - totalPayable)}`
-                      : Number(recordForm.paidAmount || 0) < totalPayable
-                        ? `- ${rupee(totalPayable - Number(recordForm.paidAmount || 0))}`
-                        : '₹0'}
-                  </span>
-                </div>
-                <div className={Number(recordForm.paidAmount || 0) > 0 ? "col-span-1 grid grid-cols-2 gap-3" : ""}>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="paymentStatus" className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Status</label>
+                    <label htmlFor="paidAmount" className="text-sm font-semibold text-slate-700">Amount Paid</label>
+                    <input id="paidAmount" name="paidAmount" type="number" value={recordForm.paidAmount} onChange={(e) => setRecordForm((prev) => ({ ...prev, paidAmount: e.target.value, paymentStatus: (Number(e.target.value || 0) >= totalPayable ? 'Paid' : 'Unpaid') }))}
+                      placeholder="0" className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200" />
+                  </div>
+                  <div>
+                    <label htmlFor="paymentStatus" className="text-sm font-semibold text-slate-700">Status</label>
                     <select id="paymentStatus" name="paymentStatus" value={recordForm.paymentStatus} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentStatus: e.target.value }))}
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
                       <option value="Paid">Paid</option>
                       <option value="Unpaid">Unpaid / Partial</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-center">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">
+                      {Number(recordForm.paidAmount || 0) > totalPayable ? 'Extra Credit' : 'Remaining Due'}
+                    </span>
+                    <span className={`text-sm font-black ${Number(recordForm.paidAmount || 0) > totalPayable ? 'text-emerald-600' : Number(recordForm.paidAmount || 0) < totalPayable ? 'text-rose-600' : 'text-slate-900'}`}>
+                      {Number(recordForm.paidAmount || 0) > totalPayable
+                        ? `+ ${rupee(Number(recordForm.paidAmount || 0) - totalPayable)}`
+                        : Number(recordForm.paidAmount || 0) < totalPayable
+                          ? `- ${rupee(totalPayable - Number(recordForm.paidAmount || 0))}`
+                          : '₹0'}
+                    </span>
+                  </div>
                   {Number(recordForm.paidAmount || 0) > 0 && (
                     <div>
-                      <label htmlFor="paymentMode" className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Mode</label>
+                      <label htmlFor="paymentMode" className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">Mode</label>
                       <select id="paymentMode" name="paymentMode" value={recordForm.paymentMode} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentMode: e.target.value }))}
-                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
                         <option value="Cash">Cash</option>
                         <option value="GPay">GPay</option>
                       </select>
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
 
-            {/* Footer */}
-            <div className="border-t border-slate-100 p-6 bg-slate-50 rounded-b-3xl">
-              <button type="button" onClick={saveTransaction} disabled={recordLoading}
-                className="w-full rounded-2xl bg-slate-900 px-4 py-3.5 text-sm font-semibold text-white shadow-lg hover:bg-slate-800 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-                {recordLoading ? 'Saving...' : 'Save Transaction'}
-              </button>
+                <button type="button" onClick={saveTransaction} disabled={recordLoading}
+                  className="w-full mt-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-slate-800 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
+                  {recordLoading ? 'Saving...' : 'Save Transaction'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1040,14 +1102,22 @@ export default function Cafeteria() {
                 <tbody>
                   {selectedHistoryMember.history.sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate)).map((tx) => (
                     <tr key={tx._id} className="bg-slate-50">
-                      <td className="py-3 pr-3 pl-3 rounded-l-xl text-slate-500">{fmtDate(tx.transactionDate)}</td>
-                      <td className="py-3 pr-3 font-medium text-slate-700">{tx.itemName}</td>
-                      <td className="py-3 pr-3 text-slate-600">{tx.quantity}</td>
-                      <td className="py-3 pr-3 text-slate-600">{rupee(tx.totalAmount)}</td>
-                      <td className="py-3 pr-3 text-emerald-600 font-medium">{rupee(tx.paidAmount)}</td>
-                      <td className="py-3 pr-3 text-rose-600 font-medium">{tx.totalAmount > tx.paidAmount ? rupee(tx.totalAmount - tx.paidAmount) : '—'}</td>
-                      <td className="py-3 pr-3 text-emerald-600 font-medium">{tx.paidAmount > tx.totalAmount ? `+ ${rupee(tx.paidAmount - tx.totalAmount)}` : '—'}</td>
-                      <td className="py-3 rounded-r-xl">
+                      <td className="py-3 pr-3 pl-3 rounded-l-xl text-slate-500 align-top">{fmtDate(tx.transactionDate)}</td>
+                      <td className="py-3 pr-3 font-medium text-slate-700 align-top">
+                        {tx.items && tx.items.length > 0 
+                          ? tx.items.map((i, idx) => <div key={idx} className="whitespace-nowrap">{i.itemName}</div>)
+                          : tx.itemName}
+                      </td>
+                      <td className="py-3 pr-3 text-slate-600 align-top">
+                        {tx.items && tx.items.length > 0 
+                          ? tx.items.map((i, idx) => <div key={idx} className="whitespace-nowrap">{i.quantity}</div>)
+                          : tx.quantity}
+                      </td>
+                      <td className="py-3 pr-3 text-slate-600 align-top">{rupee(tx.totalAmount)}</td>
+                      <td className="py-3 pr-3 text-emerald-600 font-medium align-top">{rupee(tx.paidAmount)}</td>
+                      <td className="py-3 pr-3 text-rose-600 font-medium align-top">{tx.totalAmount > tx.paidAmount ? rupee(tx.totalAmount - tx.paidAmount) : '—'}</td>
+                      <td className="py-3 pr-3 text-emerald-600 font-medium align-top">{tx.paidAmount > tx.totalAmount ? `+ ${rupee(tx.paidAmount - tx.totalAmount)}` : '—'}</td>
+                      <td className="py-3 rounded-r-xl align-top">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${tx.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{tx.paymentStatus}</span>
                       </td>
                     </tr>
