@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import toast from 'react-hot-toast';
-import { Plus, Search, Box, Coffee, X, Filter, Calendar, Trash2 } from 'lucide-react';
+import { Plus, Search, Box, Coffee, X, Filter, Calendar, Trash2, Edit } from 'lucide-react';
 
 const rupee = (value) => '₹' + Number(value || 0).toLocaleString('en-IN');
 const fmtDate = (value) => value ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -67,7 +67,7 @@ export default function Cafeteria() {
   const [stockLoading, setStockLoading] = useState(false);
   const [stockDefaultThreshold, setStockDefaultThreshold] = useState(5);
   const [editingStock, setEditingStock] = useState(null);
-  const [recordForm, setRecordForm] = useState({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid' });
+  const [recordForm, setRecordForm] = useState({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid', paymentMode: 'Cash' });
   const [memberBalance, setMemberBalance] = useState(0);
   const [settlePrevious, setSettlePrevious] = useState(false);
   const [period, setPeriod] = useState('week');
@@ -79,6 +79,8 @@ export default function Cafeteria() {
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [showItemDropdown, setShowItemDropdown] = useState(false);
   const [selectedHistoryMember, setSelectedHistoryMember] = useState(null);
+  const [selectedHistoryStock, setSelectedHistoryStock] = useState(null);
+  const [editingRecord, setEditingRecord] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentLoading, setPaymentLoading] = useState(false);
 
@@ -298,11 +300,12 @@ export default function Cafeteria() {
         paidAmount: Number(recordForm.paidAmount || 0),
         extraAmount: Number(recordForm.extraAmount || 0),
         paymentStatus: recordForm.paymentStatus,
+        paymentMode: recordForm.paymentMode,
         settlePreviousBalance: settlePrevious,
       });
       toast.success('Transaction saved successfully');
       setShowRecordModal(false);
-      setRecordForm({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid' });
+      setRecordForm({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid', paymentMode: 'Cash' });
       setMemberSearch('');
       setItemSearch('');
       setSettlePrevious(false);
@@ -328,7 +331,7 @@ export default function Cafeteria() {
 
   // ── Add Stock Item Form (inside Stock Management modal)
   const AddStockItemForm = ({ defaultThreshold = 5, onSaved = () => { } }) => {
-    const [form, setForm] = useState({ itemName: '', quantity: '', unit: 'Piece', lowStockThreshold: defaultThreshold, costPerUnit: '' });
+    const [form, setForm] = useState({ itemName: '', unit: 'Piece', lowStockThreshold: defaultThreshold, costPerUnit: '' });
     const [loading, setLoading] = useState(false);
     const save = async () => {
       if (!form.itemName) return toast.error('Enter item name');
@@ -337,11 +340,11 @@ export default function Cafeteria() {
         await CustomBaseUrl.post('/cafeteria/stock', {
           itemName: form.itemName,
           unit: form.unit,
-          quantity: Number(form.quantity || 0),
+          quantity: 0,
           lowStockThreshold: Number(form.lowStockThreshold || defaultThreshold),
           costPerUnit: form.costPerUnit !== '' ? Number(form.costPerUnit) : undefined,
         });
-        setForm({ itemName: '', quantity: '', unit: 'Piece', lowStockThreshold: defaultThreshold, costPerUnit: '' });
+        setForm({ itemName: '', unit: 'Piece', lowStockThreshold: defaultThreshold, costPerUnit: '' });
         onSaved();
       } catch (e) { toast.error(e.response?.data?.message || 'Failed to add stock item'); }
       finally { setLoading(false); }
@@ -349,7 +352,6 @@ export default function Cafeteria() {
     return (
       <div className="grid gap-3 md:grid-cols-3">
         <input aria-label="Item Name" name="itemName" value={form.itemName} onChange={e => setForm(f => ({ ...f, itemName: e.target.value }))} placeholder="Item name (Egg, Bread)" className="rounded-2xl border border-slate-200 bg-white px-4 py-2" />
-        <input aria-label="Quantity" name="quantity" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} type="number" placeholder="Quantity" className="rounded-2xl border border-slate-200 bg-white px-4 py-2" />
         <select aria-label="Unit" name="unit" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-2">
           {['Piece', 'Gram', 'Kilogram', 'Milliliter', 'Liter', 'Scoop'].map(u => (<option key={u} value={u}>{u}</option>))}
         </select>
@@ -366,6 +368,7 @@ export default function Cafeteria() {
   const ModifyStockModal = ({ stock, onClose }) => {
     const [form, setForm] = useState({ itemName: stock.itemName, unit: stock.unit || 'Piece', quantity: stock.quantity, lowStockThreshold: stock.lowStockThreshold || 5, costPerUnit: stock.costPerUnit || 0 });
     const [refillQty, setRefillQty] = useState('');
+    const [totalRefillCost, setTotalRefillCost] = useState('');
     const [loading, setLoading] = useState(false);
 
     const save = async () => {
@@ -381,7 +384,11 @@ export default function Cafeteria() {
         });
         // Refill if requested
         if (refillQty && Number(refillQty) > 0) {
-          await CustomBaseUrl.post(`/cafeteria/stock/${stock._id}/refill`, { quantity: Number(refillQty) });
+          const payload = { quantity: Number(refillQty) };
+          if (totalRefillCost !== undefined && totalRefillCost !== '') {
+            payload.totalRefillAmount = Number(totalRefillCost);
+          }
+          await CustomBaseUrl.post(`/cafeteria/stock/${stock._id}/refill`, payload);
         }
         toast.success('Stock updated');
         onClose();
@@ -393,7 +400,7 @@ export default function Cafeteria() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
         <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold">Modify Stock — {stock.itemName}</h3>
+            <h3 className="text-lg font-bold">Refill Stock — {stock.itemName}</h3>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
           </div>
           <div className="space-y-3">
@@ -423,13 +430,159 @@ export default function Cafeteria() {
                 <input id="modCost" name="costPerUnit" type="number" value={form.costPerUnit} onChange={e => setForm(f => ({ ...f, costPerUnit: e.target.value }))} className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
               </div>
             </div>
-            <div>
-              <label htmlFor="modRefill" className="text-sm text-slate-600">Refill Quantity (add)</label>
-              <input id="modRefill" name="refillQty" type="number" value={refillQty} onChange={e => setRefillQty(e.target.value)} placeholder="Enter refill amount to add" className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="modRefill" className="text-sm text-slate-600">Refill Quantity (add)</label>
+                <input id="modRefill" name="refillQty" type="number" value={refillQty} onChange={e => setRefillQty(e.target.value)} placeholder="Qty to add" className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
+              </div>
+              <div>
+                <label htmlFor="modTotalCost" className="text-sm text-slate-600">Total Refill Amount (₹)</label>
+                <input id="modTotalCost" name="totalRefillCost" type="number" value={totalRefillCost} onChange={e => setTotalRefillCost(e.target.value)} placeholder="Total price" className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={onClose} className="rounded-2xl border border-slate-200 px-4 py-2">Cancel</button>
               <button onClick={save} disabled={loading} className="rounded-2xl bg-slate-900 px-4 py-2 text-white">{loading ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Stock History Modal
+  const StockHistoryModal = ({ stock, onClose }) => {
+    const [refills, setRefills] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      const fetchRefills = async () => {
+        try {
+          const res = await CustomBaseUrl.get(`/cafeteria/stock/refill-history?stockId=${stock._id}`);
+          setRefills(res.data?.data || []);
+        } catch (e) {
+          toast.error('Failed to load refill history');
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchRefills();
+    }, [stock._id]);
+
+    // Sort refills by date
+    const refillHistory = refills.map(r => ({ ...r, date: r.createdAt || r.updatedAt })).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4 py-6">
+        <div className="w-full max-w-2xl rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl max-h-[90vh] flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold">Refill History — {stock.itemName}</h3>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto pr-2">
+            {loading ? (
+              <p className="text-center text-slate-500 py-8">Loading history...</p>
+            ) : refillHistory.length === 0 ? (
+              <p className="text-center text-slate-500 py-8">No refill history found for this item.</p>
+            ) : (
+              <div className="space-y-3">
+                {refillHistory.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50">
+                    <div>
+                      <p className="font-semibold text-slate-800">Refill <span className="text-emerald-600 text-sm">(+{item.quantity})</span></p>
+                      <p className="text-xs text-slate-500">{fmtDate(item.date)} at {fmtTime(item.date)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-slate-700">Cost: {rupee(item.totalCost)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Edit Record Modal
+  const EditRecordModal = ({ record, onClose }) => {
+    const [additionalPayment, setAdditionalPayment] = useState('');
+    const [paymentMode, setPaymentMode] = useState('Cash');
+    const [loading, setLoading] = useState(false);
+
+    const total = record.totalAmount || 0;
+    const currentPaid = record.paidAmount || 0;
+    const currentRemaining = Math.max(0, total - currentPaid);
+    
+    const addedNum = Number(additionalPayment || 0);
+    const newPaid = currentPaid + addedNum;
+    const newRemaining = Math.max(0, total - newPaid);
+    const newExtra = Math.max(0, newPaid - total);
+
+    const handleUpdate = async () => {
+      if (addedNum > 0 && !paymentMode) return toast.error('Select a payment mode');
+      setLoading(true);
+      try {
+        await CustomBaseUrl.put(`/cafeteria/transactions/${record._id}`, {
+          additionalPayment: addedNum,
+          paymentMode
+        });
+        toast.success('Payment added successfully');
+        onClose();
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to add payment');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+        <div className="w-full max-w-sm rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold">Add Payment</h3>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-700">{record.itemName}</p>
+              <p className="text-xs text-slate-500">Member: {record.memberName}</p>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-2xl flex flex-col gap-1 text-sm text-slate-600">
+              <div className="flex justify-between"><span>Total:</span> <span>{rupee(total)}</span></div>
+              <div className="flex justify-between"><span>Already Paid:</span> <span>{rupee(currentPaid)}</span></div>
+              <div className="flex justify-between font-bold text-slate-900">
+                <span>Current Remaining:</span> 
+                <span className={currentRemaining > 0 ? "text-rose-600" : ""}>{currentRemaining > 0 ? rupee(currentRemaining) : '—'}</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-slate-600 block mb-1">Additional Payment Amount (₹)</label>
+              <input type="number" value={additionalPayment} onChange={e => setAdditionalPayment(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-2 outline-none focus:border-slate-300" placeholder="0" />
+            </div>
+            {addedNum > 0 && (
+              <div>
+                <label className="text-sm text-slate-600 block mb-1">Payment Mode</label>
+                <select value={paymentMode} onChange={e => setPaymentMode(e.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none focus:border-slate-300">
+                  <option value="Cash">Cash</option>
+                  <option value="GPay">GPay</option>
+                </select>
+              </div>
+            )}
+            <div className="bg-emerald-50 p-3 rounded-2xl flex flex-col gap-1 text-sm text-slate-600 border border-emerald-100">
+              <div className="flex justify-between">
+                <span>New Remaining:</span> 
+                <span className="font-bold text-rose-600">{newRemaining > 0 ? rupee(newRemaining) : '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>New Extra/Credit:</span> 
+                <span className="font-bold text-emerald-600">{newExtra > 0 ? `+ ${rupee(newExtra)}` : '—'}</span>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-2">
+              <button onClick={onClose} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700">Cancel</button>
+              <button onClick={handleUpdate} disabled={loading} className="rounded-2xl bg-slate-900 px-4 py-2 text-sm text-white">{loading ? 'Saving...' : 'Save Payment'}</button>
             </div>
           </div>
         </div>
@@ -562,47 +715,56 @@ export default function Cafeteria() {
               <table className="w-full text-sm text-left min-w-[1024px] border-separate border-spacing-y-3">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-[0.24em] text-slate-400">
-                    <th className="pb-3 pr-3 pl-3">Name</th>
+                    <th className="pb-3 pr-3 pl-3">Date</th>
+                    <th className="pb-3 pr-3">Member</th>
                     <th className="pb-3 pr-3">Item</th>
                     <th className="pb-3 pr-3">Qty</th>
                     <th className="pb-3 pr-3">Total</th>
                     <th className="pb-3 pr-3">Paid</th>
                     <th className="pb-3 pr-3">Remaining</th>
-                    <th className="pb-3 pr-3">Extra Paid</th>
+                    <th className="pb-3 pr-3">Extra</th>
                     <th className="pb-3 pr-3">Status</th>
-                    <th className="pb-3 pr-3">Date</th>
-                    <th className="pb-3 pr-3">Time</th>
+                    <th className="pb-3 pr-3">Mode</th>
                     <th className="pb-3">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visibleTransactions.length === 0 ? (
-                    <tr><td colSpan="10" className="py-12 text-center text-slate-400">No transactions found for this filter.</td></tr>
-                  ) : visibleTransactions.map((tx) => (
+                    <tr><td colSpan="11" className="py-12 text-center text-slate-400">No transactions found for this filter.</td></tr>
+                  ) : visibleTransactions.map((tx) => {
+                    const remaining = Math.max(0, tx.totalAmount - tx.paidAmount);
+                    const extra = Math.max(0, tx.paidAmount - tx.totalAmount);
+                    return (
                     <tr key={tx._id} className="bg-slate-50">
-                      <td className="py-3 pr-3 pl-3 rounded-l-2xl font-semibold text-slate-800">{tx.memberName}</td>
+                      <td className="py-3 pr-3 pl-3 rounded-l-2xl text-slate-500">{fmtDate(tx.transactionDate)}</td>
+                      <td className="py-3 pr-3 font-semibold text-slate-800">{tx.memberName}</td>
                       <td className="py-3 pr-3 text-slate-600">{tx.itemName}</td>
                       <td className="py-3 pr-3 text-slate-600">{tx.quantity}</td>
-                      <td className="py-3 pr-3 text-slate-600">{rupee(tx.itemAmount)}</td>
-                      <td className="py-3 pr-3 text-slate-600">{rupee(tx.paidAmount)}</td>
-                      <td className="py-3 pr-3 text-slate-600">{rupee(Math.max(0, tx.totalAmount - tx.paidAmount))}</td>
-                      <td className="py-3 pr-3 text-slate-600">{rupee(Math.max(0, tx.paidAmount - tx.totalAmount))}</td>
+                      <td className="py-3 pr-3 text-slate-600">{tx.totalAmount === 0 ? '—' : rupee(tx.totalAmount)}</td>
+                      <td className="py-3 pr-3 text-slate-600">{tx.paidAmount === 0 ? '—' : rupee(tx.paidAmount)}</td>
+                      <td className={`py-3 pr-3 ${remaining > 0 ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{remaining === 0 ? '—' : rupee(remaining)}</td>
+                      <td className={`py-3 pr-3 ${extra > 0 ? 'text-emerald-600 font-semibold' : 'text-slate-600'}`}>{extra === 0 ? '—' : rupee(extra)}</td>
                       <td className="py-3 pr-3">
                         <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold ${tx.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{tx.paymentStatus}</span>
                       </td>
-                      <td className="py-3 pr-3 text-slate-500">{fmtDate(tx.transactionDate)}</td>
-                      <td className="py-3 pr-3 text-slate-500">{fmtTime(tx.transactionDate)}</td>
+                      <td className="py-3 pr-3 text-slate-500">{tx.paymentMode || '—'}</td>
                       <td className="py-3 rounded-r-2xl">
-                        <button onClick={() => handleDeleteTransaction(tx._id)} className="text-slate-400 hover:text-rose-600 transition p-1"><Trash2 size={16}/></button>
+                        <button onClick={() => setEditingRecord(tx)} className="text-slate-400 hover:text-slate-900 transition p-1 mr-1" title="Add Payment"><Edit size={16}/></button>
+                        <button onClick={() => handleDeleteTransaction(tx._id)} className="text-slate-400 hover:text-rose-600 transition p-1" title="Delete"><Trash2 size={16}/></button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             )}
           </div>
         </div>
       </div>
+
+      {editingRecord && (
+        <EditRecordModal record={editingRecord} onClose={() => { setEditingRecord(null); refreshData(); fetchStockItems(); }} />
+      )}
 
 
       {showStockModal && (
@@ -621,6 +783,11 @@ export default function Cafeteria() {
             </div>
 
             <div className="space-y-4">
+              <div className="pb-4 border-b border-slate-100">
+                <p className="text-sm font-semibold mb-2">Add New Stock Item</p>
+                <AddStockItemForm defaultThreshold={stockDefaultThreshold} onSaved={async () => { await fetchStockItems(); await fetchDashboard(); toast.success('Item added'); }} />
+              </div>
+
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-semibold">Current Stock Items</p>
@@ -640,7 +807,8 @@ export default function Cafeteria() {
                           </div>
                           <div className="flex items-center gap-3">
                             <span className={`px-2 py-1 rounded-full text-xs ${status === 'Normal' ? 'bg-emerald-100 text-emerald-700' : status === 'Low Stock' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{status}</span>
-                            <button onClick={() => setEditingStock(it)} className="text-sm px-3 py-2 bg-slate-900 text-white rounded-xl">Modify</button>
+                            <button onClick={() => setSelectedHistoryStock(it)} className="text-sm px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition">History</button>
+                            <button onClick={() => setEditingStock(it)} className="text-sm px-3 py-2 bg-slate-900 text-white rounded-xl">Refill Stock</button>
                             <button onClick={() => handleDeleteStock(it._id)} className="text-sm px-3 py-2 bg-rose-100 text-rose-700 rounded-xl hover:bg-rose-200 transition"><Trash2 size={16}/></button>
                           </div>
                         </div>
@@ -649,11 +817,6 @@ export default function Cafeteria() {
                   </div>
                 )}
               </div>
-
-              <div className="pt-4 border-t border-slate-100">
-                <p className="text-sm font-semibold mb-2">Add New Stock Item</p>
-                <AddStockItemForm defaultThreshold={stockDefaultThreshold} onSaved={async () => { await fetchStockItems(); await fetchDashboard(); toast.success('Item added'); }} />
-              </div>
             </div>
           </div>
         </div>
@@ -661,6 +824,10 @@ export default function Cafeteria() {
 
       {editingStock && (
         <ModifyStockModal stock={editingStock} onClose={() => { setEditingStock(null); fetchStockItems(); fetchDashboard(); }} />
+      )}
+
+      {selectedHistoryStock && (
+        <StockHistoryModal stock={selectedHistoryStock} onClose={() => setSelectedHistoryStock(null)} />
       )}
 
       {showRecordModal && (
@@ -800,13 +967,25 @@ export default function Cafeteria() {
                         : '₹0'}
                   </span>
                 </div>
-                <div>
-                  <label htmlFor="paymentStatus" className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Status</label>
-                  <select id="paymentStatus" name="paymentStatus" value={recordForm.paymentStatus} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentStatus: e.target.value }))}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
-                    <option value="Paid">Paid</option>
-                    <option value="Unpaid">Unpaid / Partial</option>
-                  </select>
+                <div className={Number(recordForm.paidAmount || 0) > 0 ? "col-span-1 grid grid-cols-2 gap-3" : ""}>
+                  <div>
+                    <label htmlFor="paymentStatus" className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Status</label>
+                    <select id="paymentStatus" name="paymentStatus" value={recordForm.paymentStatus} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentStatus: e.target.value }))}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
+                      <option value="Paid">Paid</option>
+                      <option value="Unpaid">Unpaid / Partial</option>
+                    </select>
+                  </div>
+                  {Number(recordForm.paidAmount || 0) > 0 && (
+                    <div>
+                      <label htmlFor="paymentMode" className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Mode</label>
+                      <select id="paymentMode" name="paymentMode" value={recordForm.paymentMode} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentMode: e.target.value }))}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
+                        <option value="Cash">Cash</option>
+                        <option value="GPay">GPay</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
