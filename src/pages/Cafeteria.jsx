@@ -205,7 +205,7 @@ export default function Cafeteria() {
       const active = (res.data?.data || []).filter((member) => {
         if (!member?.endDate) return false;
         const diff = Math.ceil((new Date(member.endDate) - new Date()) / (1000 * 60 * 60 * 24));
-        return diff > 7;
+        return diff >= 0;
       });
       setMembers(active);
     } catch {
