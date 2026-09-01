@@ -716,12 +716,7 @@ export default function Cafeteria() {
                   {tab.label}
                 </button>
               ))}
-              <div className="w-px h-6 bg-slate-200 mx-1"></div>
-              <button
-                onClick={handleDeleteAllTransactions}
-                className="rounded-2xl px-4 py-2 text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 transition flex items-center gap-2">
-                <Trash2 size={16} /> Delete All
-              </button>
+
             </div>
           </div>
 
