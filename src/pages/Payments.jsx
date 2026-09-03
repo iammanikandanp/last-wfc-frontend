@@ -272,17 +272,17 @@ const generatePaymentPDF = async (p) => {
 const paymentStatus = (p) => p.writtenOff ? 'Written Off' : (p.balanceAmount > 0 ? 'Pending' : 'Paid');
 
 const EXPORT_COLUMNS = [
-  { key: 'sno',      label: '#',            get: (p, i) => i + 1 },
+  { key: 'sno',      label: 'S.No',         get: (p, i) => i + 1 },
+  { key: 'date',     label: 'Date',         get: (p) => p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—' },
+  { key: 'invoice',  label: 'Invoice No',   get: (p) => p.invoiceNo || '—' },
+  { key: 'amount',   label: 'Amount',       get: (p) => Math.round((p.finalAmount || p.amount || 0) / 1.05), money: true },
+  { key: 'gst',      label: 'GST (5%)',     get: (p) => { const t = p.finalAmount || p.amount || 0; return Math.round(t - (t / 1.05)); }, money: true },
+  { key: 'total',    label: 'Total',        get: (p) => p.finalAmount || p.amount || 0, money: true },
   { key: 'member',   label: 'Member',       get: (p) => p.memberName || '—' },
   { key: 'phone',    label: 'Phone',        get: (p) => p.memberPhone || '—' },
   { key: 'package',  label: 'Package',      get: (p) => p.package || '—' },
-  { key: 'amount',   label: 'Amount',       get: (p) => p.finalAmount || p.amount || 0, money: true },
-  { key: 'balance',  label: 'Balance',      get: (p) => p.balanceAmount || 0, money: true },
   { key: 'status',   label: 'Status',       get: (p) => paymentStatus(p) },
   { key: 'mode',     label: 'Payment Mode', get: (p) => p.paymentMode || '—' },
-  { key: 'type',     label: 'Payment Type', get: (p) => p.paymentType === 'partly' ? 'Part' : 'Full' },
-  { key: 'invoice',  label: 'Invoice No',   get: (p) => p.invoiceNo || '—' },
-  { key: 'date',     label: 'Date',         get: (p) => p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—' },
 ];
 
 // ── CSV export of the payment list ─────────────────────────────────────────────
@@ -344,7 +344,7 @@ const ExportModal = ({ allRows, onClose }) => {
   const [statuses, setStatuses] = useState(['paid', 'pending', 'writtenoff']);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [columns, setColumns] = useState(() => EXPORT_COLUMNS.map(c => c.key));
+  const [columns, setColumns] = useState(() => ['sno', 'date', 'invoice', 'amount', 'gst', 'total']);
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const toggleStatus = (key) => setStatuses(prev => prev.includes(key) ? prev.filter(s => s !== key) : [...prev, key]);
