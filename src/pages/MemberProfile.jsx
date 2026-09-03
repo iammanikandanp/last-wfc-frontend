@@ -830,6 +830,65 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  Cafeteria History Modal
+// ══════════════════════════════════════════════════════════════════════════════
+const CafeteriaHistoryModal = ({ member, cafeteriaData, onClose }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e=>e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="text-lg font-black text-slate-800">Cafeteria Record</h2>
+            <p className="text-xs font-semibold text-slate-500 mt-0.5">{member?.name}'s full transaction history</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-700">
+            <X size={20}/>
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 mb-6 text-center">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Current Balance Available</p>
+            <p className={`text-3xl font-black mt-2 ${cafeteriaData.balance > 0 ? 'text-emerald-600' : cafeteriaData.balance < 0 ? 'text-red-600' : 'text-slate-700'}`}>
+              ₹{Math.abs(cafeteriaData.balance || 0).toLocaleString('en-IN')}
+              {cafeteriaData.balance < 0 ? ' (Due)' : ''}
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {cafeteriaData.transactions?.length === 0 ? (
+              <div className="text-center py-10">
+                <Apple size={32} className="mx-auto mb-3 opacity-20 text-slate-400"/>
+                <p className="text-sm font-medium text-slate-500">No cafeteria transactions found.</p>
+              </div>
+            ) : (
+              cafeteriaData.transactions.map(t => (
+                <div key={t._id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center">
+                      <Apple size={18} className="text-orange-500"/>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{t.itemName || t.item?.itemName || 'Item'} {t.quantity > 1 ? <span className="text-xs font-semibold text-slate-400 ml-1">x{t.quantity}</span> : ''}</p>
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5">{new Date(t.transactionDate).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                      {t.paymentMode && <p className="text-[10px] text-slate-400 mt-0.5">Paid via {t.paymentMode}</p>}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-slate-700">₹{(t.totalAmount || 0).toLocaleString('en-IN')}</p>
+                    <p className={`text-[10px] font-bold mt-1 uppercase tracking-wide ${t.paymentStatus === 'Paid' ? 'text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full inline-block' : 'text-red-500 bg-red-50 px-2 py-0.5 rounded-full inline-block'}`}>{t.paymentStatus}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  BMI / Weight History Modal
 // ══════════════════════════════════════════════════════════════════════════════
 const BmiHistoryModal = ({ member, bmiHistory, onClose }) => {
@@ -1177,6 +1236,8 @@ const MemberProfile = () => {
   const [showProgressPhotoUpload, setShowProgressPhotoUpload] = useState(false);
   const [inspectProgressPhoto, setInspectProgressPhoto] = useState(null);
   const [inspectMeasurement, setInspectMeasurement] = useState(null);
+  const [cafeteriaData, setCafeteriaData] = useState(null);
+  const [showCafeteriaHistory, setShowCafeteriaHistory] = useState(false);
 
   useEffect(()=>{ if(id) fetchAll(); },[id]);
 
@@ -1210,7 +1271,7 @@ const MemberProfile = () => {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [mR, dR, wR, aR, pR, prR, whR, hrR, ppsR] = await Promise.allSettled([
+      const [mR, dR, wR, aR, pR, prR, whR, hrR, ppsR, cafR] = await Promise.allSettled([
         CustomBaseUrl.get(`/fetchone/${id}`),
         CustomBaseUrl.get(`/reg-diet-plans/member/${id}`),
         CustomBaseUrl.get(`/reg-workout-plans/member/${id}`),
@@ -1220,6 +1281,7 @@ const MemberProfile = () => {
         CustomBaseUrl.get(`/weight-history/member/${id}`),
         CustomBaseUrl.get(`/health-records/member/${id}`),
         CustomBaseUrl.get(`/progress-photo-session/member/${id}`),
+        CustomBaseUrl.get(`/cafeteria/member-balance/${id}`),
       ]);
       if(mR.status==='fulfilled') setMember(mR.value.data?.data);
 
@@ -1245,6 +1307,7 @@ const MemberProfile = () => {
       if(whR.status==='fulfilled') setWeightHistory(sortWeightEntries(whR.value.data?.records || []));
       if(hrR && hrR.status==='fulfilled') setHealthRecords(hrR.value.data?.data || []);
       if(ppsR && ppsR.status==='fulfilled') setProgressPhotoSessions(ppsR.value.data?.data || []);
+      if(cafR && cafR.status==='fulfilled' && cafR.value.data?.success) setCafeteriaData({ balance: cafR.value.data.balance, transactions: cafR.value.data.transactions || [] });
     } catch(e){console.error(e);}
     finally{setLoading(false);}
   };
@@ -1715,6 +1778,53 @@ const MemberProfile = () => {
               </div>
             </div>
 
+            {/* Cafeteria Details */}
+            <div 
+              className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 cursor-pointer hover:border-orange-200 hover:bg-orange-50 transition-colors"
+              onClick={() => {
+                if (cafeteriaData) setShowCafeteriaHistory(true);
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Apple size={13} className="text-orange-500"/>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cafeteria</p>
+                </div>
+              </div>
+              {!cafeteriaData ? (
+                 <p className="text-xs text-slate-400 text-center py-3">Loading...</p>
+              ) : (
+                <>
+                  <div className="bg-slate-50 rounded-xl p-3 mb-3">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Balance Available</p>
+                    <p className={`text-xl font-black mt-1 ${cafeteriaData.balance > 0 ? 'text-emerald-600' : cafeteriaData.balance < 0 ? 'text-red-600' : 'text-slate-700'}`}>
+                      ₹{Math.abs(cafeteriaData.balance || 0).toLocaleString('en-IN')}
+                      {cafeteriaData.balance < 0 ? ' (Due)' : ''}
+                    </p>
+                  </div>
+                  {cafeteriaData.transactions?.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-3">No cafeteria transactions yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Recent Transactions</p>
+                      {cafeteriaData.transactions.slice(0, 4).map(t => (
+                        <div key={t._id} className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-800">{t.itemName || t.item?.itemName || 'Item'} {t.quantity > 1 ? `x${t.quantity}` : ''}</p>
+                            <p className="text-[10px] text-slate-400">{new Date(t.transactionDate).toLocaleDateString('en-IN')}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-bold text-slate-700">₹{(t.totalAmount || 0).toLocaleString('en-IN')}</p>
+                            <p className={`text-[9px] font-bold ${t.paymentStatus === 'Paid' ? 'text-emerald-500' : 'text-red-500'}`}>{t.paymentStatus}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             {/* Attendance moved to Diet Plan column (see spec) */}
           </div>
 
@@ -1953,6 +2063,10 @@ const MemberProfile = () => {
 
       {showHealthRecords && (
         <HealthRecordsModal records={healthRecords} member={member} onClose={() => setShowHealthRecords(false)} />
+      )}
+
+      {showCafeteriaHistory && cafeteriaData && (
+        <CafeteriaHistoryModal member={member} cafeteriaData={cafeteriaData} onClose={() => setShowCafeteriaHistory(false)} />
       )}
 
       {/* ── Add-on Services Modal ── */}
