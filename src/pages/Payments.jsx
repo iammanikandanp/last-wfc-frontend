@@ -324,9 +324,19 @@ const exportPaymentsPDF = async (rows, columns, rangeLabel) => {
     return c.money ? `Rs. ${Number(v).toLocaleString('en-IN')}` : v;
   }));
 
+  const footRow = columns.map((c, idx) => {
+    if (idx === 0) return 'Grand Total';
+    if (c.money) {
+      const sum = rows.reduce((acc, p, i) => acc + Number(c.get(p, i) || 0), 0);
+      return `Rs. ${sum.toLocaleString('en-IN')}`;
+    }
+    return '';
+  });
+
   doc.autoTable({
-    head, body, startY: 25, styles: { fontSize: 7.5, cellPadding: 2 },
+    head, body, foot: [footRow], startY: 25, styles: { fontSize: 7.5, cellPadding: 2 },
     headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+    footStyles: { fillColor: [226, 232, 240], textColor: [15, 23, 42], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },
   });
 
