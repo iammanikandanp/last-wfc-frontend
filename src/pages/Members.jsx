@@ -7,7 +7,7 @@ import {
   Plus, Search, X, User,
   AlertCircle, CheckCircle, Clock, XCircle, Eye, Edit3, Trash2,
   ChevronLeft, ChevronRight, Upload, FileText, Loader2, RefreshCw, Phone,
-  Shield, ShieldOff
+  Shield, ShieldOff, CreditCard
 } from 'lucide-react';
 
 const PER_PAGE = 10;
@@ -775,7 +775,11 @@ const Members = () => {
             <h1 className="text-2xl font-bold text-slate-900">Members</h1>
             <p className="text-slate-500 text-sm mt-0.5">{members.length} total registered · {blockedCount} blocked</p>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <button onClick={() => navigate('/payments')}
+              className="flex-1 sm:flex-none flex justify-center items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-700 active:scale-95 transition-all text-sm font-semibold shadow-sm">
+              <CreditCard size={15} /> <span className="hidden sm:inline">Payments</span><span className="sm:hidden">Pay</span>
+            </button>
             <button onClick={() => setShowImport(true)}
               className="flex-1 sm:flex-none flex justify-center items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl hover:bg-slate-50 active:scale-95 transition-all text-sm font-semibold shadow-sm">
               <Upload size={15} /> <span className="hidden sm:inline">Import CSV</span><span className="sm:hidden">Import</span>

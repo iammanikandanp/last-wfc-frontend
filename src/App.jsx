@@ -23,6 +23,7 @@ import About from "./pages/About";
 import Leads from "./pages/Leads";
 import ForgotPassword from "./pages/ForgotPassword";
 import DietLog from "./pages/DietLog";
+import Profile from "./pages/Profile";
 
 // Resets scroll position on every route change so navigating never
 // leaves the new page mid-scroll under the fixed navbar.
@@ -86,6 +87,7 @@ function App() {
 
         {/* Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["admin","trainer","member"]}><Dashboard /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute allowedRoles={["admin","trainer","member"]}><Profile /></ProtectedRoute>} />
 
         {/* Members */}
         <Route path="/register"      element={<ProtectedRoute allowedRoles={["admin","trainer"]}><AdminRegister /></ProtectedRoute>} />

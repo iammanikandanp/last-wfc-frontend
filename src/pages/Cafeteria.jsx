@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import toast from 'react-hot-toast';
-import { Plus, Search, Box, Coffee, X, Filter, Calendar, Trash2, Edit } from 'lucide-react';
+import { Plus, Search, Box, Coffee, X, Filter, Calendar, Trash2, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const rupee = (value) => '₹' + Number(value || 0).toLocaleString('en-IN');
 const fmtDate = (value) => value ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -42,6 +42,7 @@ function periodRange(key, s, e) {
   return { start, end };
 }
 
+
 function inRange(dateStr, { start, end }) {
   const d = new Date(dateStr);
   return d >= start && d <= end;
@@ -52,15 +53,57 @@ const STATUS_TABS = [
   { key: 'Paid', label: 'Paid' },
   { key: 'Unpaid', label: 'Unpaid' },
   { key: 'Extra', label: 'Extra Amount' },
+  { key: 'Admin', label: 'Admin' },
 ];
 
+
+
+const PER_PAGE = 10;
+
+const Pagination = ({ page, totalPages, filtered: filteredCount, onPage }) => {
+  if (totalPages <= 1) return null;
+  const start = Math.min((page-1)*PER_PAGE+1, filteredCount);
+  const end   = Math.min(page*PER_PAGE, filteredCount);
+  return (
+    <div className="flex items-center justify-between mt-4">
+      <p className="text-xs text-slate-400">Showing {start}–{end} of {filteredCount}</p>
+      <div className="flex items-center gap-1">
+        <button onClick={() => onPage(p => Math.max(1, p-1))} disabled={page===1}
+          className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-30 hover:bg-slate-50 transition">
+          <ChevronLeft size={14} className="text-slate-600"/>
+        </button>
+        {Array.from({length: totalPages}, (_, i) => i+1)
+          .filter(n => n===1 || n===totalPages || Math.abs(n-page)<=1)
+          .reduce((acc, n, idx, arr) => {
+            if (idx > 0 && n - arr[idx-1] > 1) acc.push('…');
+            acc.push(n);
+            return acc;
+          }, [])
+          .map((n, i) => n === '…'
+            ? <span key={`e${i}`} className="px-1 text-slate-400 text-xs">…</span>
+            : <button key={n} onClick={() => onPage(n)}
+                className={`w-7 h-7 rounded-lg text-xs font-semibold transition ${page===n ? 'bg-slate-800 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                {n}
+              </button>
+          )}
+        <button onClick={() => onPage(p => Math.min(totalPages, p+1))} disabled={page===totalPages}
+          className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-30 hover:bg-slate-50 transition">
+          <ChevronRight size={14} className="text-slate-600"/>
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export default function Cafeteria() {
   const [dashboard, setDashboard] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [members, setMembers] = useState([]);
   const [activeTab, setActiveTab] = useState('All');
+  const [page, setPage] = useState(1);
   const [recordLoading, setRecordLoading] = useState(false);
+  const [isSelfMode, setIsSelfMode] = useState(false);
+  const [formError, setFormError] = useState('');
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockItems, setStockItems] = useState([]);
@@ -243,9 +286,15 @@ export default function Cafeteria() {
     const term = searchTerm.trim().toLowerCase();
 
     // Status tab filter
-    if (activeTab !== 'All') {
-      if (activeTab === 'Extra' && (tx.extraAmount || 0) <= 0) return false;
-      if (activeTab !== 'Extra' && tx.paymentStatus !== activeTab) return false;
+    const isAdmin = tx.transactionType === 'admin' || tx.paymentStatus === 'Admin';
+    if (activeTab === 'Admin') {
+      if (!isAdmin) return false;
+    } else {
+      if (isAdmin) return false;
+      if (activeTab !== 'All') {
+        if (activeTab === 'Extra' && (tx.extraAmount || 0) <= 0) return false;
+        if (activeTab !== 'Extra' && tx.paymentStatus !== activeTab) return false;
+      }
     }
 
     if (!term) return true;
@@ -331,21 +380,32 @@ export default function Cafeteria() {
   };
 
   const saveTransaction = async () => {
-    if (!recordForm.memberId) return toast.error('Select a member');
-    if (billItems.length === 0) return toast.error('Add at least one item to the bill');
+    setFormError('');
+    if (!isSelfMode && !recordForm.memberId) {
+      setFormError('Please select a member');
+      return;
+    }
+    if (billItems.length === 0) {
+      setFormError('Please select an item and add it to the bill');
+      return;
+    }
+    if (!isSelfMode && (recordForm.paidAmount === '' || recordForm.paidAmount === null)) {
+       setFormError('Please enter amount paid (0 is fine)');
+       return;
+    }
 
     setRecordLoading(true);
     try {
-      // Create transactions sequentially
       await CustomBaseUrl.post('/cafeteria/transactions', {
-        memberId: recordForm.memberId,
+        transactionType: isSelfMode ? 'admin' : 'member',
+        memberId: isSelfMode ? undefined : recordForm.memberId,
         items: billItems.map(item => ({
           itemId: item.itemId,
           quantity: Number(item.quantity)
         })),
-        paidAmount: Number(recordForm.paidAmount || 0),
-        paymentMode: recordForm.paymentMode,
-        settlePreviousBalance: settlePrevious,
+        paidAmount: isSelfMode ? 0 : Number(recordForm.paidAmount || 0),
+        paymentMode: isSelfMode ? undefined : recordForm.paymentMode,
+        settlePreviousBalance: isSelfMode ? false : settlePrevious,
       });
 
       toast.success('Transaction saved successfully');
@@ -355,10 +415,11 @@ export default function Cafeteria() {
       setItemSearch('');
       setBillItems([]);
       setSettlePrevious(false);
+      setIsSelfMode(false);
       await Promise.all([refreshData(), fetchStockItems()]);
     } catch (err) {
       console.error('Save transaction error:', err?.response || err);
-      toast.error(err?.response?.data?.message || err.message || 'Failed to save transaction');
+      setFormError(err?.response?.data?.message || err.message || 'Failed to save transaction');
     } finally {
       setRecordLoading(false);
     }
@@ -636,6 +697,15 @@ export default function Cafeteria() {
     );
   };
 
+  
+  // Pagination calculations
+  const listToPaginate = (activeTab === 'Unpaid' || activeTab === 'Extra')
+    ? (activeTab === 'Unpaid' ? visibleUnpaid : visibleExtra)
+    : visibleTransactions;
+    
+  const totalPages = Math.ceil(listToPaginate.length / PER_PAGE);
+  const paginatedList = listToPaginate.slice((page-1)*PER_PAGE, page*PER_PAGE);
+
   return (
     <div className="min-h-screen bg-slate-100">
       <Navbar />
@@ -664,7 +734,7 @@ export default function Cafeteria() {
         <div className="flex items-center gap-1.5 flex-wrap mb-4">
           <div className="flex bg-white border border-slate-200 rounded-xl p-0.5 shadow-sm flex-wrap gap-0.5">
             {PERIODS.map(p => (
-              <button key={p.key} onClick={() => setPeriod(p.key)}
+              <button key={p.key} onClick={() => { setPage(1); setPeriod(p.key) }}
                 className={`px-3 py-1.5 rounded-[9px] text-xs font-semibold transition-all ${period === p.key ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}>
                 {p.label}
               </button>
@@ -711,7 +781,7 @@ export default function Cafeteria() {
               {STATUS_TABS.map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={() => { setPage(1); setActiveTab(tab.key) }}
                   className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${activeTab === tab.key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
                   {tab.label}
                 </button>
@@ -725,7 +795,7 @@ export default function Cafeteria() {
             <div className="relative w-full lg:w-[320px]">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input type="text" value={searchTerm} placeholder="Search member, item or status…"
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setPage(1); setSearchTerm(e.target.value); }}
                 aria-label="Search" name="searchTerm"
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-3 text-sm text-slate-800 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200"
               />
@@ -745,7 +815,7 @@ export default function Cafeteria() {
                 <tbody>
                   {(activeTab === 'Unpaid' ? visibleUnpaid : visibleExtra).length === 0 ? (
                     <tr><td colSpan="3" className="py-12 text-center text-slate-400">No members found for this filter.</td></tr>
-                  ) : (activeTab === 'Unpaid' ? visibleUnpaid : visibleExtra).map((m) => (
+                  ) : paginatedList.map((m) => (
                     <tr key={m.memberId} className="bg-slate-50 cursor-pointer hover:bg-slate-100 transition shadow-sm" onClick={() => setSelectedHistoryMember(m)}>
                       <td className="py-4 pr-3 pl-4 rounded-l-2xl font-semibold text-slate-900">{m.memberName}</td>
                       <td className={`py-4 pr-3 text-right font-black ${activeTab === 'Unpaid' ? 'text-rose-600' : 'text-emerald-600'}`}>
@@ -766,25 +836,30 @@ export default function Cafeteria() {
                     <th className="pb-3 pr-3">Member</th>
                     <th className="pb-3 pr-3">Item</th>
                     <th className="pb-3 pr-3">Qty</th>
-                    <th className="pb-3 pr-3">Total</th>
-                    <th className="pb-3 pr-3">Paid</th>
-                    <th className="pb-3 pr-3">Remaining</th>
-                    <th className="pb-3 pr-3">Extra</th>
-                    <th className="pb-3 pr-3">Status</th>
-                    <th className="pb-3 pr-3">Mode</th>
+                    {activeTab !== 'Admin' && (
+                      <>
+                        <th className="pb-3 pr-3">Total</th>
+                        <th className="pb-3 pr-3">Paid</th>
+                        <th className="pb-3 pr-3">Remaining</th>
+                        <th className="pb-3 pr-3">Extra</th>
+                        <th className="pb-3 pr-3">Status</th>
+                        <th className="pb-3 pr-3">Mode</th>
+                      </>
+                    )}
                     <th className="pb-3">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visibleTransactions.length === 0 ? (
                     <tr><td colSpan="11" className="py-12 text-center text-slate-400">No transactions found for this filter.</td></tr>
-                  ) : visibleTransactions.map((tx) => {
+                  ) : paginatedList.map((tx) => {
                     const remaining = Math.max(0, tx.totalAmount - tx.paidAmount);
                     const extra = Math.max(0, tx.paidAmount - tx.totalAmount);
+                    const isAdmin = tx.transactionType === 'admin' || tx.paymentStatus === 'Admin';
                     return (
                     <tr key={tx._id} className="bg-slate-50">
                       <td className="py-3 pr-3 pl-3 rounded-l-2xl text-slate-500 align-top">{fmtDate(tx.transactionDate)}</td>
-                      <td className="py-3 pr-3 font-semibold text-slate-800 align-top">{tx.memberName}</td>
+                      <td className="py-3 pr-3 font-semibold text-slate-800 align-top">{isAdmin ? <span className="text-slate-400 italic">Self Consumption</span> : tx.memberName}</td>
                       <td className="py-3 pr-3 text-slate-600 align-top">
                         {tx.items && tx.items.length > 0 
                           ? tx.items.map((i, idx) => <div key={idx} className="whitespace-nowrap">{i.itemName}</div>)
@@ -795,16 +870,20 @@ export default function Cafeteria() {
                           ? tx.items.map((i, idx) => <div key={idx} className="whitespace-nowrap">{i.quantity}</div>)
                           : tx.quantity}
                       </td>
-                      <td className="py-3 pr-3 text-slate-600 align-top">{tx.totalAmount === 0 ? '—' : rupee(tx.totalAmount)}</td>
-                      <td className="py-3 pr-3 text-slate-600 align-top">{tx.paidAmount === 0 ? '—' : rupee(tx.paidAmount)}</td>
-                      <td className={`py-3 pr-3 align-top ${remaining > 0 ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{remaining === 0 ? '—' : rupee(remaining)}</td>
-                      <td className={`py-3 pr-3 align-top ${extra > 0 ? 'text-emerald-600 font-semibold' : 'text-slate-600'}`}>{extra === 0 ? '—' : rupee(extra)}</td>
-                      <td className="py-3 pr-3 align-top">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold ${tx.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{tx.paymentStatus}</span>
-                      </td>
-                      <td className="py-3 pr-3 text-slate-500 align-top">{tx.paymentMode || '—'}</td>
+                      {activeTab !== 'Admin' && (
+                        <>
+                          <td className="py-3 pr-3 text-slate-600 align-top">{isAdmin ? '—' : (tx.totalAmount === 0 ? '—' : rupee(tx.totalAmount))}</td>
+                          <td className="py-3 pr-3 text-slate-600 align-top">{isAdmin ? '—' : (tx.paidAmount === 0 ? '—' : rupee(tx.paidAmount))}</td>
+                          <td className={`py-3 pr-3 align-top ${remaining > 0 ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{isAdmin ? '—' : (remaining === 0 ? '—' : rupee(remaining))}</td>
+                          <td className={`py-3 pr-3 align-top ${extra > 0 ? 'text-emerald-600 font-semibold' : 'text-slate-600'}`}>{isAdmin ? '—' : (extra === 0 ? '—' : rupee(extra))}</td>
+                          <td className="py-3 pr-3 align-top">
+                            <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold ${isAdmin ? 'bg-indigo-100 text-indigo-700' : (tx.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}`}>{isAdmin ? 'Admin / Self' : tx.paymentStatus}</span>
+                          </td>
+                          <td className="py-3 pr-3 text-slate-500 align-top">{isAdmin ? '—' : (tx.paymentMode || '—')}</td>
+                        </>
+                      )}
                       <td className="py-3 rounded-r-2xl align-top">
-                        <button onClick={() => setEditingRecord(tx)} className="text-slate-400 hover:text-slate-900 transition p-1 mr-1" title="Add Payment"><Edit size={16}/></button>
+                        {!isAdmin && <button onClick={() => setEditingRecord(tx)} className="text-slate-400 hover:text-slate-900 transition p-1 mr-1" title="Add Payment"><Edit size={16}/></button>}
                         <button onClick={() => handleDeleteTransaction(tx._id)} className="text-slate-400 hover:text-rose-600 transition p-1" title="Delete"><Trash2 size={16}/></button>
                       </td>
                     </tr>
@@ -813,6 +892,7 @@ export default function Cafeteria() {
                 </tbody>
               </table>
             )}
+            <Pagination page={page} totalPages={totalPages} filtered={listToPaginate.length} onPage={setPage} />
           </div>
         </div>
       </div>
@@ -892,12 +972,19 @@ export default function Cafeteria() {
             <div className="w-full md:w-1/2 flex flex-col border-b md:border-b-0 md:border-r border-slate-100 p-6 overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-slate-900">New Cafeteria Record</h2>
-                <button onClick={() => setShowRecordModal(false)} className="md:hidden text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full p-2 transition">
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition">
+                    <input type="checkbox" checked={isSelfMode} onChange={(e) => {setIsSelfMode(e.target.checked); setFormError('');}} className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900" />
+                    <span className="text-sm font-bold text-slate-700">Self Mode</span>
+                  </label>
+                  <button onClick={() => {setShowRecordModal(false); setIsSelfMode(false); setFormError('');}} className="md:hidden text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full p-2 transition">
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-5">
+                {!isSelfMode && (
                 <div className="relative">
                   <label htmlFor="memberSearch" className="text-sm font-semibold text-slate-700">Select Member</label>
                   <div className="mt-1.5 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
@@ -920,8 +1007,9 @@ export default function Cafeteria() {
                     </div>
                   )}
                 </div>
+                )}
 
-                <div className="flex gap-2 items-end">
+                <div className="flex gap-2 items-start">
                   <div className="relative flex-1">
                     <label htmlFor="itemSearch" className="text-sm font-semibold text-slate-700">Select Item</label>
                     <div className="mt-1.5 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
@@ -944,10 +1032,13 @@ export default function Cafeteria() {
                       </div>
                     )}
                   </div>
-                  <div className="w-24">
+                  <div className="w-24 relative">
                     <label htmlFor="recordQuantity" className="text-sm font-semibold text-slate-700">Qty</label>
                     <input id="recordQuantity" name="recordQuantity" type="number" value={recordForm.quantity} onChange={(e) => setRecordForm((prev) => ({ ...prev, quantity: e.target.value }))}
                       placeholder="1" className="mt-1.5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200" />
+                    {selectedItem && Number(recordForm.quantity || 0) > selectedItem.quantity && (
+                      <p className="text-[10px] font-bold text-rose-600 mt-1 absolute whitespace-nowrap">Low Stock — Only {selectedItem.quantity} available</p>
+                    )}
                   </div>
                   <button onClick={handleAddBillItem} className="mt-1.5 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center">
                     Add
@@ -959,7 +1050,7 @@ export default function Cafeteria() {
             {/* RIGHT COLUMN */}
             <div className="w-full md:w-1/2 flex flex-col p-6 overflow-y-auto bg-slate-50 rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-slate-900">{selectedMember ? selectedMember.name : 'Billing Details'}</h3>
+                <h3 className="text-lg font-bold text-slate-900">{isSelfMode ? 'Admin Consumption' : (selectedMember ? selectedMember.name : 'Billing Details')}</h3>
                 <button onClick={() => setShowRecordModal(false)} className="hidden md:block text-slate-400 hover:text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-full p-2 transition">
                   <X size={18} />
                 </button>
@@ -986,7 +1077,7 @@ export default function Cafeteria() {
                 )}
               </div>
 
-              {selectedMember && memberBalance !== 0 && (
+              {!isSelfMode && selectedMember && memberBalance !== 0 && (
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 mb-4">
                   <div>
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Previous Balance</p>
@@ -1002,55 +1093,65 @@ export default function Cafeteria() {
               )}
 
               <div className="border-t border-slate-200 pt-4 space-y-4">
-                <div className="flex items-center justify-between text-base font-bold text-slate-900">
-                  <span>Total Payable</span>
-                  <span>{rupee(totalPayable)}</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="paidAmount" className="text-sm font-semibold text-slate-700">Amount Paid</label>
-                    <input id="paidAmount" name="paidAmount" type="number" value={recordForm.paidAmount} onChange={(e) => setRecordForm((prev) => ({ ...prev, paidAmount: e.target.value, paymentStatus: (Number(e.target.value || 0) >= totalPayable ? 'Paid' : 'Unpaid') }))}
-                      placeholder="0" className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200" />
-                  </div>
-                  <div>
-                    <label htmlFor="paymentStatus" className="text-sm font-semibold text-slate-700">Status</label>
-                    <select id="paymentStatus" name="paymentStatus" value={recordForm.paymentStatus} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentStatus: e.target.value }))}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
-                      <option value="Paid">Paid</option>
-                      <option value="Unpaid">Unpaid / Partial</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-center">
-                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">
-                      {Number(recordForm.paidAmount || 0) > totalPayable ? 'Extra Credit' : 'Remaining Due'}
-                    </span>
-                    <span className={`text-sm font-black ${Number(recordForm.paidAmount || 0) > totalPayable ? 'text-emerald-600' : Number(recordForm.paidAmount || 0) < totalPayable ? 'text-rose-600' : 'text-slate-900'}`}>
-                      {Number(recordForm.paidAmount || 0) > totalPayable
-                        ? `+ ${rupee(Number(recordForm.paidAmount || 0) - totalPayable)}`
-                        : Number(recordForm.paidAmount || 0) < totalPayable
-                          ? `- ${rupee(totalPayable - Number(recordForm.paidAmount || 0))}`
-                          : '₹0'}
-                    </span>
-                  </div>
-                  {Number(recordForm.paidAmount || 0) > 0 && (
-                    <div>
-                      <label htmlFor="paymentMode" className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">Mode</label>
-                      <select id="paymentMode" name="paymentMode" value={recordForm.paymentMode} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentMode: e.target.value }))}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
-                        <option value="Cash">Cash</option>
-                        <option value="GPay">GPay</option>
-                      </select>
+                {!isSelfMode && (
+                  <>
+                    <div className="flex items-center justify-between text-base font-bold text-slate-900">
+                      <span>Total Payable</span>
+                      <span>{rupee(totalPayable)}</span>
                     </div>
-                  )}
-                </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor="paidAmount" className="text-sm font-semibold text-slate-700">Amount Paid</label>
+                        <input id="paidAmount" name="paidAmount" type="number" value={recordForm.paidAmount} onChange={(e) => setRecordForm((prev) => ({ ...prev, paidAmount: e.target.value, paymentStatus: (Number(e.target.value || 0) >= totalPayable ? 'Paid' : 'Unpaid') }))}
+                          placeholder="0" className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200" />
+                      </div>
+                      <div>
+                        <label htmlFor="paymentStatus" className="text-sm font-semibold text-slate-700">Status</label>
+                        <select id="paymentStatus" name="paymentStatus" value={recordForm.paymentStatus} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentStatus: e.target.value }))}
+                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
+                          <option value="Paid">Paid</option>
+                          <option value="Unpaid">Unpaid / Partial</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-center">
+                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">
+                          {Number(recordForm.paidAmount || 0) > totalPayable ? 'Extra Credit' : 'Remaining Due'}
+                        </span>
+                        <span className={`text-sm font-black ${Number(recordForm.paidAmount || 0) > totalPayable ? 'text-emerald-600' : Number(recordForm.paidAmount || 0) < totalPayable ? 'text-rose-600' : 'text-slate-900'}`}>
+                          {Number(recordForm.paidAmount || 0) > totalPayable
+                            ? `+ ${rupee(Number(recordForm.paidAmount || 0) - totalPayable)}`
+                            : Number(recordForm.paidAmount || 0) < totalPayable
+                              ? `- ${rupee(totalPayable - Number(recordForm.paidAmount || 0))}`
+                              : '₹0'}
+                        </span>
+                      </div>
+                      {Number(recordForm.paidAmount || 0) > 0 && (
+                        <div>
+                          <label htmlFor="paymentMode" className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">Mode</label>
+                          <select id="paymentMode" name="paymentMode" value={recordForm.paymentMode} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentMode: e.target.value }))}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
+                            <option value="Cash">Cash</option>
+                            <option value="GPay">GPay</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {formError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <p className="text-sm font-semibold text-red-600">{formError}</p>
+                  </div>
+                )}
 
                 <button type="button" onClick={saveTransaction} disabled={recordLoading}
                   className="w-full mt-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-slate-800 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-                  {recordLoading ? 'Saving...' : 'Save Transaction'}
+                  {recordLoading ? 'Saving...' : (isSelfMode ? 'Save Admin Consumption' : 'Save Transaction')}
                 </button>
               </div>
             </div>

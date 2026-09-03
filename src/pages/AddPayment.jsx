@@ -563,7 +563,13 @@ const InvoiceModal = ({ data, onClose }) => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style={{ animation: 'popIn .2s ease' }}>
 
         {/* Header */}
-        <div className="bg-gradient-to-br from-slate-900 to-red-900 text-white p-6 text-center">
+        <div className="relative bg-gradient-to-br from-slate-900 to-red-900 text-white p-6 text-center">
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+          >
+            <X size={18} />
+          </button>
           <img src="/logo.jpeg" alt="WFC logo" className="w-16 h-16 rounded-full object-cover mx-auto mb-1 border-2 border-white/80" />
           <h2 className="text-lg font-black tracking-wide">WFC – Wolverine Fitness Club</h2>
           <p className="text-slate-300 text-xs mt-1">Excellence in Fitness | Coimbatore</p>
@@ -573,96 +579,148 @@ const InvoiceModal = ({ data, onClose }) => {
 
         {/* Hidden invoice template — captured by html2canvas for WhatsApp image */}
         <div style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }}>
-          <div ref={invoiceRef} style={{ width: '794px', background: '#fff', padding: '40px 44px', fontFamily: 'Arial, sans-serif', color: '#1e293b' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-              <div>
-                <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>WFC – Wolverine Fitness Club</div>
-                <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>Excellence in Fitness | Coimbatore, Tamil Nadu</div>
-                <div style={{ color: '#64748b', fontSize: '12px', marginTop: '2px' }}>support@wolverinefitnessclub.com</div>
-                <div style={{ color: '#64748b', fontSize: '12px', marginTop: '2px' }}>GSTIN: 33BOAPH6375A1ZF</div>
+          <div ref={invoiceRef} style={{ width: '794px', background: '#fff', padding: '0', fontFamily: 'Arial, sans-serif', color: '#141414', boxSizing: 'border-box', lineHeight: '1.4' }}>
+            
+            {/* ── DARK HEADER ── */}
+            <div style={{ background: '#111', paddingTop: '40px', paddingBottom: '0', textAlign: 'center', boxSizing: 'border-box' }}>
+              <div style={{ fontSize: '25px', fontWeight: 'bold', color: '#fff', marginBottom: '8px', letterSpacing: '1px' }}>WOLVERINE FITNESS CLUB</div>
+              <div style={{ fontSize: '10px', color: '#D2A82D', letterSpacing: '1.5px', marginBottom: '10px' }}>YOUR ULTIMATE FITNESS DESTINATION</div>
+              <div style={{ fontSize: '9px', color: '#fff', marginBottom: '20px' }}>GSTIN: 33BOAPH6375A1ZF</div>
+              <div style={{ borderTop: '1px solid #D2A82D', margin: '0 40px' }} />
+              <div style={{ height: '30px' }}></div>
+              <div style={{ borderBottom: '4px solid #D2A82D', width: '100%', boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ padding: '40px 45px', boxSizing: 'border-box' }}>
+              
+              {/* INVOICE INFO */}
+              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#141414', marginBottom: '16px' }}>INVOICE</div>
+              
+              <table style={{ width: '300px', marginBottom: '20px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ paddingBottom: '8px', fontSize: '11px', color: '#6e6e6e', width: '100px', boxSizing: 'border-box' }}>Invoice No.</td>
+                    <td style={{ paddingBottom: '8px', fontSize: '11px', fontWeight: 'bold', color: '#D2A82D', boxSizing: 'border-box' }}>{invoiceNo || '-'}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontSize: '11px', color: '#6e6e6e', width: '100px', boxSizing: 'border-box' }}>Issued On</td>
+                    <td style={{ fontSize: '11px', color: '#141414', fontWeight: 'bold', boxSizing: 'border-box' }}>{issuedDate ? parseLocalDate(issuedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
+                  </tr>
+                </tbody>
+              </table>
+              
+              <div style={{ background: isPartly ? '#d22626' : '#2ea043', color: '#fff', padding: '6px 14px', borderRadius: '4px', display: 'inline-block', fontSize: '10px', fontWeight: 'bold', marginBottom: '30px', boxSizing: 'border-box' }}>
+                {isPartly ? 'PARTIAL' : 'PAID'}
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#dc2626', lineHeight: 1 }}>INVOICE</div>
-                <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px', fontFamily: 'monospace' }}># {invoiceNo}</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Date: {new Date().toLocaleDateString('en-IN')}</div>
+
+              {/* TWO COLUMN CARDS */}
+              <table style={{ width: '100%', marginBottom: '40px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                <tbody>
+                  <tr>
+                    {/* BILLED TO */}
+                    <td style={{ width: '48%', background: '#f5f5f5', border: '1px solid #dadada', borderRadius: '4px', padding: '16px', verticalAlign: 'top', boxSizing: 'border-box' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#D2A82D', marginBottom: '14px' }}>BILLED TO</div>
+                      <div style={{ fontSize: '17px', fontWeight: 'bold', color: '#141414', marginBottom: '10px' }}>{member.name || '-'}</div>
+                      <div style={{ fontSize: '11px', color: '#6e6e6e', lineHeight: '1.6' }}>
+                        {member.phone && <div>- {member.phone}</div>}
+                        <div>- Wolverine Fitness Club</div>
+                        <div>&nbsp;&nbsp;Member Portal</div>
+                      </div>
+                    </td>
+                    <td style={{ width: '4%', boxSizing: 'border-box' }}></td>
+                    {/* MEMBERSHIP PERIOD */}
+                    <td style={{ width: '48%', background: '#1c1c1c', borderRadius: '4px', padding: '16px', verticalAlign: 'top', boxSizing: 'border-box', position: 'relative' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#D2A82D', marginBottom: '12px' }}>MEMBERSHIP PERIOD</div>
+                      
+                      {startDate && endDate && (
+                        <div style={{ position: 'absolute', right: '16px', top: '12px', background: '#D2A82D', color: '#141414', fontSize: '8px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px' }}>
+                          {(() => {
+                            const sd = parseLocalDate(startDate);
+                            const ed = parseLocalDate(endDate);
+                            const m = Math.round((ed - sd) / (1000 * 60 * 60 * 24 * 30.44));
+                            return `${m} MONTH${m !== 1 ? 'S' : ''}`;
+                          })()}
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: '9px', color: '#aaaaaa', marginBottom: '4px' }}>Start Date</div>
+                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff', marginBottom: '14px' }}>{parseLocalDate(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                      <div style={{ fontSize: '9px', color: '#aaaaaa', marginBottom: '4px' }}>End Date</div>
+                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>{parseLocalDate(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* DESCRIPTION TABLE */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                <thead>
+                  <tr style={{ background: '#111' }}>
+                    <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#D2A82D', textAlign: 'left', boxSizing: 'border-box', width: '60%' }}>DESCRIPTION</th>
+                    <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#D2A82D', textAlign: 'right', boxSizing: 'border-box', width: '40%' }}>DETAILS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ background: '#fff' }}>
+                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box' }}>Membership Package</td>
+                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#141414', textAlign: 'right', boxSizing: 'border-box' }}>{pkg || '-'} Plan</td>
+                  </tr>
+                  <tr style={{ background: '#f8f9fa' }}>
+                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box' }}>Payment Mode</td>
+                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#141414', textAlign: 'right', boxSizing: 'border-box' }}>{(paymentMethod || '').toUpperCase() || '-'}</td>
+                  </tr>
+                  <tr style={{ background: '#fff' }}>
+                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box' }}>Duration</td>
+                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#141414', textAlign: 'right', boxSizing: 'border-box' }}>
+                      {(() => {
+                        if (!startDate || !endDate) return '-';
+                        const sd = parseLocalDate(startDate);
+                        const ed = parseLocalDate(endDate);
+                        const m = Math.round((ed - sd) / (1000 * 60 * 60 * 24 * 30.44));
+                        const pm = { 1: 'Monthly', 3: 'Quarterly', 6: 'Half-Yearly', 12: 'Yearly' }[m] || 'Membership';
+                        return `${m} Month${m !== 1 ? 's' : ''} (${pm})`;
+                      })()}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', tableLayout: 'fixed' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box', width: '60%' }}>Subtotal</td>
+                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#141414', textAlign: 'right', boxSizing: 'border-box', width: '40%' }}>Rs. {amount.toLocaleString('en-IN')}</td>
+                  </tr>
+                  {discount > 0 && (
+                    <tr style={{ background: '#f8f9fa' }}>
+                      <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box' }}>Discount Applied</td>
+                      <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#d22626', textAlign: 'right', boxSizing: 'border-box' }}>- Rs. {discount.toLocaleString('en-IN')}</td>
+                    </tr>
+                  )}
+                  {isPartly && advPaid > 0 && (
+                    <tr>
+                      <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box' }}>Advance Paid</td>
+                      <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#141414', textAlign: 'right', boxSizing: 'border-box' }}>Rs. {(advPaid || 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', tableLayout: 'fixed' }}>
+                <tbody>
+                  <tr style={{ background: '#111' }}>
+                    <td style={{ padding: '18px', fontSize: '12px', fontWeight: 'bold', color: '#D2A82D', boxSizing: 'border-box', width: '60%' }}>{isPartly ? 'BALANCE DUE' : 'TOTAL PAID'}</td>
+                    <td style={{ padding: '18px', fontSize: '18px', fontWeight: 'bold', color: '#fff', textAlign: 'right', boxSizing: 'border-box', width: '40%' }}>Rs. {(isPartly ? balAmt : finalAmount).toLocaleString('en-IN')}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* FOOTER */}
+              <div style={{ marginTop: '35px', textAlign: 'center', boxSizing: 'border-box' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#D2A82D', marginBottom: '8px' }}>Thank you for choosing Wolverine Fitness Club!</div>
+                <div style={{ fontSize: '10px', color: '#6e6e6e', marginBottom: '6px' }}>Keep pushing your limits  *  Stay strong  *  Stay consistent</div>
+                <div style={{ fontSize: '10px', color: '#6e6e6e' }}>For queries: contact@wolverinefitnessclub.com  |  +91 97869 69711</div>
               </div>
             </div>
-            {/* Red + gray divider */}
-            <div style={{ height: '3px', background: '#dc2626', marginBottom: '2px' }} />
-            <div style={{ height: '1px', background: '#e2e8f0', marginBottom: '24px' }} />
-            {/* Bill To + Period */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '28px' }}>
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Bill To</div>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b' }}>{member.name || '—'}</div>
-                {member.phone && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>Phone: {member.phone}</div>}
-                {member.emails && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Email: {member.emails}</div>}
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Membership Period</div>
-                <div style={{ fontSize: '12px', color: '#475569', marginTop: '3px' }}>Start: {parseLocalDate(startDate).toLocaleDateString('en-IN')}</div>
-                <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>End: &nbsp;&nbsp;{parseLocalDate(endDate).toLocaleDateString('en-IN')}</div>
-                <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>Mode: {(paymentMethod || '').toUpperCase()}</div>
-              </div>
-            </div>
-            {/* Table */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-              <thead>
-                <tr style={{ background: '#1e293b' }}>
-                  {['DESCRIPTION', 'QTY', 'UNIT PRICE', 'TOTAL'].map((h, i) => (
-                    <th key={h} style={{ padding: '10px 14px', fontSize: '11px', fontWeight: 'bold', color: '#fff', textAlign: i === 0 ? 'left' : i === 1 ? 'center' : 'right' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ background: '#f8fafc' }}>
-                  <td style={{ padding: '14px', borderBottom: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e293b' }}>{pkg || '—'} Membership</div>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{parseLocalDate(startDate).toLocaleDateString('en-IN')} – {parseLocalDate(endDate).toLocaleDateString('en-IN')}</div>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Payment Mode: {(paymentMethod || '').toUpperCase()}</div>
-                  </td>
-                  <td style={{ padding: '14px', textAlign: 'center', fontSize: '13px', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>1</td>
-                  <td style={{ padding: '14px', textAlign: 'right', fontSize: '13px', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>Rs. {amount.toLocaleString('en-IN')}</td>
-                  <td style={{ padding: '14px', textAlign: 'right', fontSize: '13px', fontWeight: 'bold', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>Rs. {amount.toLocaleString('en-IN')}</td>
-                </tr>
-              </tbody>
-            </table>
-            {/* Amount Summary */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '32px' }}>
-              <div style={{ width: '280px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0' }}>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>Subtotal</span>
-                  <span style={{ fontSize: '12px', color: '#1e293b' }}>Rs. {amount.toLocaleString('en-IN')}</span>
-                </div>
-                {discount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '12px', color: '#64748b' }}>Discount</span>
-                    <span style={{ fontSize: '12px', color: '#dc2626' }}>- Rs. {discount.toLocaleString('en-IN')}</span>
-                  </div>
-                )}
-                {isPartly && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '12px', color: '#64748b' }}>Advance Paid</span>
-                    <span style={{ fontSize: '12px', color: '#1e293b' }}>Rs. {(advPaid||0).toLocaleString('en-IN')}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: '#1e293b', borderRadius: '6px', marginTop: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>Balance Due</span>
-                  <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff' }}>Rs. {(isPartly ? (balAmt||0) : finalAmount).toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-            </div>
-            {/* Footer */}
-            <div style={{ height: '3px', background: '#dc2626', marginBottom: '2px' }} />
-            <div style={{ height: '1px', background: '#e2e8f0', marginBottom: '16px' }} />
-            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b', marginBottom: '8px' }}>Thank you for your business!</div>
-            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Terms of Invoice:</div>
-            {['Please retain this invoice for your records.',
-              'For queries: support@wolverinefitnessclub.com',
-              'Computer-generated invoice — no physical signature required.'].map(t => (
-              <div key={t} style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>• {t}</div>
-            ))}
           </div>
         </div>
 
