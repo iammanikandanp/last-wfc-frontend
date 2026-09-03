@@ -6,7 +6,7 @@ import {
   CreditCard, Plus, Search, X, Filter, Mail, CheckCircle,
   AlertCircle, Clock, ChevronLeft, ChevronRight, Download,
   Wallet, TrendingUp, Users, RefreshCw, Send, Check, Edit3, Trash2, Save,
-  FileText, Loader, Ban, DollarSign, UserX, ShieldOff, Unlock
+  FileText, Loader, Ban, DollarSign, UserX, ShieldOff, Unlock, FileSpreadsheet
 } from 'lucide-react';
 
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
