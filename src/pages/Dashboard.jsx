@@ -404,7 +404,7 @@ const MemberDashboard = ({ user }) => {
   const displayName = member?.name || user.name || 'Member';
 
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="w-full min-h-screen overflow-x-hidden bg-slate-200">
       <Navbar />
       <div className="max-w-6xl mx-auto px-4 py-6">
 
@@ -564,13 +564,13 @@ const MemberDashboard = ({ user }) => {
                   <p className="text-xs">No records yet</p>
                 </div>
               ) : (<>
-                <div className="flex flex-wrap gap-1 mb-3">
+                <div className="flex gap-1.5 mb-3 overflow-x-auto rounded-xl bg-slate-100 p-1">
                   {attendance.map(r => {
                     const p = r.workDays > 0 ? Math.round((r.attendDays / r.workDays) * 100) : 0;
                     const dot = p >= 80 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-500' : 'bg-red-500';
                     return (
                       <button key={r.month} onClick={() => setActiveMonth(r.month)}
-                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition ${activeMonth === r.month ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>
+                        className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-[10px] font-bold transition-all duration-200 ${activeMonth === r.month ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:bg-white/70 hover:text-slate-800'}`}>
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeMonth === r.month ? 'bg-white' : dot}`}/>
                         {fmtMonth(r.month)}
                       </button>
@@ -900,7 +900,7 @@ const AdminDashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="w-full min-h-screen overflow-x-hidden bg-slate-200">
       <Navbar/>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5">
 

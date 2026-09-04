@@ -787,7 +787,6 @@ export default function Cafeteria() {
                   {tab.label}
                 </button>
               ))}
-
             </div>
           </div>
 
