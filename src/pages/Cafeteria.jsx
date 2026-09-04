@@ -110,7 +110,7 @@ export default function Cafeteria() {
   const [stockLoading, setStockLoading] = useState(false);
   const [stockDefaultThreshold, setStockDefaultThreshold] = useState(5);
   const [editingStock, setEditingStock] = useState(null);
-  const [recordForm, setRecordForm] = useState({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid', paymentMode: 'Cash' });
+  const [recordForm, setRecordForm] = useState({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid', paymentMode: 'GPay' });
   const [memberBalance, setMemberBalance] = useState(0);
   const [period, setPeriod] = useState('today');
   const [custStart, setCustStart] = useState('');
@@ -374,7 +374,7 @@ export default function Cafeteria() {
     }]);
 
     // Reset item selection fields
-    setRecordForm(prev => ({ ...prev, itemId: '', quantity: '' }));
+    setRecordForm(prev => ({ ...prev, itemId: '', quantity: '1' }));
     setItemSearch('');
   };
 
@@ -408,7 +408,7 @@ export default function Cafeteria() {
 
       toast.success('Transaction saved successfully');
       setShowRecordModal(false);
-      setRecordForm({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid', paymentMode: 'Cash' });
+      setRecordForm({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid', paymentMode: 'GPay' });
       setMemberSearch('');
       setItemSearch('');
       setBillItems([]);
@@ -1023,7 +1023,7 @@ export default function Cafeteria() {
                     {showItemDropdown && filteredItems.length > 0 && (
                       <div className="absolute top-full left-0 right-0 z-40 mt-1 max-h-48 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
                         {filteredItems.map((item) => (
-                          <button key={item._id} onMouseDown={() => { setRecordForm((prev) => ({ ...prev, itemId: item._id })); setItemSearch(item.itemName); setShowItemDropdown(false); }}
+                          <button key={item._id} onMouseDown={() => { setRecordForm((prev) => ({ ...prev, itemId: item._id, quantity: '1' })); setItemSearch(item.itemName); setShowItemDropdown(false); }}
                             className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100">
                             <div className="font-semibold">{item.itemName}</div>
                             <div className="text-xs text-slate-400">₹{item.costPerUnit || 0} · {item.quantity} {item.unit || 'units'} left</div>
@@ -1119,7 +1119,7 @@ export default function Cafeteria() {
                           {resultingBalance > 0 ? `+ ${rupee(resultingBalance)}` : resultingBalance < 0 ? `- ${rupee(Math.abs(resultingBalance))}` : '₹0'}
                         </span>
                       </div>
-                      {Number(recordForm.paidAmount || 0) > 0 && (
+                      {(
                         <div>
                           <label htmlFor="paymentMode" className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">Mode</label>
                           <select id="paymentMode" name="paymentMode" value={recordForm.paymentMode} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentMode: e.target.value }))}
