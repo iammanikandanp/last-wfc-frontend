@@ -707,49 +707,30 @@ const WhatsAppIcon = ({ size = 13 }) => (
   </svg>
 );
 
-// shareInvoiceAsImage — copies invoice image to clipboard + opens member's WhatsApp chat
-const shareInvoiceAsImage = async (p, invoiceRef, setSharingWa) => {
+// shareInvoiceAsPDF — generates invoice PDF, downloads it + opens member's WhatsApp chat
+const shareInvoiceAsPDF = async (p, setSharingWa) => {
   const phone = (p.memberPhone || '').replace(/\D/g, '');
   if (!phone) { alert('No phone number for this member.'); return; }
 
-  // Open the member's WhatsApp chat immediately (must be in user-gesture context)
-  window.open(`https://wa.me/91${phone}`, '_blank');
-
   setSharingWa(true);
   try {
-    await loadScriptP('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-    const canvas = await window.html2canvas(invoiceRef.current, {
-      scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
-    });
+    const doc = await generatePaymentPDF(p);
+    const safeName = `WFC-Invoice-${p.invoiceNo || 'INV'}-${(p.memberName||'member').replace(/[^a-zA-Z0-9\s]/g,'').replace(/\s+/g,'-')}.pdf`;
+    
+    doc.save(safeName);
 
-    canvas.toBlob(async (blob) => {
-      let copied = false;
-      // Try copying to clipboard so user can paste directly in WhatsApp
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        copied = true;
-      } catch {
-        // Clipboard write not supported — fall back to download
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `WFC-Invoice-${p.invoiceNo || 'INV'}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+    const message = `Hello ${p.memberName || 'Member'}, your payment invoice from WFC Enterprises is attached. Thank you.`;
 
-      if (copied) {
-        // Show overlay prompt instead of alert so it doesn't block the WhatsApp tab
-        const div = document.createElement('div');
-        div.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#25D366;color:#fff;padding:14px 22px;border-radius:14px;font-size:14px;font-weight:600;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.2);text-align:center;max-width:320px';
-        div.innerHTML = '✅ Invoice image copied!<br><span style="font-weight:400;font-size:12px">Go to WhatsApp → press Ctrl+V (or long-press → Paste) → Send</span>';
-        document.body.appendChild(div);
-        setTimeout(() => div.remove(), 5000);
-      }
-    }, 'image/png');
+    window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(message)}`, '_blank');
+
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#25D366;color:#fff;padding:14px 22px;border-radius:14px;font-size:14px;font-weight:600;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.2);text-align:center;max-width:320px';
+    div.innerHTML = '✅ Invoice PDF downloaded!<br><span style="font-weight:400;font-size:12px">Go to WhatsApp → click 📎 (Attach) → select Document → send the downloaded PDF</span>';
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 7000);
   } catch (e) {
-    console.error('Image capture error:', e);
-    alert('Could not capture invoice image.');
+    console.error('PDF generation error:', e);
+    alert('Could not generate invoice PDF.');
   } finally {
     setSharingWa(false);
   }
@@ -1015,11 +996,8 @@ const Payments = () => {
     } catch (e) { alert('Unblock failed: ' + (e.response?.data?.message || e.message)); }
   };
 
-  const handleShareAsImage = async (p) => {
-    setWaPayment(p);
-    await new Promise(r => setTimeout(r, 80)); // let hidden div render
-    await shareInvoiceAsImage(p, invoiceShareRef, setSharingWa);
-    setWaPayment(null);
+  const handleShareAsPDF = async (p) => {
+    await shareInvoiceAsPDF(p, setSharingWa);
   };
 
   const fetchAll = async () => {
@@ -1122,14 +1100,14 @@ const Payments = () => {
   return (
     <div className="min-h-screen bg-slate-200">
       <Navbar/>
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Payments</h1>
             <p className="text-xs text-slate-400 mt-0.5">All transactions · {payments.length} records</p>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 sm:w-auto">
             <button onClick={fetchAll} className="flex justify-center items-center p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition shadow-sm">
               <RefreshCw size={14} className={`text-slate-500 ${loading?'animate-spin':''}`}/>
             </button>
@@ -1155,7 +1133,7 @@ const Payments = () => {
 
         {/* Controls */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm flex-wrap w-full sm:w-auto">
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm flex-wrap w-full">
             {FILTERS.map((f) => (
               <button key={f.key} onClick={() => setFilter(f.key)}
                 className={`flex-1 sm:flex-none flex justify-center items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter===f.key ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -1198,7 +1176,7 @@ const Payments = () => {
               <p className="text-xs text-slate-400">Page {page} of {totalPages||1}</p>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-xs min-w-[640px]">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
                     {['Member','Package','Start Date','End Date','Amount','Advance','Balance','Due Date','Status','Mode','Type','Actions'].map(h => (
@@ -1250,7 +1228,7 @@ const Payments = () => {
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
                             <button onClick={() => setInvoiceTarget(p)} title="View & download invoices" className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"><FileText size={13}/></button>
-                            <button onClick={() => handleShareAsImage(p)} disabled={sharingWa} title="Send invoice image via WhatsApp" className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 transition disabled:opacity-40">{sharingWa ? <Loader size={13} className="animate-spin"/> : <WhatsAppIcon size={13}/>}</button>
+                            <button onClick={() => handleShareAsPDF(p)} disabled={sharingWa} title="Send invoice PDF via WhatsApp" className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 transition disabled:opacity-40">{sharingWa ? <Loader size={13} className="animate-spin"/> : <WhatsAppIcon size={13}/>}</button>
                             <button onClick={() => setEditTarget(p)} title="Edit payment" className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 hover:text-blue-700 transition"><Edit3 size={13}/></button>
                             <button onClick={() => setDeleteTarget(p)} title="Delete payment" className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition"><Trash2 size={13}/></button>
                             {isPending && (
@@ -1300,98 +1278,6 @@ const Payments = () => {
       {payNowTarget && <PayNowModal payment={payNowTarget} onSave={fetchAll} onClose={() => setPayNowTarget(null)}/>}
       {exportModalOpen && <ExportModal allRows={enriched} onClose={() => setExportModalOpen(false)}/>}
 
-      {/* Hidden invoice template captured by html2canvas for WhatsApp image sharing */}
-      <div style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1, pointerEvents: 'none' }}>
-        {waPayment && (
-          <div ref={invoiceShareRef} style={{ width: '680px', background: '#fff', fontFamily: 'Arial, sans-serif', color: '#1e293b', padding: '36px 40px' }}>
-            {/* Header */}
-            <div style={{ background: 'linear-gradient(135deg,#0f172a,#7f1d1d)', color: '#fff', padding: '24px 28px', borderRadius: '10px 10px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 0 }}>
-              <div>
-                <div style={{ fontSize: '17px', fontWeight: 'bold' }}>WFC – Wolverine Fitness Club</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>Excellence in Fitness | Coimbatore, Tamil Nadu</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '26px', fontWeight: '900', color: '#fca5a5', letterSpacing: '2px' }}>INVOICE</div>
-                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '3px', fontFamily: 'monospace' }}># {waPayment.invoiceNo}</div>
-              </div>
-            </div>
-            {/* Status bar */}
-            <div style={{ background: waPayment.balanceAmount > 0 ? '#fef9c3' : '#dcfce7', color: waPayment.balanceAmount > 0 ? '#92400e' : '#15803d', padding: '8px 28px', fontSize: '12px', fontWeight: '700', textAlign: 'center' }}>
-              {waPayment.balanceAmount > 0 ? `⏳ ADVANCE PAID — BALANCE DUE ₹${(waPayment.balanceAmount||0).toLocaleString('en-IN')}` : '✅ FULLY PAID'}
-            </div>
-            {/* Body */}
-            <div style={{ border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: '24px 28px' }}>
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Bill To</div>
-                <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{waPayment.memberName}</div>
-                {waPayment.memberPhone && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '3px' }}>📞 {waPayment.memberPhone}</div>}
-              </div>
-              {/* Info grid */}
-              <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
-                <div style={{ flex: 1, background: '#f8fafc', borderRadius: '8px', padding: '14px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Payment Info</div>
-                  {[['Invoice No', waPayment.invoiceNo], ['GSTIN', '33BOAPH6375A1ZF'], ['Date', waPayment.createdAt ? new Date(waPayment.createdAt).toLocaleDateString('en-IN') : '—'], ['Pay Mode', (waPayment.paymentMode||'').toUpperCase()], ['Pay Type', waPayment.paymentType === 'partly' ? 'Advance' : 'Full']].map(([k,v]) => (
-                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#475569', padding: '3px 0' }}><span>{k}</span><span style={{ fontWeight: '600', color: '#1e293b' }}>{v}</span></div>
-                  ))}
-                </div>
-                <div style={{ flex: 1, background: '#f8fafc', borderRadius: '8px', padding: '14px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Membership Period</div>
-                  {[['Package', waPayment.package], ['Start', waPayment.startDate ? new Date(waPayment.startDate).toLocaleDateString('en-IN') : '—'], ['End', waPayment.endDate ? new Date(waPayment.endDate).toLocaleDateString('en-IN') : '—']].map(([k,v]) => (
-                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#475569', padding: '3px 0' }}><span>{k}</span><span style={{ fontWeight: '600', color: '#1e293b' }}>{v}</span></div>
-                  ))}
-                </div>
-              </div>
-              {/* Table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
-                <thead>
-                  <tr style={{ background: '#0f172a' }}>
-                    {['Description','Qty','Unit Price','Total'].map((h,i) => (
-                      <th key={h} style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '700', color: '#fff', textAlign: i===0?'left':'right' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style={{ background: '#f8fafc' }}>
-                    <td style={{ padding: '12px 14px', borderBottom: '1px solid #e2e8f0' }}>
-                      <div style={{ fontSize: '14px', fontWeight: '700' }}>{waPayment.package} Membership</div>
-                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>{waPayment.startDate ? new Date(waPayment.startDate).toLocaleDateString('en-IN') : '—'} – {waPayment.endDate ? new Date(waPayment.endDate).toLocaleDateString('en-IN') : '—'}</div>
-                    </td>
-                    <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '13px', borderBottom: '1px solid #e2e8f0' }}>1</td>
-                    <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '13px', borderBottom: '1px solid #e2e8f0' }}>₹{(waPayment.amount||0).toLocaleString('en-IN')}</td>
-                    <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '13px', fontWeight: '700', borderBottom: '1px solid #e2e8f0' }}>₹{(waPayment.amount||0).toLocaleString('en-IN')}</td>
-                  </tr>
-                </tbody>
-              </table>
-              {/* Totals */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{ width: '260px' }}>
-                  {(waPayment.discount||0) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '12px', color: '#64748b', borderBottom: '1px solid #e2e8f0' }}><span>Discount</span><span style={{ color: '#dc2626' }}>– ₹{(waPayment.discount||0).toLocaleString('en-IN')}</span></div>}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a', borderRadius: '8px', padding: '12px 14px', marginTop: '8px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>Total Payable</span>
-                    <span style={{ fontSize: '18px', fontWeight: '900', color: '#fca5a5' }}>₹{(waPayment.finalAmount||waPayment.amount||0).toLocaleString('en-IN')}</span>
-                  </div>
-                  {waPayment.paymentType === 'partly' && <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', background: '#dcfce7', borderRadius: '8px', padding: '8px 14px', marginTop: '6px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#15803d' }}>⚡ Advance Paid</span>
-                      <span style={{ fontSize: '14px', fontWeight: '900', color: '#15803d' }}>₹{(waPayment.advanceAmount||0).toLocaleString('en-IN')}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '8px 14px', marginTop: '6px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626' }}>⏳ Balance Due</span>
-                      <span style={{ fontSize: '14px', fontWeight: '900', color: '#dc2626' }}>₹{(waPayment.balanceAmount||0).toLocaleString('en-IN')}</span>
-                    </div>
-                  </>}
-                </div>
-              </div>
-              {/* Footer */}
-              <div style={{ borderTop: '3px solid #dc2626', marginTop: '24px', paddingTop: '14px' }}>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>Thank you for your business!</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>• For queries: support@wolverinefitnessclub.com</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>• Computer-generated invoice — no physical signature required.</div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 };

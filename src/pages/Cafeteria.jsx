@@ -113,7 +113,7 @@ export default function Cafeteria() {
   const [recordForm, setRecordForm] = useState({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid', paymentMode: 'Cash' });
   const [memberBalance, setMemberBalance] = useState(0);
   const [settlePrevious, setSettlePrevious] = useState(false);
-  const [period, setPeriod] = useState('week');
+  const [period, setPeriod] = useState('today');
   const [custStart, setCustStart] = useState('');
   const [custEnd, setCustEnd] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
@@ -709,8 +709,8 @@ export default function Cafeteria() {
   return (
     <div className="min-h-screen bg-slate-100">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
               <Coffee size={22} className="text-amber-600" />
@@ -732,10 +732,14 @@ export default function Cafeteria() {
 
         {/* Date Filter Bar */}
         <div className="flex items-center gap-1.5 flex-wrap mb-4">
-          <div className="flex bg-white border border-slate-200 rounded-xl p-0.5 shadow-sm flex-wrap gap-0.5">
+          <div className="flex gap-4 flex-wrap">
             {PERIODS.map(p => (
               <button key={p.key} onClick={() => { setPage(1); setPeriod(p.key) }}
-                className={`px-3 py-1.5 rounded-[9px] text-xs font-semibold transition-all ${period === p.key ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}>
+                className={`py-1.5 text-xs font-semibold transition-all ${
+                  period === p.key 
+                    ? 'text-slate-900 border-b border-slate-900' 
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}>
                 {p.label}
               </button>
             ))}
@@ -752,7 +756,7 @@ export default function Cafeteria() {
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400 mb-3">Total Transactions</p>
             <p className="text-3xl font-black text-slate-900">{summary.totalTransactions}</p>
@@ -772,7 +776,7 @@ export default function Cafeteria() {
         </div>
 
         <div className="mt-6 bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Transaction history</p>
               <h2 className="text-lg font-bold text-slate-900">All cafeteria records</h2>
@@ -790,9 +794,9 @@ export default function Cafeteria() {
             </div>
           </div>
 
-          <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <p className="text-sm text-slate-500">Showing {visibleTransactions.length} records</p>
-            <div className="relative w-full lg:w-[320px]">
+            <div className="relative w-full md:w-[320px]">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input type="text" value={searchTerm} placeholder="Search member, item or status…"
                 onChange={(e) => { setPage(1); setSearchTerm(e.target.value); }}
@@ -829,7 +833,7 @@ export default function Cafeteria() {
                 </tbody>
               </table>
             ) : (
-              <table className="w-full text-sm text-left min-w-[1024px] border-separate border-spacing-y-3">
+              <table className="w-full text-sm text-left min-w-[700px] border-separate border-spacing-y-3">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-[0.24em] text-slate-400">
                     <th className="pb-3 pr-3 pl-3">Date</th>

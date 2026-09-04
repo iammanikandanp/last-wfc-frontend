@@ -68,7 +68,7 @@ const Training = () => {
           {loading ? (
             <div className='text-center py-12'>Loading trainers...</div>
           ) : (
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+            <div className='grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 gap-6'>
               {trainers.map((trainer) => (
                 <div key={trainer._id} className='bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition'>
                   <div className='flex items-center space-x-3 mb-4'>

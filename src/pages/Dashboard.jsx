@@ -902,7 +902,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-slate-200">
       <Navbar/>
-      <div className="max-w-7xl mx-auto px-4 py-5">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5">
 
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -917,7 +917,7 @@ const AdminDashboard = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 mb-4">
           {loading ? [...Array(5)].map((_,i)=>(
             <div key={i} className="h-20 rounded-xl bg-white animate-pulse border border-slate-100"/>
           )) : CARDS.map(c=>(
@@ -934,10 +934,10 @@ const AdminDashboard = () => {
         </div>
 
         {/* LINE CHART + REMINDERS */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
 
           {/* Line Chart */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+          <div className="md:col-span-2 bg-white rounded-xl border border-slate-100 shadow-sm p-4">
             {chartReady && members.length > 0
               ? <LineChart members={members} />
               : <div className="h-48 flex items-center justify-center text-slate-300 text-sm">
@@ -1008,7 +1008,7 @@ const AdminDashboard = () => {
               <p className="text-xs opacity-70">Track gym enquiries and convert to members</p>
             </div>
           </div>
-          <div className="grid grid-cols-4 sm:flex sm:items-center gap-2 sm:gap-4 flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+          <div className="grid grid-cols-4 sm:flex sm:items-center gap-2 sm:gap-4 flex-shrink-0 w-full mt-2 sm:mt-0">
             {[
               {label:'Total',    val:leadStats.total,     c:'text-white'},
               {label:'New',      val:leadStats.new||0,    c:'text-blue-200'},

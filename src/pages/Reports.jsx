@@ -210,7 +210,7 @@ function DeltaBadge({ cur, prv, isMoney = true }) {
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function Reports() {
-  const [period,      setPeriod]     = useState('month');
+  const [period,      setPeriod]     = useState('today');
   const [customStart, setCustomStart] = useState('');
   const [customEnd,   setCustomEnd]   = useState('');
   const [payments,   setPayments]   = useState([]);
@@ -381,7 +381,7 @@ export default function Reports() {
   return (
     <div className="min-h-screen bg-slate-200">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
 
         {/* ── Header ── */}
         <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between mb-6">
@@ -401,7 +401,7 @@ export default function Reports() {
 
           {/* Period Selector */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full md:w-auto overflow-hidden">
-            <div className="flex gap-4 w-full sm:w-auto overflow-x-auto">
+            <div className="flex gap-4 w-full overflow-x-auto">
               {PERIODS.map(p => (
                 <button key={p.key} onClick={() => setPeriod(p.key)}
                   className={`flex-none py-2 text-xs font-bold transition-all ${
@@ -414,7 +414,7 @@ export default function Reports() {
               ))}
             </div>
             {period === 'custom' && (
-              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-2xl px-2 sm:px-3 py-1.5 shadow-sm w-full sm:w-auto">
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-2xl px-2 sm:px-3 py-1.5 shadow-sm w-full">
                 <input
                   type="date"
                   value={customStart}
@@ -441,7 +441,7 @@ export default function Reports() {
         )}
 
         {/* ── KPI Cards: 8 across ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2.5 mb-2.5">
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-2.5">
           <KpiCard label="Total Revenue"   curVal={curRevenue}       prvVal={prvRevenue}        color="green"  />
           <KpiCard label="Transactions"    curVal={curPay.length}    prvVal={prvPay.length}     color="blue"   isMoney={false} />
           <KpiCard label="Avg Payment"     curVal={curAvg}           prvVal={prvAvg}            color="amber"  />
@@ -555,7 +555,7 @@ export default function Reports() {
         )}
 
         {/* ── Revenue Trend + Transaction Count ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <Panel title={`Revenue Trend — ${periodLabel}`} icon="📈">
             {chartReady ? (
               <>
@@ -646,7 +646,7 @@ export default function Reports() {
                 { label: periodLabel, color: C.blue  },
                 { label: prevLabel,   color: C.gray  },
               ]} />
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Comparison bar chart */}
                 <ChartBox
                   id={`cmp-bar-${period}`}
@@ -703,7 +703,7 @@ export default function Reports() {
         </Panel>
 
         {/* ── Payment Mode + Collected vs Pending ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 mb-4">
 
           <Panel title={`Payment Mode — ${periodLabel} vs ${prevLabel}`} icon="💳">
             {chartReady ? (
@@ -789,7 +789,7 @@ export default function Reports() {
         </div>
 
         {/* ── Member Status + Top Members ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
 
           <Panel title="Member Status" icon="👥">
             {chartReady ? (
@@ -892,7 +892,7 @@ export default function Reports() {
         {/* ── Package Breakdown ── */}
         {pkgList.length > 0 && (
           <Panel title={`Package Revenue — ${periodLabel}`} icon="📦">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {chartReady && (
                 <ChartBox
                   id={`pkg-${period}`}
@@ -943,7 +943,7 @@ export default function Reports() {
             )}
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full text-xs min-w-[600px]">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
                   {['#','Member','Phone','Package','Amount','Balance','Mode','Type','Date'].map(h => (

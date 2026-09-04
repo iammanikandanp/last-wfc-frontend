@@ -419,31 +419,38 @@ const InvoiceModal = ({ data, onClose }) => {
     document.body.removeChild(a);
   };
 
-  // ── Capture invoice HTML as image and share via WhatsApp ────────────────────
-  const captureAndShareInvoice = async () => {
+  // ── Share Invoice as PDF via WhatsApp ────────────────────
+  const shareInvoiceAsPDF = async () => {
     const phone = member.phone?.replace(/\D/g, '');
     if (!phone) { alert('No phone number for this member.'); return; }
 
-    // Open the member's WhatsApp chat immediately (must be in user-gesture context)
-    window.open(`https://wa.me/91${phone}`, '_blank');
-
     setSharingImg(true);
     try {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-      const canvas = await window.html2canvas(invoiceRef.current, {
-        scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
-      });
-      canvas.toBlob((blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `WFC-Invoice-${invoiceNo}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }, 'image/png');
+      if (!pdfLocalUrl) {
+        alert('PDF not ready yet. Please wait.');
+        return;
+      }
+      
+      const a = document.createElement('a');
+      a.href = pdfLocalUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      const message = `Hello ${member.name || 'Member'}, your payment invoice from WFC Enterprises is attached. Thank you.`;
+
+      window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(message)}`, '_blank');
+
+      const div = document.createElement('div');
+      div.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#25D366;color:#fff;padding:14px 22px;border-radius:14px;font-size:14px;font-weight:600;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.2);text-align:center;max-width:320px';
+      div.innerHTML = '✅ Invoice PDF downloaded!<br><span style="font-weight:400;font-size:12px">Go to WhatsApp → click 📎 (Attach) → select Document → send the downloaded PDF</span>';
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 7000);
+
     } catch (e) {
-      console.error('Image capture error:', e);
-      alert('Could not capture invoice image. Please use Save PDF instead.');
+      console.error('PDF sharing error:', e);
+      alert('Could not share invoice PDF. Please use Save PDF instead.');
     } finally {
       setSharingImg(false);
     }
@@ -577,155 +584,7 @@ const InvoiceModal = ({ data, onClose }) => {
           <div className="mt-3 inline-block bg-white/10 px-3 py-1 rounded-full text-xs font-mono">{invoiceNo}</div>
         </div>
 
-        {/* Hidden invoice template — captured by html2canvas for WhatsApp image */}
-        <div style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }}>
-          <div ref={invoiceRef} style={{ width: '794px', background: '#fff', padding: '0', fontFamily: 'Arial, sans-serif', color: '#141414', boxSizing: 'border-box', lineHeight: '1.4' }}>
-            
-            {/* ── DARK HEADER ── */}
-            <div style={{ background: '#111', paddingTop: '40px', paddingBottom: '0', textAlign: 'center', boxSizing: 'border-box' }}>
-              <div style={{ fontSize: '25px', fontWeight: 'bold', color: '#fff', marginBottom: '8px', letterSpacing: '1px' }}>WOLVERINE FITNESS CLUB</div>
-              <div style={{ fontSize: '10px', color: '#D2A82D', letterSpacing: '1.5px', marginBottom: '10px' }}>YOUR ULTIMATE FITNESS DESTINATION</div>
-              <div style={{ fontSize: '9px', color: '#fff', marginBottom: '20px' }}>GSTIN: 33BOAPH6375A1ZF</div>
-              <div style={{ borderTop: '1px solid #D2A82D', margin: '0 40px' }} />
-              <div style={{ height: '30px' }}></div>
-              <div style={{ borderBottom: '4px solid #D2A82D', width: '100%', boxSizing: 'border-box' }} />
-            </div>
-
-            <div style={{ padding: '40px 45px', boxSizing: 'border-box' }}>
-              
-              {/* INVOICE INFO */}
-              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#141414', marginBottom: '16px' }}>INVOICE</div>
-              
-              <table style={{ width: '300px', marginBottom: '20px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ paddingBottom: '8px', fontSize: '11px', color: '#6e6e6e', width: '100px', boxSizing: 'border-box' }}>Invoice No.</td>
-                    <td style={{ paddingBottom: '8px', fontSize: '11px', fontWeight: 'bold', color: '#D2A82D', boxSizing: 'border-box' }}>{invoiceNo || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ fontSize: '11px', color: '#6e6e6e', width: '100px', boxSizing: 'border-box' }}>Issued On</td>
-                    <td style={{ fontSize: '11px', color: '#141414', fontWeight: 'bold', boxSizing: 'border-box' }}>{issuedDate ? parseLocalDate(issuedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
-                  </tr>
-                </tbody>
-              </table>
-              
-              <div style={{ background: isPartly ? '#d22626' : '#2ea043', color: '#fff', padding: '6px 14px', borderRadius: '4px', display: 'inline-block', fontSize: '10px', fontWeight: 'bold', marginBottom: '30px', boxSizing: 'border-box' }}>
-                {isPartly ? 'PARTIAL' : 'PAID'}
-              </div>
-
-              {/* TWO COLUMN CARDS */}
-              <table style={{ width: '100%', marginBottom: '40px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                <tbody>
-                  <tr>
-                    {/* BILLED TO */}
-                    <td style={{ width: '48%', background: '#f5f5f5', border: '1px solid #dadada', borderRadius: '4px', padding: '16px', verticalAlign: 'top', boxSizing: 'border-box' }}>
-                      <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#D2A82D', marginBottom: '14px' }}>BILLED TO</div>
-                      <div style={{ fontSize: '17px', fontWeight: 'bold', color: '#141414', marginBottom: '10px' }}>{member.name || '-'}</div>
-                      <div style={{ fontSize: '11px', color: '#6e6e6e', lineHeight: '1.6' }}>
-                        {member.phone && <div>- {member.phone}</div>}
-                        <div>- Wolverine Fitness Club</div>
-                        <div>&nbsp;&nbsp;Member Portal</div>
-                      </div>
-                    </td>
-                    <td style={{ width: '4%', boxSizing: 'border-box' }}></td>
-                    {/* MEMBERSHIP PERIOD */}
-                    <td style={{ width: '48%', background: '#1c1c1c', borderRadius: '4px', padding: '16px', verticalAlign: 'top', boxSizing: 'border-box', position: 'relative' }}>
-                      <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#D2A82D', marginBottom: '12px' }}>MEMBERSHIP PERIOD</div>
-                      
-                      {startDate && endDate && (
-                        <div style={{ position: 'absolute', right: '16px', top: '12px', background: '#D2A82D', color: '#141414', fontSize: '8px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px' }}>
-                          {(() => {
-                            const sd = parseLocalDate(startDate);
-                            const ed = parseLocalDate(endDate);
-                            const m = Math.round((ed - sd) / (1000 * 60 * 60 * 24 * 30.44));
-                            return `${m} MONTH${m !== 1 ? 'S' : ''}`;
-                          })()}
-                        </div>
-                      )}
-
-                      <div style={{ fontSize: '9px', color: '#aaaaaa', marginBottom: '4px' }}>Start Date</div>
-                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff', marginBottom: '14px' }}>{parseLocalDate(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                      <div style={{ fontSize: '9px', color: '#aaaaaa', marginBottom: '4px' }}>End Date</div>
-                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>{parseLocalDate(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
-              {/* DESCRIPTION TABLE */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                <thead>
-                  <tr style={{ background: '#111' }}>
-                    <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#D2A82D', textAlign: 'left', boxSizing: 'border-box', width: '60%' }}>DESCRIPTION</th>
-                    <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#D2A82D', textAlign: 'right', boxSizing: 'border-box', width: '40%' }}>DETAILS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style={{ background: '#fff' }}>
-                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box' }}>Membership Package</td>
-                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#141414', textAlign: 'right', boxSizing: 'border-box' }}>{pkg || '-'} Plan</td>
-                  </tr>
-                  <tr style={{ background: '#f8f9fa' }}>
-                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box' }}>Payment Mode</td>
-                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#141414', textAlign: 'right', boxSizing: 'border-box' }}>{(paymentMethod || '').toUpperCase() || '-'}</td>
-                  </tr>
-                  <tr style={{ background: '#fff' }}>
-                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box' }}>Duration</td>
-                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#141414', textAlign: 'right', boxSizing: 'border-box' }}>
-                      {(() => {
-                        if (!startDate || !endDate) return '-';
-                        const sd = parseLocalDate(startDate);
-                        const ed = parseLocalDate(endDate);
-                        const m = Math.round((ed - sd) / (1000 * 60 * 60 * 24 * 30.44));
-                        const pm = { 1: 'Monthly', 3: 'Quarterly', 6: 'Half-Yearly', 12: 'Yearly' }[m] || 'Membership';
-                        return `${m} Month${m !== 1 ? 's' : ''} (${pm})`;
-                      })()}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', tableLayout: 'fixed' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box', width: '60%' }}>Subtotal</td>
-                    <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#141414', textAlign: 'right', boxSizing: 'border-box', width: '40%' }}>Rs. {amount.toLocaleString('en-IN')}</td>
-                  </tr>
-                  {discount > 0 && (
-                    <tr style={{ background: '#f8f9fa' }}>
-                      <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box' }}>Discount Applied</td>
-                      <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#d22626', textAlign: 'right', boxSizing: 'border-box' }}>- Rs. {discount.toLocaleString('en-IN')}</td>
-                    </tr>
-                  )}
-                  {isPartly && advPaid > 0 && (
-                    <tr>
-                      <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', color: '#6e6e6e', boxSizing: 'border-box' }}>Advance Paid</td>
-                      <td style={{ borderBottom: '1px solid #dadada', padding: '12px 18px', fontSize: '11px', fontWeight: 'bold', color: '#141414', textAlign: 'right', boxSizing: 'border-box' }}>Rs. {(advPaid || 0).toLocaleString('en-IN')}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', tableLayout: 'fixed' }}>
-                <tbody>
-                  <tr style={{ background: '#111' }}>
-                    <td style={{ padding: '18px', fontSize: '12px', fontWeight: 'bold', color: '#D2A82D', boxSizing: 'border-box', width: '60%' }}>{isPartly ? 'BALANCE DUE' : 'TOTAL PAID'}</td>
-                    <td style={{ padding: '18px', fontSize: '18px', fontWeight: 'bold', color: '#fff', textAlign: 'right', boxSizing: 'border-box', width: '40%' }}>Rs. {(isPartly ? balAmt : finalAmount).toLocaleString('en-IN')}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              {/* FOOTER */}
-              <div style={{ marginTop: '35px', textAlign: 'center', boxSizing: 'border-box' }}>
-                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#D2A82D', marginBottom: '8px' }}>Thank you for choosing Wolverine Fitness Club!</div>
-                <div style={{ fontSize: '10px', color: '#6e6e6e', marginBottom: '6px' }}>Keep pushing your limits  *  Stay strong  *  Stay consistent</div>
-                <div style={{ fontSize: '10px', color: '#6e6e6e' }}>For queries: contact@wolverinefitnessclub.com  |  +91 97869 69711</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="p-5 max-h-[65vh] overflow-y-auto">
+<div className="p-5 max-h-[65vh] overflow-y-auto">
 
           {/* Success badge */}
           <div className="flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 py-2 rounded-xl mb-4">
@@ -820,19 +679,19 @@ const InvoiceModal = ({ data, onClose }) => {
             </button>
           </div>
 
-          {/* Send Invoice as Image button */}
+          {/* Send Invoice as PDF button */}
           <button
-            onClick={captureAndShareInvoice}
-            disabled={sharingImg}
+            onClick={shareInvoiceAsPDF}
+            disabled={sharingImg || !pdfLocalUrl}
             className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white py-3 rounded-xl text-sm font-semibold hover:bg-[#1ebe5d] active:scale-95 transition-all shadow mb-3 disabled:opacity-50"
           >
             {sharingImg
-              ? <><Loader size={15} className="animate-spin" /> Capturing Invoice…</>
-              : <><MessageCircle size={15} /> Send Invoice as Image (WhatsApp)</>
+              ? <><Loader size={15} className="animate-spin" /> Preparing PDF…</>
+              : <><MessageCircle size={15} /> Send Invoice as PDF (WhatsApp)</>
             }
           </button>
 
-          {/* Email button */}
+{/* Email button */}
           <button
             onClick={sendEmail}
             disabled={emailSending || emailSent || !member?.emails}

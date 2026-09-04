@@ -1059,7 +1059,7 @@ const BmiHistoryModal = ({ member, bmiHistory, onClose }) => {
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">All Records</p>
                 <div className="rounded-xl border border-slate-100 overflow-hidden">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs min-w-[560px]">
                     <thead className="bg-slate-50">
                       <tr>
                         {['Date','Weight','BMI','Waist','Hip','Body Fat'].map(h=>(
@@ -1126,7 +1126,7 @@ const HealthRecordsModal = ({ records = [], member, onClose }) => {
           </div>
 
           <div className="rounded-xl border border-slate-100 p-3">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[560px]">
               <thead className="text-xs text-slate-400">
                 <tr><th className="text-left">Date</th><th>Time</th><th>BP</th><th>Sugar</th><th>By</th></tr>
               </thead>
@@ -1524,7 +1524,7 @@ const MemberProfile = () => {
         </div>
 
         {/* 4-column grid on large screens */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 
           {/* ═══ COL 1: Profile + Health + Payments ═══ */}
           <div className="space-y-4">

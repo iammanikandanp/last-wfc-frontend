@@ -380,14 +380,14 @@ const Attendance = () => {
   return (
     <div className="min-h-screen bg-slate-200">
       <Navbar/>
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Attendance</h1>
             <p className="text-xs text-slate-400 mt-0.5">Import XLS files · Data saved to DB · Filter by dept & month</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 sm:w-auto">
             {hasData && <button onClick={exportCSV} className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 shadow-sm"><Download size={13}/> CSV</button>}
             <button onClick={()=>fetchData()} className="flex justify-center items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 shadow-sm"><RefreshCw size={13} className={loading?'animate-spin':''}/></button>
             {isAdmin && <>
@@ -500,8 +500,8 @@ const Attendance = () => {
               </div>
             )}
 
-            <div className="flex flex-col xl:flex-row xl:items-center gap-3 mb-4">
-              <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm overflow-x-auto w-full xl:w-auto">
+            <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
+              <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm overflow-x-auto w-full md:w-auto">
                 {months.map(m=>(
                   <button key={m} onClick={()=>{setActiveMonth(m); setPage(1);}}
                     className={`flex-none px-2.5 py-1 rounded-lg text-xs font-semibold transition ${activeMonth===m?'bg-slate-800 text-white':'text-slate-500 hover:text-slate-700'}`}>
@@ -509,7 +509,7 @@ const Attendance = () => {
                   </button>
                 ))}
               </div>
-              <div className="flex gap-1.5 overflow-x-auto w-full xl:w-auto pb-1 xl:pb-0">
+              <div className="flex gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
                 {depts.map(d=>{
                   const cfg=DEPT[d];
                   const cnt=records.filter(r=>d==='ALL'||r.dept===d).length;
@@ -525,7 +525,7 @@ const Attendance = () => {
                   );
                 })}
               </div>
-              <div className="relative w-full xl:w-auto xl:ml-auto">
+              <div className="relative w-full md:w-auto xl:ml-auto">
                 <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
                 <input name="search" aria-label="Search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name / ID…"
                   className="w-full xl:w-48 pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-300" />

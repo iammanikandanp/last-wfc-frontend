@@ -540,7 +540,7 @@ export default function Expenses() {
   const [activeTab, setActiveTab] = useState('expenses');
 
   // shared period (balance card + both tabs stay in sync)
-  const [period,    setPeriod]    = useState('week');
+  const [period,    setPeriod]    = useState('today');
   const [custStart, setCustStart] = useState('');
   const [custEnd,   setCustEnd]   = useState('');
 
@@ -668,30 +668,31 @@ export default function Expenses() {
   return (
     <div className="min-h-screen bg-slate-200">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-5 space-y-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5 space-y-4">
 
         {/* ── TOP BAR ──────────────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Tabs */}
-          <div className="flex bg-white border border-slate-200 rounded-xl p-0.5 shadow-sm">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+
+          {/* LEFT: Tab switcher */}
+          <div className="flex bg-white border border-slate-200 rounded-xl p-0.5 shadow-sm flex-shrink-0">
             <button onClick={() => setActiveTab('expenses')}
-              className={`flex items-center gap-1.5 px-5 py-2 rounded-[10px] text-sm font-semibold transition-all ${activeTab === 'expenses' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
-              <TrendingDown size={15}/> Expenses
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-[10px] text-sm font-semibold transition-all ${activeTab === 'expenses' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+              <TrendingDown size={14}/> Expenses
             </button>
             <button onClick={() => setActiveTab('income')}
-              className={`flex items-center gap-1.5 px-5 py-2 rounded-[10px] text-sm font-semibold transition-all ${activeTab === 'income' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
-              <TrendingUp size={15}/> Income
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-[10px] text-sm font-semibold transition-all ${activeTab === 'income' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+              <TrendingUp size={14}/> Income
             </button>
           </div>
 
-          {/* Period pills */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <div className="flex gap-4 flex-wrap">
+          {/* LEFT: Date filter pills */}
+          <div className="flex items-center gap-1.5 flex-wrap flex-1">
+            <div className="flex gap-3 flex-wrap">
               {PERIODS.map(p => (
                 <button key={p.key} onClick={() => changePeriod(p.key)}
                   className={`py-1.5 text-xs font-semibold transition-all ${
-                    period === p.key 
-                      ? 'text-slate-900 border-b border-slate-900' 
+                    period === p.key
+                      ? 'text-slate-900 border-b border-slate-900'
                       : 'text-slate-500 hover:text-slate-800'
                   }`}>
                   {p.label}
@@ -710,27 +711,27 @@ export default function Expenses() {
             )}
           </div>
 
-          {/* Action buttons */}
-          <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+          {/* RIGHT: Action buttons */}
+          <div className="flex gap-2 ml-auto flex-shrink-0">
             {activeTab === 'expenses' ? (
               <>
                 <button onClick={() => setShowExpCats(true)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-medium text-slate-700 hover:border-indigo-400 hover:text-indigo-600 transition shadow-sm">
+                  className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-medium text-slate-700 hover:border-indigo-400 hover:text-indigo-600 transition shadow-sm whitespace-nowrap">
                   <Tag size={13}/> Categories
                 </button>
                 <button onClick={() => setShowAddExp(true)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition shadow-sm">
+                  className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition shadow-sm whitespace-nowrap">
                   <Plus size={13}/> Add Expense
                 </button>
               </>
             ) : (
               <>
                 <button onClick={() => setShowIncCats(true)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-medium text-slate-700 hover:border-emerald-400 hover:text-emerald-600 transition shadow-sm">
+                  className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-medium text-slate-700 hover:border-emerald-400 hover:text-emerald-600 transition shadow-sm whitespace-nowrap">
                   <Tag size={13}/> Categories
                 </button>
                 <button onClick={() => setShowAddInc(true)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition shadow-sm">
+                  className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition shadow-sm whitespace-nowrap">
                   <Plus size={13}/> Add Income
                 </button>
               </>
@@ -801,8 +802,8 @@ export default function Expenses() {
 
             {/* Chart + Category breakdown side by side */}
             {expenses.length > 0 && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
                   <MiniChart data={expenses} categories={expCats} mode="expense" />
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
@@ -877,7 +878,7 @@ export default function Expenses() {
                   : (
                     <>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[580px]">
                           <thead>
                             <tr className="border-b border-slate-100 bg-slate-50/80">
                               {['#','Title','Category','Amount','Method','Date','Vendor',''].map((h,i) => (
@@ -949,8 +950,8 @@ export default function Expenses() {
 
             {/* Chart + Category breakdown */}
             {incomes.length > 0 && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
                   <MiniChart data={incomes} categories={incCats} mode="income" />
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
@@ -1027,7 +1028,7 @@ export default function Expenses() {
                   : (
                     <>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[580px]">
                           <thead>
                             <tr className="border-b border-slate-100 bg-slate-50/80">
                               {['#','Title','Category','Amount','Type','Method','Date',''].map((h,i) => (

@@ -448,7 +448,7 @@ const Leads = () => {
   return (
     <div className="min-h-screen bg-slate-200">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
           <div>
@@ -457,7 +457,7 @@ const Leads = () => {
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">Gym enquiries · Track & convert to members</p>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 sm:w-auto">
             <button onClick={fetchLeads} className="flex justify-center items-center p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 shadow-sm">
               <RefreshCw size={14} className={`text-slate-500 ${loading?'animate-spin':''}`} />
             </button>
@@ -486,7 +486,7 @@ const Leads = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm overflow-x-auto w-full sm:w-auto">
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm overflow-x-auto w-full">
             {['All', ...statuses].map(s => (
               <button key={s} onClick={() => setFilter(s)}
                 className={`flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
@@ -494,7 +494,7 @@ const Leads = () => {
                 }`}>{s}</button>
             ))}
           </div>
-          <div className="relative w-full sm:w-auto sm:ml-auto">
+          <div className="relative w-full sm:ml-auto">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input name="search" aria-label="Search" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search name / phone…"
@@ -522,7 +522,7 @@ const Leads = () => {
               </div>
             ) : (
               <div className="overflow-x-auto min-h-[350px]">
-                <table className="w-full text-xs">
+                <table className="w-full text-xs min-w-[600px]">
                   <thead className="bg-slate-50 border-b border-slate-100">
                     <tr>
                       {['#','','Name','Phone','Interest','Source','Status','Follow-up','Notes','Actions'].map((h,idx) => (

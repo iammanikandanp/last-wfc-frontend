@@ -252,7 +252,7 @@ const MemberDietPage = ({ userObj }) => {
             </h1>
             <p className="text-slate-500 text-sm mt-0.5">Your personal nutrition plan assigned by your trainer</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 sm:w-auto">
             <button onClick={() => navigate('/diet-log')}
               className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 bg-orange-500 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-orange-600 transition shadow-sm">
               <BarChart2 size={13} /> Track Calories
@@ -499,7 +499,7 @@ const AdminDietPage = () => {
             <p className="text-slate-500 text-sm mt-0.5">Manage member nutrition plans</p>
           </div>
           <button onClick={() => navigate('/diet-plans/new')}
-            className="flex justify-center items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 active:scale-95 transition-all font-semibold text-sm shadow-sm w-full sm:w-auto">
+            className="flex justify-center items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 active:scale-95 transition-all font-semibold text-sm shadow-sm w-full">
             <Plus size={16} /> New Diet Plan
           </button>
         </div>
@@ -526,7 +526,7 @@ const AdminDietPage = () => {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 gap-4">
             {[...Array(3)].map((_, i) => (
               <div key={i} className="bg-white rounded-2xl p-5 animate-pulse h-64">
                 <div className="h-4 bg-slate-200 rounded w-1/2 mb-3" />
@@ -551,7 +551,7 @@ const AdminDietPage = () => {
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs text-slate-500">Showing {Math.min((page-1)*PER_PAGE+1, filtered.length)}–{Math.min(page*PER_PAGE, filtered.length)} of {filtered.length} plans</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 gap-4">
               {paginated.map(plan => (
                 <DietPlanCard key={plan._id} plan={plan} onEdit={handleEdit} onDelete={handleDelete} />
               ))}
