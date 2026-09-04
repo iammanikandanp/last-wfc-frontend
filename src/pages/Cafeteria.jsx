@@ -879,7 +879,7 @@ export default function Cafeteria() {
                           <td className="py-3 pr-3 align-top">
                             <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold ${isAdmin ? 'bg-indigo-100 text-indigo-700' : (tx.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}`}>{isAdmin ? 'Admin / Self' : tx.paymentStatus}</span>
                           </td>
-                          <td className="py-3 pr-3 text-slate-500 align-top">{isAdmin ? '—' : (tx.paymentMode || '—')}</td>
+                          <td className="py-3 pr-3 text-slate-500 align-top">{isAdmin || !(tx.paidAmount > 0) ? '—' : (tx.paymentMode || '—')}</td>
                         </>
                       )}
                       <td className="py-3 rounded-r-2xl align-top">
