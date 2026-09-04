@@ -112,7 +112,6 @@ export default function Cafeteria() {
   const [editingStock, setEditingStock] = useState(null);
   const [recordForm, setRecordForm] = useState({ memberId: '', itemId: '', quantity: '', paidAmount: '', extraAmount: '', paymentStatus: 'Unpaid', paymentMode: 'Cash' });
   const [memberBalance, setMemberBalance] = useState(0);
-  const [settlePrevious, setSettlePrevious] = useState(false);
   const [period, setPeriod] = useState('today');
   const [custStart, setCustStart] = useState('');
   const [custEnd, setCustEnd] = useState('');
@@ -134,8 +133,8 @@ export default function Cafeteria() {
   
   // Calculate bill total dynamically from added items
   const currentBillTotal = billItems.reduce((sum, item) => sum + item.amount, 0);
-  const totalPayable = settlePrevious ? Math.max(0, currentBillTotal - memberBalance) : currentBillTotal;
-  const balance = Math.max(0, totalPayable - Number(recordForm.paidAmount || 0));
+  const paidAmount = Number(recordForm.paidAmount || 0);
+  const resultingBalance = memberBalance + paidAmount - currentBillTotal;
 
   const getStockStatus = (item) => {
     if (!item) return { label: 'Unknown', color: 'bg-slate-100 text-slate-600' };
@@ -248,7 +247,7 @@ export default function Cafeteria() {
       const active = (res.data?.data || []).filter((member) => {
         if (!member?.endDate) return false;
         const diff = Math.ceil((new Date(member.endDate) - new Date()) / (1000 * 60 * 60 * 24));
-        return diff >= 0;
+        return member.status !== 'blocked' && diff > 0;
       });
       setMembers(active);
     } catch {
@@ -311,15 +310,15 @@ export default function Cafeteria() {
       memberBalanceMap[memId] = {
         memberId: memId,
         memberName: tx.memberName || tx.member?.name || 'Unknown',
+        balance: 0,
         unpaidBalance: 0,
         extraBalance: 0,
         history: []
       };
     }
-    if (tx.paymentStatus === 'Unpaid') {
-      memberBalanceMap[memId].unpaidBalance += Math.max(0, (tx.totalAmount || 0) - (tx.paidAmount || 0));
-    }
-    memberBalanceMap[memId].extraBalance += (tx.extraAmount || 0);
+    memberBalanceMap[memId].balance += (tx.paidAmount || 0) - (tx.totalAmount || 0);
+    memberBalanceMap[memId].unpaidBalance = Math.max(0, -memberBalanceMap[memId].balance);
+    memberBalanceMap[memId].extraBalance = Math.max(0, memberBalanceMap[memId].balance);
     memberBalanceMap[memId].history.push(tx);
   });
 
@@ -389,9 +388,9 @@ export default function Cafeteria() {
       setFormError('Please select an item and add it to the bill');
       return;
     }
-    if (!isSelfMode && (recordForm.paidAmount === '' || recordForm.paidAmount === null)) {
-       setFormError('Please enter amount paid (0 is fine)');
-       return;
+    if (!isSelfMode && recordForm.paidAmount !== '' && (Number.isNaN(Number(recordForm.paidAmount)) || Number(recordForm.paidAmount) < 0)) {
+      setFormError('Please enter a valid amount paid');
+      return;
     }
 
     setRecordLoading(true);
@@ -405,7 +404,6 @@ export default function Cafeteria() {
         })),
         paidAmount: isSelfMode ? 0 : Number(recordForm.paidAmount || 0),
         paymentMode: isSelfMode ? undefined : recordForm.paymentMode,
-        settlePreviousBalance: isSelfMode ? false : settlePrevious,
       });
 
       toast.success('Transaction saved successfully');
@@ -414,7 +412,6 @@ export default function Cafeteria() {
       setMemberSearch('');
       setItemSearch('');
       setBillItems([]);
-      setSettlePrevious(false);
       setIsSelfMode(false);
       await Promise.all([refreshData(), fetchStockItems()]);
     } catch (err) {
@@ -1081,18 +1078,14 @@ export default function Cafeteria() {
                 )}
               </div>
 
-              {!isSelfMode && selectedMember && memberBalance !== 0 && (
+              {!isSelfMode && selectedMember && (
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 mb-4">
                   <div>
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Previous Balance</p>
                     <p className={`text-sm font-black ${memberBalance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                      {memberBalance < 0 ? `- ${rupee(Math.abs(memberBalance))}` : `+ ${rupee(memberBalance)}`}
+                      {memberBalance < 0 ? `- ${rupee(Math.abs(memberBalance))}` : memberBalance > 0 ? `+ ${rupee(memberBalance)}` : '₹0'}
                     </p>
                   </div>
-                  <label htmlFor="settlePrevious" className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition">
-                    <input id="settlePrevious" name="settlePrevious" type="checkbox" checked={settlePrevious} onChange={(e) => setSettlePrevious(e.target.checked)} className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900" />
-                    <span className="text-xs font-bold text-slate-700">Settle Balance</span>
-                  </label>
                 </div>
               )}
 
@@ -1101,36 +1094,30 @@ export default function Cafeteria() {
                   <>
                     <div className="flex items-center justify-between text-base font-bold text-slate-900">
                       <span>Total Payable</span>
-                      <span>{rupee(totalPayable)}</span>
+                      <span>{rupee(currentBillTotal)}</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label htmlFor="paidAmount" className="text-sm font-semibold text-slate-700">Amount Paid</label>
-                        <input id="paidAmount" name="paidAmount" type="number" value={recordForm.paidAmount} onChange={(e) => setRecordForm((prev) => ({ ...prev, paidAmount: e.target.value, paymentStatus: (Number(e.target.value || 0) >= totalPayable ? 'Paid' : 'Unpaid') }))}
+                        <input id="paidAmount" name="paidAmount" type="number" min="0" value={recordForm.paidAmount} onChange={(e) => setRecordForm((prev) => ({ ...prev, paidAmount: e.target.value }))}
                           placeholder="0" className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200" />
                       </div>
                       <div>
-                        <label htmlFor="paymentStatus" className="text-sm font-semibold text-slate-700">Status</label>
-                        <select id="paymentStatus" name="paymentStatus" value={recordForm.paymentStatus} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentStatus: e.target.value }))}
-                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200 appearance-none">
-                          <option value="Paid">Paid</option>
-                          <option value="Unpaid">Unpaid / Partial</option>
-                        </select>
+                        <span className="text-sm font-semibold text-slate-700">Status</span>
+                        <p className={`mt-2 text-sm font-black ${resultingBalance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {resultingBalance < 0 ? 'Unpaid' : resultingBalance > 0 ? 'Extra Amount' : 'Paid'}
+                        </p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-center">
                         <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">
-                          {Number(recordForm.paidAmount || 0) > totalPayable ? 'Extra Credit' : 'Remaining Due'}
+                          {resultingBalance > 0 ? 'Extra Credit' : resultingBalance < 0 ? 'Remaining Due' : 'Balance'}
                         </span>
-                        <span className={`text-sm font-black ${Number(recordForm.paidAmount || 0) > totalPayable ? 'text-emerald-600' : Number(recordForm.paidAmount || 0) < totalPayable ? 'text-rose-600' : 'text-slate-900'}`}>
-                          {Number(recordForm.paidAmount || 0) > totalPayable
-                            ? `+ ${rupee(Number(recordForm.paidAmount || 0) - totalPayable)}`
-                            : Number(recordForm.paidAmount || 0) < totalPayable
-                              ? `- ${rupee(totalPayable - Number(recordForm.paidAmount || 0))}`
-                              : '₹0'}
+                        <span className={`text-sm font-black ${resultingBalance > 0 ? 'text-emerald-600' : resultingBalance < 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+                          {resultingBalance > 0 ? `+ ${rupee(resultingBalance)}` : resultingBalance < 0 ? `- ${rupee(Math.abs(resultingBalance))}` : '₹0'}
                         </span>
                       </div>
                       {Number(recordForm.paidAmount || 0) > 0 && (
@@ -1174,8 +1161,8 @@ export default function Cafeteria() {
               <div className="flex items-center gap-5">
                 <div className="text-right">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Current Balance</p>
-                  <p className={`text-xl font-black ${activeTab === 'Unpaid' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                    {activeTab === 'Unpaid' ? `- ${rupee(selectedHistoryMember.unpaidBalance)}` : `+ ${rupee(selectedHistoryMember.extraBalance)}`}
+                  <p className={`text-xl font-black ${selectedHistoryMember.balance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {selectedHistoryMember.balance < 0 ? `- ${rupee(Math.abs(selectedHistoryMember.balance))}` : selectedHistoryMember.balance > 0 ? `+ ${rupee(selectedHistoryMember.balance)}` : '₹0'}
                   </p>
                 </div>
                 <div className="h-10 w-px bg-slate-200"></div>
@@ -1215,8 +1202,12 @@ export default function Cafeteria() {
                       </td>
                       <td className="py-3 pr-3 text-slate-600 align-top">{rupee(tx.totalAmount)}</td>
                       <td className="py-3 pr-3 text-emerald-600 font-medium align-top">{rupee(tx.paidAmount)}</td>
-                      <td className="py-3 pr-3 text-rose-600 font-medium align-top">{tx.totalAmount > tx.paidAmount ? rupee(tx.totalAmount - tx.paidAmount) : '—'}</td>
-                      <td className="py-3 pr-3 text-emerald-600 font-medium align-top">{tx.paidAmount > tx.totalAmount ? `+ ${rupee(tx.paidAmount - tx.totalAmount)}` : '—'}</td>
+                      <td className={`py-3 pr-3 font-medium align-top ${(tx.resultingBalance ?? ((tx.paidAmount || 0) - (tx.totalAmount || 0))) < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
+                        {(tx.resultingBalance ?? ((tx.paidAmount || 0) - (tx.totalAmount || 0))) < 0 ? `- ${rupee(Math.abs(tx.resultingBalance ?? ((tx.paidAmount || 0) - (tx.totalAmount || 0))))}` : '₹0'}
+                      </td>
+                      <td className={`py-3 pr-3 font-medium align-top ${(tx.resultingBalance ?? ((tx.paidAmount || 0) - (tx.totalAmount || 0))) > 0 ? 'text-emerald-600' : 'text-slate-600'}`}>
+                        {(tx.resultingBalance ?? ((tx.paidAmount || 0) - (tx.totalAmount || 0))) > 0 ? `+ ${rupee(tx.resultingBalance ?? 0)}` : '₹0'}
+                      </td>
                       <td className="py-3 rounded-r-xl align-top">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${tx.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{tx.paymentStatus}</span>
                       </td>
