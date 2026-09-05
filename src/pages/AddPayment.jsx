@@ -992,9 +992,13 @@ const AddPayment = () => {
                     onClick={() => selectMember(m)}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 text-left transition"
                   >
-                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold text-xs flex-shrink-0">
-                      {m.name?.[0]?.toUpperCase()}
-                    </div>
+                    {m.images?.profileImage ? (
+                      <img src={m.images.profileImage} alt={m.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold text-xs flex-shrink-0">
+                        {m.name?.[0]?.toUpperCase()}
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-semibold text-slate-800">{m.name}</p>
                       <p className="text-xs text-slate-400">{m.phone} · {m.packages || 'No plan'}</p>

@@ -316,7 +316,7 @@ export default function Cafeteria() {
         history: []
       };
     }
-    memberBalanceMap[memId].balance += (tx.paidAmount || 0) - (tx.totalAmount || 0);
+    memberBalanceMap[memId].balance += (tx.paidAmount || 0) - (tx.previousBalanceUsed || 0) - (tx.totalAmount || 0);
     memberBalanceMap[memId].unpaidBalance = Math.max(0, -memberBalanceMap[memId].balance);
     memberBalanceMap[memId].extraBalance = Math.max(0, memberBalanceMap[memId].balance);
     memberBalanceMap[memId].history.push(tx);
@@ -654,10 +654,12 @@ export default function Cafeteria() {
               <p className="text-xs text-slate-500">Member: {record.memberName}</p>
             </div>
             <div className="bg-slate-50 p-3 rounded-2xl flex flex-col gap-1 text-sm text-slate-600">
-              <div className="flex justify-between"><span>Total:</span> <span>{rupee(total)}</span></div>
-              <div className="flex justify-between"><span>Already Paid:</span> <span>{rupee(currentPaid)}</span></div>
+              <div className="flex justify-between"><span>Total Bill:</span> <span>{rupee(total)}</span></div>
+              <div className="flex justify-between"><span>Paid from Previous Balance:</span> <span>{rupee(record.previousBalanceUsed || 0)}</span></div>
+              <div className="flex justify-between"><span>New Amount Paid:</span> <span>{rupee(record.newPaymentAmount !== undefined ? record.newPaymentAmount : (currentPaid - (record.previousBalanceUsed || 0)))}</span></div>
+              <div className="flex justify-between font-bold text-slate-900 mt-1 pt-1 border-t border-slate-200"><span>Total Paid:</span> <span>{rupee(currentPaid)}</span></div>
               <div className="flex justify-between font-bold text-slate-900">
-                <span>Current Remaining:</span> 
+                <span>Remaining:</span> 
                 <span className={currentRemaining > 0 ? "text-rose-600" : ""}>{currentRemaining > 0 ? rupee(currentRemaining) : '—'}</span>
               </div>
             </div>
@@ -832,8 +834,8 @@ export default function Cafeteria() {
               <table className="w-full text-sm text-left min-w-[700px] border-separate border-spacing-y-3">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-[0.24em] text-slate-400">
-                    <th className="pb-3 pr-3 pl-3">Date</th>
-                    <th className="pb-3 pr-3">Member</th>
+                    <th className="pb-3 pr-3 pl-3">Member</th>
+                    <th className="pb-3 pr-3">Date</th>
                     <th className="pb-3 pr-3">Item</th>
                     <th className="pb-3 pr-3">Qty</th>
                     {activeTab !== 'Admin' && (
@@ -858,8 +860,23 @@ export default function Cafeteria() {
                     const isAdmin = tx.transactionType === 'admin' || tx.paymentStatus === 'Admin';
                     return (
                     <tr key={tx._id} className="bg-slate-50">
-                      <td className="py-3 pr-3 pl-3 rounded-l-2xl text-slate-500 align-top">{fmtDate(tx.transactionDate)}</td>
-                      <td className="py-3 pr-3 font-semibold text-slate-800 align-top">{isAdmin ? <span className="text-slate-400 italic">Self Consumption</span> : tx.memberName}</td>
+                      <td className="py-3 pr-3 pl-3 rounded-l-2xl font-semibold text-slate-800 align-top">
+                        {isAdmin ? (
+                          <span className="text-slate-400 italic">Self Consumption</span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {tx.member?.images?.profileImage ? (
+                              <img src={tx.member.images.profileImage} alt={tx.memberName} className="w-8 h-8 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">
+                                {tx.memberName ? tx.memberName.charAt(0).toUpperCase() : '?'}
+                              </div>
+                            )}
+                            <span>{tx.memberName}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 pr-3 text-slate-500 align-top whitespace-nowrap">{fmtDate(tx.transactionDate)}</td>
                       <td className="py-3 pr-3 text-slate-600 align-top">
                         {tx.items && tx.items.length > 0 
                           ? tx.items.map((i, idx) => <div key={idx} className="whitespace-nowrap">{i.itemName}</div>)
@@ -873,13 +890,20 @@ export default function Cafeteria() {
                       {activeTab !== 'Admin' && (
                         <>
                           <td className="py-3 pr-3 text-slate-600 align-top">{isAdmin ? '—' : (tx.totalAmount === 0 ? '—' : rupee(tx.totalAmount))}</td>
-                          <td className="py-3 pr-3 text-slate-600 align-top">{isAdmin ? '—' : (tx.paidAmount === 0 ? '—' : rupee(tx.paidAmount))}</td>
+                          <td className={`py-3 pr-3 font-semibold align-top ${tx.paidAmount > 0 ? 'text-emerald-600' : 'text-slate-600'}`}>
+                            {isAdmin ? '—' : (tx.paidAmount === 0 ? '—' : rupee(tx.paidAmount))}
+                            {!isAdmin && tx.previousBalanceUsed > 0 && (
+                              <span className="block text-[10px] text-emerald-600 font-semibold mt-0.5 whitespace-nowrap">
+                                (from balance)
+                              </span>
+                            )}
+                          </td>
                           <td className={`py-3 pr-3 align-top ${remaining > 0 ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{isAdmin ? '—' : (remaining === 0 ? '—' : rupee(remaining))}</td>
-                          <td className={`py-3 pr-3 align-top ${extra > 0 ? 'text-emerald-600 font-semibold' : 'text-slate-600'}`}>{isAdmin ? '—' : (extra === 0 ? '—' : rupee(extra))}</td>
+                          <td className={`py-3 pr-3 align-top ${extra > 0 ? 'text-amber-500 font-semibold' : 'text-slate-600'}`}>{isAdmin ? '—' : (extra === 0 ? '—' : rupee(extra))}</td>
                           <td className="py-3 pr-3 align-top">
                             <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold ${isAdmin ? 'bg-indigo-100 text-indigo-700' : (tx.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}`}>{isAdmin ? 'Admin / Self' : tx.paymentStatus}</span>
                           </td>
-                          <td className="py-3 pr-3 text-slate-500 align-top">{isAdmin || !(tx.paidAmount > 0) ? '—' : (tx.paymentMode || '—')}</td>
+                          <td className="py-3 pr-3 text-slate-500 align-top">{isAdmin || !((tx.newPaymentAmount !== undefined ? tx.newPaymentAmount : (tx.paidAmount - (tx.previousBalanceUsed || 0))) > 0) ? '—' : (tx.paymentMode || '—')}</td>
                         </>
                       )}
                       <td className="py-3 rounded-r-2xl align-top">
@@ -1000,7 +1024,7 @@ export default function Cafeteria() {
                       {filteredMembers.map((member) => (
                         <button key={member._id} onMouseDown={() => { setRecordForm((prev) => ({ ...prev, memberId: member._id })); setMemberSearch(member.name); setShowMemberDropdown(false); }}
                           className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-3">
-                          {member.profilePhoto ? <img src={member.profilePhoto} alt={member.name} className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">{member.name.charAt(0).toUpperCase()}</div>}
+                          {member.images?.profileImage ? <img src={member.images.profileImage} alt={member.name} className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">{member.name.charAt(0).toUpperCase()}</div>}
                           <div className="font-semibold">{member.name}</div>
                         </button>
                       ))}
@@ -1102,12 +1126,14 @@ export default function Cafeteria() {
                         <input id="paidAmount" name="paidAmount" type="number" min="0" value={recordForm.paidAmount} onChange={(e) => setRecordForm((prev) => ({ ...prev, paidAmount: e.target.value }))}
                           placeholder="0" className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200" />
                       </div>
-                      <div>
-                        <span className="text-sm font-semibold text-slate-700">Status</span>
-                        <p className={`mt-2 text-sm font-black ${resultingBalance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {resultingBalance < 0 ? 'Unpaid' : resultingBalance > 0 ? 'Extra Amount' : 'Paid'}
-                        </p>
-                      </div>
+                      {billItems.length > 0 && (
+                        <div>
+                          <span className="text-sm font-semibold text-slate-700">Status</span>
+                          <p className={`mt-2 text-sm font-black ${resultingBalance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            {resultingBalance < 0 ? 'Unpaid' : resultingBalance > 0 ? 'Extra Amount' : 'Paid'}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -1119,7 +1145,7 @@ export default function Cafeteria() {
                           {resultingBalance > 0 ? `+ ${rupee(resultingBalance)}` : resultingBalance < 0 ? `- ${rupee(Math.abs(resultingBalance))}` : '₹0'}
                         </span>
                       </div>
-                      {(
+                      {Number(recordForm.paidAmount || 0) > 0 && (
                         <div>
                           <label htmlFor="paymentMode" className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">Mode</label>
                           <select id="paymentMode" name="paymentMode" value={recordForm.paymentMode} onChange={(e) => setRecordForm((prev) => ({ ...prev, paymentMode: e.target.value }))}

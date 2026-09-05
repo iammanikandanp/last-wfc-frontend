@@ -1043,7 +1043,11 @@ const Payments = () => {
 
   const enriched = payments.map(p => {
     const member = members.find(m => String(m._id) === String(p.registrationId));
-    return { ...p, memberEmail: member?.emails || p.memberEmail || '' };
+    return { 
+      ...p, 
+      memberEmail: member?.emails || p.memberEmail || '',
+      profileImage: member?.images?.profileImage || null
+    };
   });
 
   const renewalCount   = enriched.filter(p => p.isRenewal).length;
@@ -1193,10 +1197,19 @@ const Payments = () => {
                     return (
                       <tr key={p._id} className={`hover:bg-slate-50 transition ${isWrittenOff ? 'bg-slate-50/60 opacity-70' : isPending ? 'bg-amber-50/40' : ''}`}>
                         <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-1.5">
-                            <p className="font-semibold text-slate-800 whitespace-nowrap">{p.memberName || '—'}</p>
+                          <div className="flex items-center gap-2">
+                            {p.profileImage ? (
+                              <img src={p.profileImage} alt={p.memberName} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
+                                {p.memberName ? p.memberName.charAt(0).toUpperCase() : '?'}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-semibold text-slate-800 whitespace-nowrap">{p.memberName || '—'}</p>
+                              <p className="text-[10px] text-slate-400">{p.memberPhone}</p>
+                            </div>
                           </div>
-                          <p className="text-[10px] text-slate-400">{p.memberPhone}</p>
                         </td>
                         <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{p.package || '—'}</td>
                         <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '—'}</td>
