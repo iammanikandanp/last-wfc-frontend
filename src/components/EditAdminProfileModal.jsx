@@ -66,6 +66,10 @@ const EditAdminProfileModal = ({ user, setUser, onClose }) => {
       const updatedUser = { ...user, ...data.user };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
+      
+      // Notify other components (Navbar) of the update
+      window.dispatchEvent(new CustomEvent('userUpdated', { detail: updatedUser }));
+      
       onClose();
 
     } catch (err) {

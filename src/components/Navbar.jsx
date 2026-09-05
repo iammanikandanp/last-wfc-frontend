@@ -8,10 +8,33 @@ const Navbar = () => {
   const location = useLocation();
   const dropdownRef = useRef(null);
 
-  const [user] = React.useState(() => {
+  const [user, setUser] = useState(() => {
     const u = localStorage.getItem('user');
     return u ? JSON.parse(u) : null;
   });
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      import('../hooks/CustomBaseUrl').then(({ default: CustomBaseUrl }) => {
+        CustomBaseUrl.get('/auth/me')
+          .then(res => {
+            if (res.data?.success && res.data?.user) {
+              localStorage.setItem('user', JSON.stringify(res.data.user));
+              setUser(res.data.user);
+            }
+          })
+          .catch(err => console.error('Failed to fetch latest user in Navbar', err));
+      });
+    }
+
+    // Listen for custom event if user is updated locally (e.g. from Edit Profile modal)
+    const handleUserUpdate = (e) => {
+      if (e.detail) setUser(e.detail);
+    };
+    window.addEventListener('userUpdated', handleUserUpdate);
+    return () => window.removeEventListener('userUpdated', handleUserUpdate);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -167,11 +190,11 @@ const Navbar = () => {
             {user && (
               <Link to="/profile" className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-2 py-1.5 hover:bg-white/20 transition cursor-pointer">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-black text-[#b10909] shadow-md shadow-black/20 overflow-hidden">
-                  {user.profilePhoto ? (
-                    <img src={user.profilePhoto} alt={user.name} className="h-full w-full object-cover" />
-                  ) : (
-                    user.name?.[0]?.toUpperCase() || 'A'
-                  )}
+                    {user?.profilePhoto ? (
+                      <img src={user.profilePhoto} alt={user.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="font-bold text-[#b10909] text-sm">{user?.name?.[0]?.toUpperCase()}</span>
+                    )}
                 </div>
                 <span className="hidden sm:block max-w-[110px] truncate text-xs font-semibold text-white pr-1">{user.name}</span>
               </Link>
