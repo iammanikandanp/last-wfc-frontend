@@ -1059,6 +1059,7 @@ export default function Cafeteria() {
                   <div className="w-24 relative">
                     <label htmlFor="recordQuantity" className="text-sm font-semibold text-slate-700">Qty</label>
                     <input id="recordQuantity" name="recordQuantity" type="number" value={recordForm.quantity} onChange={(e) => setRecordForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                      onFocus={(e) => { if (e.target.value === '1') e.target.select(); }}
                       placeholder="1" className="mt-1.5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200" />
                     {selectedItem && Number(recordForm.quantity || 0) > selectedItem.quantity && (
                       <p className="text-[10px] font-bold text-rose-600 mt-1 absolute whitespace-nowrap">Low Stock — Only {selectedItem.quantity} available</p>
