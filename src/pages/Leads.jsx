@@ -1,59 +1,110 @@
-import React, { useState, useEffect } from 'react';
-import CustomBaseUrl from '../hooks/CustomBaseUrl';
-import Navbar from '../components/Navbar';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import CustomBaseUrl from "../hooks/CustomBaseUrl";
+import Navbar from "../components/Navbar";
+import { useNavigate } from "react-router-dom";
 import {
-  Plus, X, Search, Filter,
-  Edit3, Trash2, Check, ChevronDown, UserPlus, Phone,
-  Megaphone, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Camera, User
-} from 'lucide-react';
+  Plus,
+  X,
+  Search,
+  Filter,
+  Edit3,
+  Trash2,
+  Check,
+  ChevronDown,
+  UserPlus,
+  Phone,
+  Megaphone,
+  TrendingUp,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Camera,
+  User,
+} from "lucide-react";
 
 const BASE_STATUS_CONFIG = {
-  New:        { color: 'bg-blue-100 text-blue-700 border-blue-200',      dot: 'bg-blue-500' },
-  Contacted:  { color: 'bg-amber-100 text-amber-700 border-amber-200',    dot: 'bg-amber-500' },
-  Interested: { color: 'bg-violet-100 text-violet-700 border-violet-200', dot: 'bg-violet-500' },
-  Converted:  { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-  Lost:       { color: 'bg-red-100 text-red-700 border-red-200',          dot: 'bg-red-500' },
+  New: {
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+    dot: "bg-blue-500",
+  },
+  Contacted: {
+    color: "bg-amber-100 text-amber-700 border-amber-200",
+    dot: "bg-amber-500",
+  },
+  Interested: {
+    color: "bg-violet-100 text-violet-700 border-violet-200",
+    dot: "bg-violet-500",
+  },
+  Converted: {
+    color: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    dot: "bg-emerald-500",
+  },
+  Lost: { color: "bg-red-100 text-red-700 border-red-200", dot: "bg-red-500" },
 };
 
 const CUSTOM_STATUS_COLORS = [
-  { color: 'bg-pink-100 text-pink-700 border-pink-200',       dot: 'bg-pink-500' },
-  { color: 'bg-cyan-100 text-cyan-700 border-cyan-200',       dot: 'bg-cyan-500' },
-  { color: 'bg-orange-100 text-orange-700 border-orange-200', dot: 'bg-orange-500' },
-  { color: 'bg-lime-100 text-lime-700 border-lime-200',       dot: 'bg-lime-500' },
-  { color: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200', dot: 'bg-fuchsia-500' },
-  { color: 'bg-teal-100 text-teal-700 border-teal-200',       dot: 'bg-teal-500' },
+  { color: "bg-pink-100 text-pink-700 border-pink-200", dot: "bg-pink-500" },
+  { color: "bg-cyan-100 text-cyan-700 border-cyan-200", dot: "bg-cyan-500" },
+  {
+    color: "bg-orange-100 text-orange-700 border-orange-200",
+    dot: "bg-orange-500",
+  },
+  { color: "bg-lime-100 text-lime-700 border-lime-200", dot: "bg-lime-500" },
+  {
+    color: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200",
+    dot: "bg-fuchsia-500",
+  },
+  { color: "bg-teal-100 text-teal-700 border-teal-200", dot: "bg-teal-500" },
 ];
 
-const SOURCES  = ['Walk-in', 'Phone', 'Instagram', 'Facebook', 'WhatsApp', 'Referral', 'Google', 'Other'];
-const INTERESTS= ['Weight Loss', 'Muscle Gain', 'Fitness', 'Yoga', 'Cardio', 'Personal Training', 'Other'];
+const SOURCES = [
+  "Walk-in",
+  "Phone",
+  "Instagram",
+  "Facebook",
+  "WhatsApp",
+  "Referral",
+  "Google",
+  "Other",
+];
+const INTERESTS = [
+  "Weight Loss",
+  "Muscle Gain",
+  "Fitness",
+  "Yoga",
+  "Cardio",
+  "Personal Training",
+  "Other",
+];
 const PER_PAGE = 10;
 
 const LeadModal = ({ lead, statuses, onSave, onClose }) => {
   const isEdit = !!lead;
   const [form, setForm] = useState({
-    name:          lead?.name          || '',
-    phone:         lead?.phone         || '',
-    email:         lead?.email         || '',
-    age:           lead?.age           || '',
-    gender:        lead?.gender        || '',
-    interest:      lead?.interest      || '',
-    source:        lead?.source        || 'Walk-in',
-    message:       lead?.message       || '',
-    status:        lead?.status        || 'New',
-    followUpDate:  lead?.followUpDate ? new Date(lead.followUpDate).toISOString().split('T')[0] : '',
-    notes:         lead?.notes         || '',
-    referralName:  lead?.referralName  || '',
-    referralPhone: lead?.referralPhone || '',
+    name: lead?.name || "",
+    phone: lead?.phone || "",
+    email: lead?.email || "",
+    age: lead?.age || "",
+    gender: lead?.gender || "",
+    interest: lead?.interest || "",
+    source: lead?.source || "Walk-in",
+    message: lead?.message || "",
+    status: lead?.status || "New",
+    followUpDate: lead?.followUpDate
+      ? new Date(lead.followUpDate).toISOString().split("T")[0]
+      : "",
+    notes: lead?.notes || "",
+    referralName: lead?.referralName || "",
+    referralPhone: lead?.referralPhone || "",
   });
-  const [imageFile,    setImageFile]    = useState(null);
-  const [imagePreview, setImagePreview] = useState(lead?.profileImage || '');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(lead?.profileImage || "");
   const [showBigImage, setShowBigImage] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [err,    setErr]    = useState('');
+  const [err, setErr] = useState("");
 
   const handleChange = (field) => (e) => {
-    setForm(f => ({ ...f, [field]: e.target.value }));
+    setForm((f) => ({ ...f, [field]: e.target.value }));
   };
 
   const handleImagePick = (e) => {
@@ -65,92 +116,131 @@ const LeadModal = ({ lead, statuses, onSave, onClose }) => {
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.phone.trim()) {
-      setErr('Name and Phone are required');
+      setErr("Name and Phone are required");
       return;
     }
-    setSaving(true); setErr('');
+    setSaving(true);
+    setErr("");
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ''));
-      if (imageFile) fd.append('profileImage', imageFile);
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ""));
+      if (imageFile) fd.append("profileImage", imageFile);
 
       if (isEdit) {
-        await CustomBaseUrl.put(`/leads/${lead._id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await CustomBaseUrl.put(`/leads/${lead._id}`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       } else {
-        await CustomBaseUrl.post(`/leads`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await CustomBaseUrl.post(`/leads`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       }
       onSave();
       onClose();
-    } catch(e) {
+    } catch (e) {
       setErr(e.response?.data?.message || e.message);
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={e => e.stopPropagation()} style={{ animation: 'su .2s ease' }}>
-
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+        style={{ animation: "su .2s ease" }}
+      >
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
             <UserPlus size={18} />
-            <p className="font-bold text-sm">{isEdit ? 'Edit Lead' : 'New Lead / Enquiry'}</p>
+            <p className="font-bold text-sm">
+              {isEdit ? "Edit Lead" : "New Lead / Enquiry"}
+            </p>
           </div>
-          <button onClick={onClose}><X size={16} className="opacity-70 hover:opacity-100" /></button>
+          <button onClick={onClose}>
+            <X size={16} className="opacity-70 hover:opacity-100" />
+          </button>
         </div>
 
         <div className="p-5 overflow-y-auto space-y-3 flex-1">
           <div className="flex items-center gap-3">
             <div className="relative group">
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => imagePreview && setShowBigImage(true)}
-                className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-200 bg-slate-50 flex items-center justify-center">
-                {imagePreview
-                  ? <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />
-                  : <User size={24} className="text-slate-300" />}
+                className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-200 bg-slate-50 flex items-center justify-center"
+              >
+                {imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User size={24} className="text-slate-300" />
+                )}
               </button>
               <label className="absolute -bottom-1 -right-1 p-1.5 bg-blue-600 rounded-full cursor-pointer shadow hover:bg-blue-700 transition">
                 <Camera size={11} className="text-white" />
-                <input type="file" accept="image/*" onChange={handleImagePick} className="hidden" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImagePick}
+                  className="hidden"
+                />
               </label>
             </div>
-            <p className="text-xs text-slate-400">Profile photo <span className="text-slate-300">(optional)</span></p>
+            <p className="text-xs text-slate-400">
+              Profile photo <span className="text-slate-300">(optional)</span>
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Full Name<span className="text-red-500 ml-0.5">*</span></label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Full Name<span className="text-red-500 ml-0.5">*</span>
+              </label>
               <input
                 value={form.name}
-                onChange={handleChange('name')}
+                onChange={handleChange("name")}
                 placeholder="Name"
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Phone<span className="text-red-500 ml-0.5">*</span></label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Phone<span className="text-red-500 ml-0.5">*</span>
+              </label>
               <input
                 value={form.phone}
-                onChange={handleChange('phone')}
+                onChange={handleChange("phone")}
                 placeholder="10-digit"
                 type="tel"
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Email</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Email
+              </label>
               <input
                 value={form.email}
-                onChange={handleChange('email')}
+                onChange={handleChange("email")}
                 placeholder="Email (optional)"
                 type="email"
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Age</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Age
+              </label>
               <input
                 value={form.age}
-                onChange={handleChange('age')}
+                onChange={handleChange("age")}
                 placeholder="Age"
                 type="number"
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
@@ -159,82 +249,185 @@ const LeadModal = ({ lead, statuses, onSave, onClose }) => {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Gender</label>
-              <select value={form.gender} onChange={handleChange('gender')} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Gender
+              </label>
+              <select
+                value={form.gender}
+                onChange={handleChange("gender")}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+              >
                 <option value="">Select…</option>
-                {["Male","Female","Other"].map(o => <option key={o} value={o}>{o}</option>)}
+                {["Male", "Female", "Other"].map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Source</label>
-              <select value={form.source} onChange={handleChange('source')} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Source
+              </label>
+              <select
+                value={form.source}
+                onChange={handleChange("source")}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+              >
                 <option value="">Select…</option>
-                {SOURCES.map(o => <option key={o} value={o}>{o}</option>)}
+                {SOURCES.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Interest</label>
-              <select value={form.interest} onChange={handleChange('interest')} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Interest
+              </label>
+              <select
+                value={form.interest}
+                onChange={handleChange("interest")}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+              >
                 <option value="">Select…</option>
-                {INTERESTS.map(o => <option key={o} value={o}>{o}</option>)}
+                {INTERESTS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Status</label>
-              <select value={form.status} onChange={handleChange('status')} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Status
+              </label>
+              <select
+                value={form.status}
+                onChange={handleChange("status")}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+              >
                 <option value="">Select…</option>
-                {statuses.map(o => <option key={o} value={o}>{o}</option>)}
+                {statuses.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
-          {form.source === 'Referral' && (
+          {form.source === "Referral" && (
             <div className="grid grid-cols-2 gap-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">Referred By <span className="text-slate-300">(optional)</span></label>
-                <input value={form.referralName} onChange={handleChange('referralName')}
+                <label className="block text-xs font-semibold text-slate-500 mb-1">
+                  Referred By <span className="text-slate-300">(optional)</span>
+                </label>
+                <input
+                  value={form.referralName}
+                  onChange={handleChange("referralName")}
                   placeholder="Referrer name"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+                />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">Referrer Phone <span className="text-slate-300">(optional)</span></label>
-                <input value={form.referralPhone} onChange={handleChange('referralPhone')}
-                  placeholder="Referrer contact" type="tel"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
+                <label className="block text-xs font-semibold text-slate-500 mb-1">
+                  Referrer Phone{" "}
+                  <span className="text-slate-300">(optional)</span>
+                </label>
+                <input
+                  value={form.referralPhone}
+                  onChange={handleChange("referralPhone")}
+                  placeholder="Referrer contact"
+                  type="tel"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+                />
               </div>
             </div>
           )}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">Follow-up Date</label>
-            <input value={form.followUpDate} onChange={handleChange('followUpDate')} type="date"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
+              Follow-up Date
+            </label>
+            <input
+              value={form.followUpDate}
+              onChange={handleChange("followUpDate")}
+              type="date"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">Message / Query</label>
-            <textarea value={form.message} onChange={handleChange('message')}
-              placeholder="What is the member asking about?" rows={2}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
+              Message / Query
+            </label>
+            <textarea
+              value={form.message}
+              onChange={handleChange("message")}
+              placeholder="What is the member asking about?"
+              rows={2}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">Internal Notes</label>
-            <textarea value={form.notes} onChange={handleChange('notes')}
-              placeholder="Staff notes…" rows={2}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 transition" />
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
+              Internal Notes
+            </label>
+            <textarea
+              value={form.notes}
+              onChange={handleChange("notes")}
+              placeholder="Staff notes…"
+              rows={2}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+            />
           </div>
-          {err && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{err}</p>}
+          {err && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+              {err}
+            </p>
+          )}
         </div>
 
         <div className="px-5 pb-5 flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">Cancel</button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-40">
-            {saving ? <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving…</> : <><Check size={14} />{isEdit ? 'Update' : 'Add Lead'}</>}
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-40"
+          >
+            {saving ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}
+                Saving…
+              </>
+            ) : (
+              <>
+                <Check size={14} />
+                {isEdit ? "Update" : "Add Lead"}
+              </>
+            )}
           </button>
         </div>
       </div>
       {showBigImage && imagePreview && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80" onClick={() => setShowBigImage(false)}>
-          <img src={imagePreview} alt="Profile large" className="max-w-full max-h-full rounded-2xl" onClick={e => e.stopPropagation()} />
-          <button onClick={() => setShowBigImage(false)} className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20">
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80"
+          onClick={() => setShowBigImage(false)}
+        >
+          <img
+            src={imagePreview}
+            alt="Profile large"
+            className="max-w-full max-h-full rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setShowBigImage(false)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white hover:bg-white "
+          >
             <X size={20} className="text-white" />
           </button>
         </div>
@@ -244,10 +437,18 @@ const LeadModal = ({ lead, statuses, onSave, onClose }) => {
   );
 };
 
-const StatusBadge = ({ lead, statuses, statusConfig, onUpdate, onAddCategory }) => {
-  const [open, setOpen]   = useState(false);
+const StatusBadge = ({
+  lead,
+  statuses,
+  customStatuses,
+  statusConfig,
+  onUpdate,
+  onAddCategory,
+  onDeleteCategory,
+}) => {
+  const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [name, setName]   = useState('');
+  const [name, setName] = useState("");
   const cfg = statusConfig[lead.status] || statusConfig.New;
 
   const submitNew = () => {
@@ -255,39 +456,89 @@ const StatusBadge = ({ lead, statuses, statusConfig, onUpdate, onAddCategory }) 
     if (!trimmed) return;
     onAddCategory(trimmed);
     onUpdate(lead._id, { status: trimmed });
-    setName(''); setAdding(false); setOpen(false);
+    setName("");
+    setAdding(false);
+    setOpen(false);
   };
 
   return (
     <div className="relative">
-      <button onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
-        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer ${cfg.color}`}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer ${cfg.color}`}
+      >
         <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
         {lead.status}
         <ChevronDown size={9} />
       </button>
       {open && (
         <div className="absolute z-20 top-full mt-1 left-0 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden min-w-[150px]">
-          {statuses.map(s => (
-            <button key={s} onClick={() => { onUpdate(lead._id, { status: s }); setOpen(false); }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 transition ${lead.status===s?'font-bold':''}`}>
-              <span className={`w-2 h-2 rounded-full ${statusConfig[s].dot}`} />
-              {s}
-              {lead.status===s && <Check size={10} className="ml-auto text-emerald-600" />}
-            </button>
-          ))}
-          <div className="border-t border-slate-100">
+          {statuses.map((s) => {
+            const isCustom = customStatuses && customStatuses.includes(s);
+            return (
+              <div
+                key={s}
+                className="flex items-center group w-full hover:bg-slate-50 transition"
+              >
+                <button
+                  onClick={() => {
+                    onUpdate(lead._id, { status: s });
+                    setOpen(false);
+                  }}
+                  className={`flex-1 flex items-center gap-2 px-3 py-2 text-xs ${lead.status === s ? "font-bold" : ""}`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${statusConfig[s].dot}`}
+                  />
+                  {s}
+                  {lead.status === s && (
+                    <Check size={10} className="ml-auto text-emerald-600" />
+                  )}
+                </button>
+                {isCustom && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteCategory(s);
+                    }}
+                    className="p-2 opacity-0 group-hover:opacity-100 hover:text-red-500 text-slate-400 transition"
+                    title="Delete category"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          <div className="border-t border-slate-100 ">
             {adding ? (
               <div className="flex items-center gap-1 px-2 py-1.5">
-                <input autoFocus value={name} onChange={e => setName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') submitNew(); if (e.key === 'Escape') setAdding(false); }}
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitNew();
+                    if (e.key === "Escape") setAdding(false);
+                  }}
                   placeholder="Category name"
-                  className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                <button onClick={submitNew} className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700"><Check size={11} /></button>
+                  className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <button
+                  onClick={submitNew}
+                  className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  <Check size={11} />
+                </button>
               </div>
             ) : (
-              <button onClick={() => setAdding(true)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-blue-600 font-semibold hover:bg-blue-50 transition">
+              <button
+                onClick={() => setAdding(true)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-blue-600 font-semibold hover:bg-blue-50 transition"
+              >
                 <Plus size={11} /> Add category
               </button>
             )}
@@ -309,13 +560,31 @@ const Avatar = ({ lead }) => {
   }
   return (
     <>
-      <button onClick={() => setBig(true)} className="w-8 h-8 rounded-full overflow-hidden border border-slate-200">
-        <img src={lead.profileImage} alt={lead.name} className="w-full h-full object-cover" />
+      <button
+        onClick={() => setBig(true)}
+        className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 "
+      >
+        <img
+          src={lead.profileImage}
+          alt={lead.name}
+          className="w-full h-full object-cover"
+        />
       </button>
       {big && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80" onClick={() => setBig(false)}>
-          <img src={lead.profileImage} alt={lead.name} className="max-w-full max-h-full rounded-2xl" onClick={e => e.stopPropagation()} />
-          <button onClick={() => setBig(false)} className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20">
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80"
+          onClick={() => setBig(false)}
+        >
+          <img
+            src={lead.profileImage}
+            alt={lead.name}
+            className="max-w-full max-h-full rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setBig(false)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white hover:bg-white "
+          >
             <X size={20} className="text-white" />
           </button>
         </div>
@@ -329,13 +598,20 @@ const NotesCell = ({ notes }) => {
   if (!notes) return <span className="text-slate-300">—</span>;
   return (
     <div className="relative">
-      <button onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
-        className="text-slate-500 hover:text-slate-800 transition text-left max-w-[140px] truncate block">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="text-slate-500 hover:text-slate-800 transition text-left max-w-[140px] truncate block"
+      >
         {notes}
       </button>
       {open && (
-        <div className="absolute z-20 top-full mt-1 left-0 bg-white rounded-xl shadow-xl border border-slate-100 p-3 w-64 text-slate-600 whitespace-pre-wrap"
-          onClick={() => setOpen(false)}>
+        <div
+          className="absolute z-20 top-full mt-1 left-0 bg-white rounded-xl shadow-xl border border-slate-100 p-3 w-64 text-slate-600 whitespace-pre-wrap"
+          onClick={() => setOpen(false)}
+        >
           {notes}
         </div>
       )}
@@ -347,29 +623,45 @@ const Pagination = ({ page, totalPages, onPage }) => {
   if (totalPages <= 1) return null;
   return (
     <div className="px-4 py-3 border-t border-slate-50 flex items-center justify-between">
-      <p className="text-xs text-slate-400">Page {page} of {totalPages}</p>
+      <p className="text-xs text-slate-400">
+        Page {page} of {totalPages}
+      </p>
       <div className="flex items-center gap-1">
-        <button onClick={() => onPage(p => Math.max(1, p - 1))} disabled={page === 1}
-          className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-30 hover:bg-slate-50 transition">
-          <ChevronLeft size={14} className="text-slate-600" />
+        <button
+          onClick={() => onPage((p) => Math.max(1, p - 1))}
+          disabled={page === 1}
+          className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-30 hover:bg-slate-50 transition"
+        >
+          <ChevronLeft size={14} className="text-slate-600 " />
         </button>
         {Array.from({ length: totalPages }, (_, i) => i + 1)
-          .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+          .filter((n) => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
           .reduce((acc, n, idx, arr) => {
-            if (idx > 0 && n - arr[idx - 1] > 1) acc.push('…');
+            if (idx > 0 && n - arr[idx - 1] > 1) acc.push("…");
             acc.push(n);
             return acc;
           }, [])
-          .map((n, i) => n === '…'
-            ? <span key={`e${i}`} className="px-1 text-slate-400 text-xs">…</span>
-            : <button key={n} onClick={() => onPage(n)}
-                className={`w-7 h-7 rounded-lg text-xs font-semibold transition ${page === n ? 'bg-slate-800 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+          .map((n, i) =>
+            n === "…" ? (
+              <span key={`e${i}`} className="px-1 text-slate-400 text-xs">
+                …
+              </span>
+            ) : (
+              <button
+                key={n}
+                onClick={() => onPage(n)}
+                className={`w-7 h-7 rounded-lg text-xs font-semibold transition ${page === n ? "bg-slate-800 text-white" : "border border-slate-200 text-slate-600 hover:bg-slate-50 "}`}
+              >
                 {n}
               </button>
+            ),
           )}
-        <button onClick={() => onPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-          className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-30 hover:bg-slate-50 transition">
-          <ChevronRight size={14} className="text-slate-600" />
+        <button
+          onClick={() => onPage((p) => Math.min(totalPages, p + 1))}
+          disabled={page === totalPages}
+          className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-30 hover:bg-slate-50 transition"
+        >
+          <ChevronRight size={14} className="text-slate-600 " />
         </button>
       </div>
     </div>
@@ -377,92 +669,153 @@ const Pagination = ({ page, totalPages, onPage }) => {
 };
 
 const Leads = () => {
-  const navigate  = useNavigate();
-  const [leads,     setLeads]     = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState('');
-  const [filter,    setFilter]    = useState('All');
+  const navigate = useNavigate();
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
-  const [editLead,  setEditLead]  = useState(null);
+  const [editLead, setEditLead] = useState(null);
   const [delTarget, setDelTarget] = useState(null);
-  const [page,      setPage]      = useState(1);
+  const [page, setPage] = useState(1);
   const [customStatuses, setCustomStatuses] = useState([]);
 
   const statuses = [...Object.keys(BASE_STATUS_CONFIG), ...customStatuses];
-  const statusConfig = customStatuses.reduce((acc, name, i) => {
-    acc[name] = CUSTOM_STATUS_COLORS[i % CUSTOM_STATUS_COLORS.length];
-    return acc;
-  }, { ...BASE_STATUS_CONFIG });
+  const statusConfig = customStatuses.reduce(
+    (acc, name, i) => {
+      acc[name] = CUSTOM_STATUS_COLORS[i % CUSTOM_STATUS_COLORS.length];
+      return acc;
+    },
+    { ...BASE_STATUS_CONFIG },
+  );
 
   const fetchCustomStatuses = async () => {
     try {
       const res = await CustomBaseUrl.get(`/leads/statuses`);
-      const names = (res.data?.statuses || []).filter(n => !Object.keys(BASE_STATUS_CONFIG).includes(n) && n.toLowerCase() !== 'never');
+      const names = (res.data?.statuses || []).filter(
+        (n) =>
+          !Object.keys(BASE_STATUS_CONFIG).includes(n) &&
+          n.toLowerCase() !== "never",
+      );
       setCustomStatuses(names);
-    } catch(e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleAddCategory = async (name) => {
     if (statuses.includes(name)) return;
     try {
       await CustomBaseUrl.post(`/leads/statuses`, { name });
-      setCustomStatuses(prev => [...prev, name]);
-    } catch { alert('Failed to add category'); }
+      setCustomStatuses((prev) => [...prev, name]);
+    } catch {
+      alert("Failed to add category");
+    }
   };
 
-  useEffect(() => { fetchLeads(); fetchCustomStatuses(); }, []);
-  useEffect(() => { setPage(1); }, [filter, search]);
+  const handleDeleteCategory = async (name) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete the category "${name}"? Leads in this category will be moved to "New".`,
+      )
+    )
+      return;
+    try {
+      await CustomBaseUrl.delete(`/leads/statuses/${name}`);
+      setCustomStatuses((prev) => prev.filter((s) => s !== name));
+      fetchLeads(); // Refresh to update leads that were moved to 'New'
+    } catch {
+      alert("Failed to delete category");
+    }
+  };
+
+  useEffect(() => {
+    fetchLeads();
+    fetchCustomStatuses();
+  }, []);
+  useEffect(() => {
+    setPage(1);
+  }, [filter, search]);
 
   const fetchLeads = async () => {
     setLoading(true);
     try {
       const res = await CustomBaseUrl.get(`/leads`);
       setLeads(res.data?.leads || []);
-    } catch(e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdate = async (id, data) => {
     try {
       await CustomBaseUrl.put(`/leads/${id}`, data);
-      setLeads(prev => prev.map(l => l._id === id ? { ...l, ...data } : l));
-    } catch { alert('Update failed'); }
+      setLeads((prev) =>
+        prev.map((l) => (l._id === id ? { ...l, ...data } : l)),
+      );
+    } catch {
+      alert("Update failed");
+    }
   };
 
   const handleDelete = async () => {
     try {
       await CustomBaseUrl.delete(`/leads/${delTarget._id}`);
-      setLeads(prev => prev.filter(l => l._id !== delTarget._id));
+      setLeads((prev) => prev.filter((l) => l._id !== delTarget._id));
       setDelTarget(null);
-    } catch { alert('Delete failed'); }
+    } catch {
+      alert("Delete failed");
+    }
   };
 
   const filtered = leads
-    .filter(l => filter === 'All' || l.status === filter)
-    .filter(l => !search || l.name?.toLowerCase().includes(search.toLowerCase()) || l.phone?.includes(search));
+    .filter((l) => filter === "All" || l.status === filter)
+    .filter(
+      (l) =>
+        !search ||
+        l.name?.toLowerCase().includes(search.toLowerCase()) ||
+        l.phone?.includes(search),
+    );
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  const counts = statuses.reduce((acc, s) => { acc[s] = leads.filter(l => l.status === s).length; return acc; }, {});
+  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const counts = statuses.reduce((acc, s) => {
+    acc[s] = leads.filter((l) => l.status === s).length;
+    return acc;
+  }, {});
 
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="min-h-screen bg-slate-200 ">
       <Navbar />
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
-
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
           <div>
             <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Megaphone size={20} className="text-blue-600" /> Leads
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">Gym enquiries · Track & convert to members</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Gym enquiries · Track & convert to members
+            </p>
           </div>
           <div className="flex items-center gap-2 sm:w-auto">
-            <button onClick={fetchLeads} className="flex justify-center items-center p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 shadow-sm">
-              <RefreshCw size={14} className={`text-slate-500 ${loading?'animate-spin':''}`} />
+            <button
+              onClick={fetchLeads}
+              className="flex justify-center items-center p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 shadow-sm"
+            >
+              <RefreshCw
+                size={14}
+                className={`text-slate-500 ${loading ? "animate-spin" : ""}`}
+              />
             </button>
-            <button onClick={() => { setEditLead(null); setShowModal(true); }}
-              className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-sm">
+            <button
+              onClick={() => {
+                setEditLead(null);
+                setShowModal(true);
+              }}
+              className="flex-1 sm:flex-none flex justify-center items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-sm"
+            >
               <Plus size={14} /> New Lead
             </button>
           </div>
@@ -470,110 +823,244 @@ const Leads = () => {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-5">
           {[
-            { label:'Total',    val:leads.length,       color:'text-slate-700', bg:'bg-white' },
-            { label:'New',      val:counts.New||0,       color:'text-blue-600',  bg:'bg-blue-50' },
-            { label:'Contacted',val:counts.Contacted||0, color:'text-amber-600', bg:'bg-amber-50' },
-            { label:'Interested',val:counts.Interested||0,color:'text-violet-600',bg:'bg-violet-50'},
-            { label:'Converted',val:counts.Converted||0, color:'text-emerald-600',bg:'bg-emerald-50'},
-            { label:'Lost',     val:counts.Lost||0,      color:'text-red-500',   bg:'bg-red-50' },
+            {
+              label: "Total",
+              val: leads.length,
+              color: "text-slate-700 ",
+              bg: "bg-white ",
+            },
+            {
+              label: "New",
+              val: counts.New || 0,
+              color: "text-blue-600",
+              bg: "bg-blue-50",
+            },
+            {
+              label: "Contacted",
+              val: counts.Contacted || 0,
+              color: "text-amber-600",
+              bg: "bg-amber-50",
+            },
+            {
+              label: "Interested",
+              val: counts.Interested || 0,
+              color: "text-violet-600",
+              bg: "bg-violet-50",
+            },
+            {
+              label: "Converted",
+              val: counts.Converted || 0,
+              color: "text-emerald-600",
+              bg: "bg-emerald-50",
+            },
+            {
+              label: "Lost",
+              val: counts.Lost || 0,
+              color: "text-red-500",
+              bg: "bg-red-50",
+            },
           ].map(({ label, val, color, bg }) => (
-            <div key={label} onClick={() => setFilter(label === 'Total' ? 'All' : label)}
-              className={`${bg} rounded-xl border border-slate-100 shadow-sm p-3 text-center cursor-pointer hover:shadow-md transition`}>
+            <div
+              key={label}
+              onClick={() => setFilter(label === "Total" ? "All" : label)}
+              className={`${bg} rounded-xl border border-slate-100 shadow-sm p-3 text-center cursor-pointer hover:shadow-md transition`}
+            >
               <p className={`text-xl font-black ${color}`}>{val}</p>
               <p className="text-[10px] text-slate-400">{label}</p>
             </div>
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm overflow-x-auto w-full">
-            {['All', ...statuses].map(s => (
-              <button key={s} onClick={() => setFilter(s)}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm overflow-x-auto flex-shrink min-w-0 max-w-full">
+            {["All", ...statuses].map((s) => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
                 className={`flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                  filter === s ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}>{s}</button>
+                  filter === s
+                    ? "bg-slate-800 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 "
+                }`}
+              >
+                {s}
+              </button>
             ))}
           </div>
-          <div className="relative w-full sm:ml-auto">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input name="search" aria-label="Search" value={search} onChange={e => setSearch(e.target.value)}
+          <div className="relative w-full sm:w-auto sm:ml-auto flex-shrink-0">
+            <Search
+              size={12}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              name="search"
+              aria-label="Search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name / phone…"
-              className="w-full sm:w-48 pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 shadow-sm" />
-            {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X size={11} className="text-slate-400" /></button>}
+              className="w-full sm:w-48 pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 shadow-sm"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+              >
+                <X size={11} className="text-slate-400" />
+              </button>
+            )}
           </div>
         </div>
 
         {loading ? (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center">
-            <RefreshCw size={24} className="animate-spin text-slate-300 mx-auto mb-2" />
+            <RefreshCw
+              size={24}
+              className="animate-spin text-slate-300 mx-auto mb-2"
+            />
             <p className="text-xs text-slate-400">Loading leads…</p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-50 flex items-center justify-between">
-              <p className="text-xs font-bold text-slate-700">{filter === 'All' ? 'All Leads' : filter} · {filtered.length} records</p>
-              <p className="text-xs text-slate-400">Showing {Math.min((page-1)*PER_PAGE+1, filtered.length)}–{Math.min(page*PER_PAGE, filtered.length)} of {filtered.length}</p>
+              <p className="text-xs font-bold text-slate-700 ">
+                {filter === "All" ? "All Leads" : filter} · {filtered.length}{" "}
+                records
+              </p>
+              <p className="text-xs text-slate-400">
+                Showing {Math.min((page - 1) * PER_PAGE + 1, filtered.length)}–
+                {Math.min(page * PER_PAGE, filtered.length)} of{" "}
+                {filtered.length}
+              </p>
             </div>
             {filtered.length === 0 ? (
               <div className="text-center py-14 text-slate-400">
                 <Megaphone size={32} className="mx-auto mb-3 opacity-20" />
                 <p className="font-semibold text-sm">No leads yet</p>
-                <p className="text-xs mt-1">Click "New Lead" to add your first enquiry</p>
+                <p className="text-xs mt-1">
+                  Click "New Lead" to add your first enquiry
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto min-h-[350px]">
-                <table className="w-full text-xs min-w-[600px]">
-                  <thead className="bg-slate-50 border-b border-slate-100">
+                <table className="w-full text-xs min-w-[900px] lg:min-w-full">
+                  <thead className="bg-slate-50 border-b border-slate-100 ">
                     <tr>
-                      {['#','','Name','Phone','Interest','Source','Status','Follow-up','Notes','Actions'].map((h,idx) => (
-                        <th key={idx} className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                      {[
+                        "#",
+                        "",
+                        "Name",
+                        "Phone",
+                        "Interest",
+                        "Source",
+                        "Status",
+                        "Follow-up",
+                        "Notes",
+                        "Actions",
+                      ].map((h, idx) => (
+                        <th
+                          key={idx}
+                          className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap"
+                        >
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {paginated.map((l, i) => (
-                      <tr key={l._id} className="hover:bg-slate-50 transition group">
-                        <td className="px-3 py-2.5 text-slate-400 font-mono text-[10px]">{(page-1)*PER_PAGE + i + 1}</td>
-                        <td className="px-3 py-2.5"><Avatar lead={l} /></td>
-                        <td className="px-3 py-2.5">
-                          <p className="font-semibold text-slate-800 whitespace-nowrap">{l.name}</p>
-                          {l.email && <p className="text-[10px] text-slate-400">{l.email}</p>}
+                      <tr
+                        key={l._id}
+                        className="hover:bg-slate-50 transition group"
+                      >
+                        <td className="px-3 py-2.5 text-slate-400 font-mono text-[10px]">
+                          {(page - 1) * PER_PAGE + i + 1}
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-slate-600 whitespace-nowrap">{l.phone}</td>
-                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{l.interest || '—'}</td>
                         <td className="px-3 py-2.5">
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-medium whitespace-nowrap">{l.source}</span>
-                          {l.source === 'Referral' && l.referralName && (
-                            <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">by {l.referralName}</p>
+                          <Avatar lead={l} />
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <p className="font-semibold text-slate-800 whitespace-nowrap">
+                            {l.name}
+                          </p>
+                          {l.email && (
+                            <p className="text-[10px] text-slate-400">
+                              {l.email}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-slate-600 whitespace-nowrap">
+                          {l.phone}
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
+                          {l.interest || "—"}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-medium whitespace-nowrap">
+                            {l.source}
+                          </span>
+                          {l.source === "Referral" && l.referralName && (
+                            <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">
+                              by {l.referralName}
+                            </p>
                           )}
                         </td>
                         <td className="px-3 py-2.5">
-                          <StatusBadge lead={l} statuses={statuses} statusConfig={statusConfig} onUpdate={handleUpdate} onAddCategory={handleAddCategory} />
+                          <StatusBadge
+                            lead={l}
+                            statuses={statuses}
+                            customStatuses={customStatuses}
+                            statusConfig={statusConfig}
+                            onUpdate={handleUpdate}
+                            onAddCategory={handleAddCategory}
+                            onDeleteCategory={handleDeleteCategory}
+                          />
                         </td>
                         <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">
-                          {l.followUpDate ? new Date(l.followUpDate).toLocaleDateString('en-IN') : '—'}
+                          {l.followUpDate
+                            ? new Date(l.followUpDate).toLocaleDateString(
+                                "en-IN",
+                              )
+                            : "—"}
                         </td>
-                        <td className="px-3 py-2.5"><NotesCell notes={l.notes} /></td>
+                        <td className="px-3 py-2.5">
+                          <NotesCell notes={l.notes} />
+                        </td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
                             {l.phone && (
-                              <a href={`tel:${l.phone}`}
-                                className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition" title="Call">
+                              <a
+                                href={`tel:${l.phone}`}
+                                className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition"
+                                title="Call"
+                              >
                                 <Phone size={12} />
                               </a>
                             )}
-                            <button onClick={() => { setEditLead(l); setShowModal(true); }}
-                              className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition" title="Edit">
+                            <button
+                              onClick={() => {
+                                setEditLead(l);
+                                setShowModal(true);
+                              }}
+                              className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition"
+                              title="Edit"
+                            >
                               <Edit3 size={12} />
                             </button>
-                            {(l.status === 'Interested' || l.status === 'Converted') ? (
-                              <button onClick={() => navigate('/register')}
-                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition" title="Convert to Member">
+                            {l.status === "Interested" ||
+                            l.status === "Converted" ? (
+                              <button
+                                onClick={() => navigate("/register")}
+                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition"
+                                title="Convert to Member"
+                              >
                                 <UserPlus size={12} />
                               </button>
                             ) : null}
-                            <button onClick={() => setDelTarget(l)}
-                              className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 transition" title="Delete">
+                            <button
+                              onClick={() => setDelTarget(l)}
+                              className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 transition"
+                              title="Delete"
+                            >
                               <Trash2 size={12} />
                             </button>
                           </div>
@@ -590,18 +1077,46 @@ const Leads = () => {
       </div>
 
       {showModal && (
-        <LeadModal lead={editLead} statuses={statuses} onSave={fetchLeads} onClose={() => { setShowModal(false); setEditLead(null); }} />
+        <LeadModal
+          lead={editLead}
+          statuses={statuses}
+          onSave={fetchLeads}
+          onClose={() => {
+            setShowModal(false);
+            setEditLead(null);
+          }}
+        />
       )}
 
       {delTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setDelTarget(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
-            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 size={24} className="text-red-600" /></div>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setDelTarget(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} className="text-red-600" />
+            </div>
             <h3 className="font-bold text-slate-900 mb-1">Delete Lead?</h3>
-            <p className="text-slate-500 text-sm mb-5"><strong>{delTarget.name}</strong> · {delTarget.phone}</p>
+            <p className="text-slate-500 text-sm mb-5">
+              <strong>{delTarget.name}</strong> · {delTarget.phone}
+            </p>
             <div className="flex gap-3">
-              <button onClick={() => setDelTarget(null)} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">Cancel</button>
-              <button onClick={handleDelete} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition">Delete</button>
+              <button
+                onClick={() => setDelTarget(null)}
+                className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition"
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>
