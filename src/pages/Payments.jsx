@@ -315,6 +315,8 @@ const exportPaymentsPDF = async (rows, columns, rangeLabel) => {
 
   doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 23, 42);
   doc.text(GYM_NAME, 14, 14);
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 23, 42);
+  doc.text('SAC Code : 999722', 297 - 14, 14, { align: 'right' });
   doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
   doc.text(`Payment Report${rangeLabel ? ` — ${rangeLabel}` : ''}  |  Generated ${new Date().toLocaleDateString('en-IN')}  |  ${rows.length} records`, 14, 20);
 
