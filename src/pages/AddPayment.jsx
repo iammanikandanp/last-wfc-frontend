@@ -872,8 +872,6 @@ const AddPayment = () => {
         ? customPkgName
         : PRESET_PACKAGES.find(p => p.id === selectedPkg)?.label;
 
-      const invoiceNo = `WFC-INV-${Date.now().toString().slice(-8)}`;
-
       // ── Save payment to MongoDB via backend ─────────────────────────────────
       const totalAftDiscount = Math.max(0, parseFloat(amount) - (parseFloat(discount) || 0));
       const advPaid = paymentType === 'partly' ? Math.max(0, parseFloat(advanceAmount) || 0) : totalAftDiscount;
@@ -894,7 +892,6 @@ const AddPayment = () => {
         startDate,
         endDate,
         issuedDate,
-        invoiceNo,
         renewalDate: new Date().toISOString(),
         duration: durationType === 'months' ? Number(durationMonths) : null,
         paymentStatus: 'completed',
@@ -910,6 +907,8 @@ const AddPayment = () => {
       // Note: the backend automatically records the collected amount as
       // Income → Admission when the reg-payment is created (see
       // regPaymentController.js#createRegPayment).
+
+      const invoiceNo = res.data.payment.invoiceNo;
 
       // ── Show invoice modal ──────────────────────────────────────────────────
       setInvoiceData({
