@@ -656,6 +656,7 @@ const bfCategory = (gender, bf) => {
 
 const WeightRecordModal = ({ member, onSave, onClose }) => {
   const [form, setForm] = useState({ weight: member.weight || '', notes: '' });
+  const [isSaving, setIsSaving] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -691,8 +692,18 @@ const WeightRecordModal = ({ member, onSave, onClose }) => {
           </div>
         </div>
         <div className="px-5 pb-5 flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">Cancel</button>
-          <button onClick={() => onSave({ weight: form.weight, notes: form.notes })} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700">Save</button>
+          <button onClick={onClose} disabled={isSaving} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+          <button 
+            disabled={isSaving}
+            onClick={async () => {
+              setIsSaving(true);
+              await onSave({ weight: form.weight, notes: form.notes });
+              setIsSaving(false);
+            }} 
+            className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+          >
+            {isSaving ? "Saving..." : "Save"}
+          </button>
         </div>
       </div>
     </div>
@@ -701,6 +712,7 @@ const WeightRecordModal = ({ member, onSave, onClose }) => {
 
 const BloodPressureModal = ({ member, onSave, onClose }) => {
   const [form, setForm] = useState({ bloodPressure: member.bloodPressure || '', sugarLevel: member.sugarLevel || '' });
+  const [isSaving, setIsSaving] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -734,8 +746,18 @@ const BloodPressureModal = ({ member, onSave, onClose }) => {
           </div>
         </div>
         <div className="px-5 pb-5 flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">Cancel</button>
-          <button onClick={() => onSave({ bloodPressure: form.bloodPressure, sugarLevel: form.sugarLevel })} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700">Save</button>
+          <button onClick={onClose} disabled={isSaving} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+          <button 
+            disabled={isSaving}
+            onClick={async () => {
+              setIsSaving(true);
+              await onSave({ bloodPressure: form.bloodPressure, sugarLevel: form.sugarLevel });
+              setIsSaving(false);
+            }} 
+            className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+          >
+            {isSaving ? "Saving..." : "Save"}
+          </button>
         </div>
       </div>
     </div>
@@ -751,6 +773,7 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
     arm:    member.arm    || '', thigh:  member.thigh  || '',
     notes:  '',
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleChange = (name, value) => setForm(f => ({ ...f, [name]: value }));
 
@@ -821,8 +844,18 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
         </div>
 
         <div className="px-5 pb-5 flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">Cancel</button>
-          <button onClick={() => onSave({ ...form, bodyFat: bodyFat || form.bodyFat || member.bodyFat || '' })} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700">Save</button>
+          <button onClick={onClose} disabled={isSaving} className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+          <button 
+            disabled={isSaving}
+            onClick={async () => {
+              setIsSaving(true);
+              await onSave({ ...form, bodyFat: bodyFat || form.bodyFat || member.bodyFat || '' });
+              setIsSaving(false);
+            }} 
+            className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+          >
+            {isSaving ? "Saving..." : "Save"}
+          </button>
         </div>
       </div>
     </div>
@@ -891,7 +924,7 @@ const CafeteriaHistoryModal = ({ member, cafeteriaData, onClose }) => {
 // ══════════════════════════════════════════════════════════════════════════════
 //  BMI / Weight History Modal
 // ══════════════════════════════════════════════════════════════════════════════
-const BmiHistoryModal = ({ member, bmiHistory, onClose }) => {
+const BmiHistoryModal = ({ member, bmiHistory, onClose, onDelete }) => {
   const [chartTab, setChartTab] = useState('weight');
 
   const W=520, H=200, PAD={t:24,r:20,b:36,l:46};
@@ -1062,8 +1095,8 @@ const BmiHistoryModal = ({ member, bmiHistory, onClose }) => {
                   <table className="w-full text-xs min-w-[560px]">
                     <thead className="bg-slate-50">
                       <tr>
-                        {['Date','Weight','BMI','Waist','Hip','Body Fat'].map(h=>(
-                          <th key={h} className="text-left px-3 py-2 text-[9px] font-bold text-slate-400 uppercase">{h}</th>
+                        {['Date','Weight','BMI','Waist','Hip','Body Fat', ''].map((h, idx)=>(
+                          <th key={idx} className={`px-3 py-2 text-[9px] font-bold text-slate-400 uppercase ${idx === 0 ? 'text-left' : idx === 6 ? 'text-right' : ''}`}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -1072,13 +1105,20 @@ const BmiHistoryModal = ({ member, bmiHistory, onClose }) => {
                         const bv=parseFloat(h.bmi)||0;
                         const bc=bv<18.5?'text-blue-600':bv<25?'text-emerald-600':bv<30?'text-amber-600':'text-red-600';
                         return (
-                          <tr key={i} className={`border-t border-slate-50 ${i%2===0?'bg-white':'bg-slate-50/50'}`}>
+                          <tr key={h._id || i} className={`border-t border-slate-50 ${i%2===0?'bg-white':'bg-slate-50/50'}`}>
                             <td className="px-3 py-2 font-medium text-slate-700">{new Date(h.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})}</td>
                             <td className="px-3 py-2 font-bold text-blue-600">{h.weight??'—'} <span className="font-normal text-slate-400">kg</span></td>
                             <td className={`px-3 py-2 font-bold ${bc}`}>{h.bmi??'—'}</td>
                             <td className="px-3 py-2 text-slate-600">{h.waist??'—'}{h.waist&&<span className="text-slate-400"> cm</span>}</td>
                             <td className="px-3 py-2 text-slate-600">{h.hip??'—'}{h.hip&&<span className="text-slate-400"> cm</span>}</td>
                             <td className="px-3 py-2 text-slate-600">{h.bodyFat??'—'}{h.bodyFat&&<span className="text-slate-400"> %</span>}</td>
+                            <td className="px-3 py-2 text-right">
+                              {onDelete && h._id && (
+                                <button onClick={() => onDelete(h._id)} className="text-red-500 hover:bg-red-50 p-1 rounded transition" title="Delete Record">
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
@@ -1098,7 +1138,7 @@ const BmiHistoryModal = ({ member, bmiHistory, onClose }) => {
   );
 };
 
-const HealthRecordsModal = ({ records = [], member, onClose }) => {
+const HealthRecordsModal = ({ records = [], member, onClose, onDelete }) => {
   const sorted = (records || []).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
   const bpPoints = (records||[]).map(r => ({ x: new Date(r.date), y: r.systolic || null }));
   const sugarPoints = (records||[]).map(r => ({ x: new Date(r.date), y: r.sugarLevel != null ? Number(r.sugarLevel) : null }));
@@ -1128,7 +1168,7 @@ const HealthRecordsModal = ({ records = [], member, onClose }) => {
           <div className="rounded-xl border border-slate-100 p-3">
             <table className="w-full text-sm min-w-[560px]">
               <thead className="text-xs text-slate-400">
-                <tr><th className="text-left">Date</th><th>Time</th><th>BP</th><th>Sugar</th><th>By</th></tr>
+                <tr><th className="text-left">Date</th><th>Time</th><th>BP</th><th>Sugar</th><th>By</th><th className="text-right">Actions</th></tr>
               </thead>
               <tbody>
                 {sorted.map(r => (
@@ -1138,6 +1178,13 @@ const HealthRecordsModal = ({ records = [], member, onClose }) => {
                     <td className="py-2 font-bold">{r.bloodPressure || '—'}</td>
                     <td className="py-2">{r.sugarLevel != null ? `${r.sugarLevel} mg/dL` : '—'}</td>
                     <td className="py-2 text-xs text-slate-500">{r.recordedBy ? r.recordedBy : '—'}</td>
+                    <td className="py-2 text-right">
+                      {onDelete && (
+                        <button onClick={() => onDelete(r._id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition" title="Delete Record">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1449,7 +1496,7 @@ const MemberProfile = () => {
     try {
       const payload = { registrationId: id, bloodPressure: bloodPressure || undefined, sugarLevel: sugarLevel !== undefined && sugarLevel !== '' ? Number(sugarLevel) : undefined };
       const res = await CustomBaseUrl.post('/health-records', payload);
-      if (res.data && res.data.data) {
+      if (res.data && res.data.data && res.data.success) {
         setHealthRecords(prev => [...prev, res.data.data]);
         setMember(m => ({ ...m, bloodPressure: bloodPressure || m.bloodPressure, sugarLevel: sugarLevel !== undefined && sugarLevel !== '' ? sugarLevel : m.sugarLevel }));
       }
@@ -1457,6 +1504,40 @@ const MemberProfile = () => {
       console.error(e);
     }
     setShowHealthModal(false);
+  };
+
+  const handleDeleteHealthRecord = async (recordId) => {
+    if (!window.confirm("Are you sure you want to delete this health record?")) return;
+    try {
+      await CustomBaseUrl.delete(`/health-records/${recordId}`);
+      setHealthRecords(prev => prev.filter(r => r._id !== recordId));
+    } catch (e) {
+      if (e.response && e.response.status === 403) alert("Cannot delete the initial admission record.");
+      else console.error(e);
+    }
+  };
+
+  const handleDeleteBmiHistory = async (recordId) => {
+    if (!window.confirm("Are you sure you want to delete this measurement record?")) return;
+    try {
+      await CustomBaseUrl.delete(`/member-progress/${recordId}`);
+      setBmiHistory(prev => prev.filter(r => r._id !== recordId));
+    } catch (e) {
+      if (e.response && e.response.status === 403) alert("Cannot delete the initial admission record.");
+      else console.error(e);
+    }
+  };
+
+  const handleDeleteProgressPhoto = async (recordId) => {
+    if (!window.confirm("Are you sure you want to delete this progress photo session?")) return;
+    try {
+      await CustomBaseUrl.delete(`/progress-photo-session/${recordId}`);
+      setProgressPhotoSessions(prev => prev.filter(r => r._id !== recordId));
+      setInspectProgressPhoto(null);
+    } catch (e) {
+      if (e.response && e.response.status === 403) alert("Cannot delete the initial admission record.");
+      else console.error(e);
+    }
   };
 
   // ── Loading / not found ─────────────────────────────────────────────────────
@@ -2044,6 +2125,7 @@ const MemberProfile = () => {
           member={member}
           bmiHistory={bmiHistory}
           onClose={()=>setShowBmiHistory(false)}
+          onDelete={handleDeleteBmiHistory}
         />
       )}
       {showWeightRecord && (
@@ -2062,7 +2144,7 @@ const MemberProfile = () => {
       )}
 
       {showHealthRecords && (
-        <HealthRecordsModal records={healthRecords} member={member} onClose={() => setShowHealthRecords(false)} />
+        <HealthRecordsModal records={healthRecords} member={member} onClose={() => setShowHealthRecords(false)} onDelete={handleDeleteHealthRecord} />
       )}
 
       {showCafeteriaHistory && cafeteriaData && (
@@ -2108,7 +2190,7 @@ const MemberProfile = () => {
       )}
 
       {showProgressPhotoUpload && <ProgressPhotoUploadModal onClose={() => setShowProgressPhotoUpload(false)} onUpload={handleProgressPhotoSessionUpload} />}
-      {inspectProgressPhoto && <ProgressPhotoInspectModal session={inspectProgressPhoto} onClose={() => setInspectProgressPhoto(null)} />}
+      {inspectProgressPhoto && <ProgressPhotoInspectModal session={inspectProgressPhoto} onClose={() => setInspectProgressPhoto(null)} onDelete={handleDeleteProgressPhoto} />}
       {inspectMeasurement && <MeasurementDetailsModal record={inspectMeasurement} onClose={() => setInspectMeasurement(null)} />}
     </div>
   );
@@ -2190,7 +2272,7 @@ const ProgressPhotoUploadModal = ({ onClose, onUpload }) => {
 // ══════════════════════════════════════════════════════════════════════════════
 //  Progress Photo Inspect Modal
 // ══════════════════════════════════════════════════════════════════════════════
-const ProgressPhotoInspectModal = ({ session, onClose }) => {
+const ProgressPhotoInspectModal = ({ session, onClose, onDelete }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-white" onClick={e => e.stopPropagation()}>
@@ -2199,7 +2281,14 @@ const ProgressPhotoInspectModal = ({ session, onClose }) => {
             <p className="font-bold text-sm">Progress Photos</p>
             <p className="text-xs opacity-60">{new Date(session.date).toLocaleDateString('en-IN')} {new Date(session.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
           </div>
-          <button onClick={onClose} className="hover:bg-white/10 p-1.5 rounded-full"><X size={16}/></button>
+          <div className="flex gap-2">
+            {onDelete && session._id && (
+              <button onClick={() => onDelete(session._id)} className="hover:bg-red-500/20 text-red-400 hover:text-red-300 p-1.5 rounded-full transition" title="Delete Session">
+                <Trash2 size={16}/>
+              </button>
+            )}
+            <button onClick={onClose} className="hover:bg-white/10 p-1.5 rounded-full"><X size={16}/></button>
+          </div>
         </div>
         <div className="flex-1 overflow-auto p-5">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
