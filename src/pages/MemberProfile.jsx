@@ -655,7 +655,7 @@ const bfCategory = (gender, bf) => {
 };
 
 const WeightRecordModal = ({ member, onSave, onClose }) => {
-  const [form, setForm] = useState({ weight: member.weight || '', notes: '' });
+  const [form, setForm] = useState({ weight: member.weight || '', notes: '', recordDate: new Date().toISOString().split('T')[0] });
   const [isSaving, setIsSaving] = useState(false);
 
   return (
@@ -669,6 +669,10 @@ const WeightRecordModal = ({ member, onSave, onClose }) => {
           <button onClick={onClose}><X size={16}/></button>
         </div>
         <div className="p-5 space-y-4">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Date</label>
+            <input type="date" value={form.recordDate} onChange={e => setForm(f => ({ ...f, recordDate: e.target.value }))} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+          </div>
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Weight (kg)</label>
             <input
@@ -697,7 +701,7 @@ const WeightRecordModal = ({ member, onSave, onClose }) => {
             disabled={isSaving}
             onClick={async () => {
               setIsSaving(true);
-              await onSave({ weight: form.weight, notes: form.notes });
+              await onSave({ weight: form.weight, notes: form.notes, recordDate: form.recordDate });
               setIsSaving(false);
             }} 
             className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
@@ -711,7 +715,7 @@ const WeightRecordModal = ({ member, onSave, onClose }) => {
 };
 
 const BloodPressureModal = ({ member, onSave, onClose }) => {
-  const [form, setForm] = useState({ bloodPressure: member.bloodPressure || '', sugarLevel: member.sugarLevel || '' });
+  const [form, setForm] = useState({ bloodPressure: member.bloodPressure || '', sugarLevel: member.sugarLevel || '', date: new Date().toISOString().split('T')[0] });
   const [isSaving, setIsSaving] = useState(false);
 
   return (
@@ -725,6 +729,10 @@ const BloodPressureModal = ({ member, onSave, onClose }) => {
           <button onClick={onClose}><X size={16}/></button>
         </div>
         <div className="p-5 space-y-4">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Date</label>
+            <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+          </div>
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Blood Pressure</label>
             <input
@@ -751,7 +759,7 @@ const BloodPressureModal = ({ member, onSave, onClose }) => {
             disabled={isSaving}
             onClick={async () => {
               setIsSaving(true);
-              await onSave({ bloodPressure: form.bloodPressure, sugarLevel: form.sugarLevel });
+              await onSave({ bloodPressure: form.bloodPressure, sugarLevel: form.sugarLevel, date: form.date });
               setIsSaving(false);
             }} 
             className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
@@ -771,7 +779,7 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
     waist:  member.waist  || '', hip:    member.hip    || '',
     neck:   member.neck   || '', chest:  member.chest  || '',
     arm:    member.arm    || '', thigh:  member.thigh  || '',
-    notes:  '',
+    notes:  '', date: new Date().toISOString().split('T')[0],
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -809,6 +817,8 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
         </div>
 
         <div className="px-5 pb-3">
+          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Date</label>
+          <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400 mb-3" />
           <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Notes (optional)</label>
           <textarea
             value={form.notes}
@@ -1362,6 +1372,7 @@ const MemberProfile = () => {
   const pushBmiHistory = async (form, bmi) => {
     const res = await CustomBaseUrl.post('/member-progress', {
       registrationId: id,
+      date: form.date || undefined,
       weight: form.weight || undefined,
       height: form.height || undefined,
       bmi:    bmi         || undefined,
@@ -1379,7 +1390,7 @@ const MemberProfile = () => {
       registrationId: id,
       memberName: member?.name || '',
       weight: form.weight ?? member?.weight,
-      recordDate: new Date().toISOString(),
+      recordDate: form.recordDate || new Date().toISOString(),
       recordTime: new Date().toTimeString().slice(0, 5),
       notes: form.notes || '',
       recordType: 'update',
@@ -1472,33 +1483,42 @@ const MemberProfile = () => {
       : member.bmi;
     const bodyFat = form.bodyFat || calcBodyFat(member.gender, form.height, form.waist, form.neck, form.hip) || member.bodyFat || '';
     const newWeight = form.weight !== undefined && form.weight !== '' ? form.weight : member.weight;
-    await CustomBaseUrl.post(`/update/${id}`, buildMemberPayload({ ...form, bmi, bodyFat }));
-    const weightEntry = await pushWeightHistory({ ...form, weight: newWeight, notes: form.notes || '' });
+    
+    await pushWeightHistory({ ...form, weight: newWeight, notes: form.notes || '', recordDate: form.date });
     await pushBmiHistory({ ...form, bodyFat }, bmi);
-    setMember(m => ({ ...m, ...form, weight: weightEntry?.weight ?? newWeight, bmi, bodyFat }));
+    
+    // Fetch latest profile to ensure frontend displays correct 'latest' stats based on chronological date
+    const updatedMemberRes = await CustomBaseUrl.get(`/fetchone/${id}`);
+    if (updatedMemberRes.data && updatedMemberRes.data.data) {
+       setMember(updatedMemberRes.data.data);
+    }
     setShowMeasure(false);
   };
 
-  const handleSaveWeightRecord = async ({ weight, notes }) => {
+  const handleSaveWeightRecord = async ({ weight, notes, recordDate }) => {
     const parsedWeight = parseFloat(weight);
     const newWeight = parsedWeight > 0 ? parsedWeight : member.weight;
-    const bmi = (parsedWeight > 0 && parseFloat(member.height))
-      ? (parsedWeight / Math.pow(parseFloat(member.height) / 100, 2)).toFixed(1)
-      : member.bmi;
-    await CustomBaseUrl.post(`/update/${id}`, buildMemberPayload({ weight: newWeight, bmi }));
-    const weightEntry = await pushWeightHistory({ weight: newWeight, notes: notes || '' });
-    await pushBmiHistory({ weight: newWeight, height: member.height, notes: notes || '' }, bmi);
-    setMember(m => ({ ...m, weight: weightEntry?.weight ?? newWeight, bmi }));
+    
+    await pushWeightHistory({ weight: newWeight, notes: notes || '', recordDate });
+    await pushBmiHistory({ weight: newWeight, height: member.height, notes: notes || '', date: recordDate }, null);
+    
+    const updatedMemberRes = await CustomBaseUrl.get(`/fetchone/${id}`);
+    if (updatedMemberRes.data && updatedMemberRes.data.data) {
+       setMember(updatedMemberRes.data.data);
+    }
     setShowWeightRecord(false);
   };
 
-  const handleSaveHealthRecord = async ({ bloodPressure, sugarLevel }) => {
+  const handleSaveHealthRecord = async ({ bloodPressure, sugarLevel, date }) => {
     try {
-      const payload = { registrationId: id, bloodPressure: bloodPressure || undefined, sugarLevel: sugarLevel !== undefined && sugarLevel !== '' ? Number(sugarLevel) : undefined };
+      const payload = { registrationId: id, bloodPressure: bloodPressure || undefined, sugarLevel: sugarLevel !== undefined && sugarLevel !== '' ? Number(sugarLevel) : undefined, date };
       const res = await CustomBaseUrl.post('/health-records', payload);
       if (res.data && res.data.data && res.data.success) {
         setHealthRecords(prev => [...prev, res.data.data]);
-        setMember(m => ({ ...m, bloodPressure: bloodPressure || m.bloodPressure, sugarLevel: sugarLevel !== undefined && sugarLevel !== '' ? sugarLevel : m.sugarLevel }));
+        const updatedMemberRes = await CustomBaseUrl.get(`/fetchone/${id}`);
+        if (updatedMemberRes.data && updatedMemberRes.data.data) {
+           setMember(updatedMemberRes.data.data);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -2199,7 +2219,7 @@ const MemberProfile = () => {
 //  Progress Photo Upload Modal
 // ══════════════════════════════════════════════════════════════════════════════
 const ProgressPhotoUploadModal = ({ onClose, onUpload }) => {
-  const [form, setForm] = useState({ frontImage: null, sideImage: null, backImage: null, notes: '' });
+  const [form, setForm] = useState({ frontImage: null, sideImage: null, backImage: null, notes: '', date: new Date().toISOString().split('T')[0] });
   const [previews, setPreviews] = useState({ frontImage: null, sideImage: null, backImage: null });
   const [uploading, setUploading] = useState(false);
 
@@ -2219,6 +2239,7 @@ const ProgressPhotoUploadModal = ({ onClose, onUpload }) => {
     if (form.sideImage) formData.append('sideImage', form.sideImage);
     if (form.backImage) formData.append('backImage', form.backImage);
     if (form.notes) formData.append('notes', form.notes);
+    if (form.date) formData.append('date', form.date);
     await onUpload(formData);
     setUploading(false);
   };
@@ -2247,6 +2268,8 @@ const ProgressPhotoUploadModal = ({ onClose, onUpload }) => {
             ))}
           </div>
           <div className="mb-4">
+            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Date</label>
+            <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 mb-3" disabled={uploading} />
             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Notes (optional)</label>
             <textarea
               value={form.notes}
