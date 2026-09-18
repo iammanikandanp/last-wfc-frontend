@@ -355,7 +355,7 @@ const AddDietPlan = () => {
         {/* ── 4. Macros ── */}
         <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">4 · Macronutrients (per day)</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { key: 'protein', label: '💪 Protein', color: 'blue',  icon: '🥩' },
               { key: 'carbs',   label: '⚡ Carbs',   color: 'amber', icon: '🌾' },

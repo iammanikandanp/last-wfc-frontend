@@ -660,7 +660,7 @@ const WeightRecordModal = ({ member, onSave, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-4 bg-slate-800 text-white flex items-center justify-between">
           <div>
             <p className="font-bold text-sm">New Weight Record</p>
@@ -668,7 +668,7 @@ const WeightRecordModal = ({ member, onSave, onClose }) => {
           </div>
           <button onClick={onClose}><X size={16}/></button>
         </div>
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto">
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Date</label>
             <input type="date" value={form.recordDate} onChange={e => setForm(f => ({ ...f, recordDate: e.target.value }))} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
@@ -797,7 +797,7 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-4 bg-slate-800 text-white flex items-center justify-between">
           <div>
             <p className="font-bold text-sm">New Measurement Record</p>
@@ -805,7 +805,8 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
           </div>
           <button onClick={onClose}><X size={16}/></button>
         </div>
-        <div className="p-5 grid grid-cols-2" style={{gap:'16px 20px'}}>
+        <div className="overflow-y-auto">
+          <div className="p-5 grid grid-cols-2" style={{gap:'16px 20px'}}>
           <MeasureField label="Height" name="height" unit="cm" value={form.height} onChange={handleChange}/>
           <MeasureField label="Weight" name="weight" unit="kg" value={form.weight} onChange={handleChange}/>
           <MeasureField label="Waist"  name="waist"  unit="cm" value={form.waist}  onChange={handleChange}/>
@@ -827,6 +828,7 @@ const EditMeasurementsModal = ({ member, onSave, onClose }) => {
             placeholder="Add context for this record"
             className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
           />
+        </div>
         </div>
 
         {/* Live calculated results */}
@@ -1625,7 +1627,7 @@ const MemberProfile = () => {
         </div>
 
         {/* 4-column grid on large screens */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
 
           {/* ═══ COL 1: Profile + Health + Payments ═══ */}
           <div className="space-y-4">
@@ -2314,7 +2316,7 @@ const ProgressPhotoInspectModal = ({ session, onClose, onDelete }) => {
           </div>
         </div>
         <div className="flex-1 overflow-auto p-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {['Front', 'Side', 'Back'].map(view => {
               const url = session[`${view.toLowerCase()}Image`];
               return (

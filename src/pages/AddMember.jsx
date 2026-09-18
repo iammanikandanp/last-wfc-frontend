@@ -168,7 +168,7 @@ const AddMember = () => {
               {/* Physical Measurements */}
               <div>
                 <h2 className='text-xl font-semibold text-slate-900 mb-4'>Physical Measurements</h2>
-                <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+                <div className='grid grid-cols-1 lg:grid-cols-4 gap-4'>
                   <div>
                     <label className='block text-sm font-medium text-slate-700 mb-2'>
                       Height (cm)

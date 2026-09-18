@@ -479,7 +479,7 @@ const Attendance = () => {
 
         {hasData && !loading && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
               {[
                 {label:'Records',     val:stats.total,   icon:Users,        c:'text-slate-700 bg-slate-100'},
                 {label:'Avg Attend%', val:stats.avgAtt+'%', icon:CheckCircle, c:'text-emerald-700 bg-emerald-100'},

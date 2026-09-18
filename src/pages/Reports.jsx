@@ -441,7 +441,7 @@ export default function Reports() {
         )}
 
         {/* ── KPI Cards: 8 across ── */}
-        <div className="grid grid-cols-2 md:grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-2.5">
           <KpiCard label="Total Revenue"   curVal={curRevenue}       prvVal={prvRevenue}        color="green"  />
           <KpiCard label="Transactions"    curVal={curPay.length}    prvVal={prvPay.length}     color="blue"   isMoney={false} />
           <KpiCard label="Avg Payment"     curVal={curAvg}           prvVal={prvAvg}            color="amber"  />
@@ -459,7 +459,7 @@ export default function Reports() {
         </div>
 
         {/* ── Expense & Net Profit KPI row ── */}
-        <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-3 gap-2.5 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 mb-5">
           <KpiCard label="💸 Total Expenses"  curVal={curExpTotal}   prvVal={prvExpTotal}   color="red"    />
           <KpiCard label="💰 Net Profit"       curVal={curNetProfit}  prvVal={prvNetProfit}  color="green"  />
           <KpiCard label="📊 Expense Count"   curVal={curExpenses.length} prvVal={prvExpenses.length} color="slate" isMoney={false} />
@@ -732,7 +732,7 @@ export default function Reports() {
                     },
                   ]}
                 />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mt-3">
                   {modeStats.map(({ mode, cur, prv, cnt }) => (
                     <div key={mode} className="bg-slate-50 rounded-xl p-2.5 text-center">
                       <p className="text-xs font-black text-slate-800">{rupee(cur)}</p>
@@ -812,7 +812,7 @@ export default function Reports() {
                     hoverOffset: 8,
                   }]}
                 />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mt-3">
                   {[
                     { label: 'Total',       val: members.length,   cl: 'text-slate-800' },
                     { label: 'Active',      val: activeNow,        cl: 'text-emerald-600' },

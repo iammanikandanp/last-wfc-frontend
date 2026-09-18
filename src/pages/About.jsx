@@ -30,7 +30,7 @@ const About = () => {
           </div>
 
           {/* Features */}
-          <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>
+          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8'>
             <div className='bg-white rounded-lg shadow-md p-6'>
               <h3 className='text-xl font-bold text-slate-900 mb-3'>🏋️ Modern Facilities</h3>
               <p className='text-slate-600'>State-of-the-art gym equipment and training areas designed for maximum performance.</p>
@@ -83,7 +83,7 @@ const About = () => {
           {/* Membership Plans */}
           <div className='bg-white rounded-lg shadow-md p-8 mb-8'>
             <h2 className='text-2xl font-bold text-slate-900 mb-6'>Membership Plans</h2>
-            <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+            <div className='grid grid-cols-1 lg:grid-cols-4 gap-4'>
               <div className='border rounded-lg p-4 text-center hover:shadow-lg transition'>
                 <h3 className='font-bold text-slate-900 mb-2'>Guest Plan</h3>
                 <p className='text-2xl font-bold text-red-600 mb-2'>₹150</p>

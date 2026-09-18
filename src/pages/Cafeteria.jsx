@@ -461,7 +461,7 @@ export default function Cafeteria() {
       finally { setLoading(false); }
     };
     return (
-      <div className="grid gap-3 md:grid-cols-1 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         <input aria-label="Item Name" name="itemName" value={form.itemName} onChange={e => setForm(f => ({ ...f, itemName: e.target.value }))} placeholder="Item name (Egg, Bread)" className="rounded-2xl border border-slate-200 bg-white px-4 py-2" />
         <select aria-label="Unit" name="unit" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-2">
           {['Piece', 'Gram', 'Kilogram', 'Milliliter', 'Liter', 'Scoop'].map(u => (<option key={u} value={u}>{u}</option>))}
@@ -772,7 +772,7 @@ export default function Cafeteria() {
           )}
         </div>
 
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400 mb-3">Total Transactions</p>
             <p className="text-3xl font-black text-slate-900">{summary.totalTransactions}</p>

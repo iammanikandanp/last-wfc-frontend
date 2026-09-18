@@ -747,7 +747,7 @@ export default function Expenses() {
               <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Balance — {periodLabel}</span>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <div className="bg-white rounded-xl px-4 py-3 border border-emerald-100">
               <div className="text-[10px] font-semibold text-slate-400 uppercase mb-0.5 flex items-center gap-1"><ArrowUpCircle size={11} className="text-emerald-500"/> Income</div>
               <div className="text-lg font-black text-emerald-600">+{rupee(cmpIncGain)}</div>
@@ -785,7 +785,7 @@ export default function Expenses() {
         {activeTab === 'expenses' && (
           <>
             {/* 3 stat pills */}
-            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center flex-shrink-0"><IndianRupee size={16} className="text-white"/></div>
                 <div><div className="text-base font-black text-slate-800">{rupee(expTotal)}</div><div className="text-[11px] text-slate-400">{periodLabel} total · {filteredExp.length} records</div></div>
@@ -802,7 +802,7 @@ export default function Expenses() {
 
             {/* Chart + Category breakdown side by side */}
             {expenses.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
                   <MiniChart data={expenses} categories={expCats} mode="expense" />
                 </div>
@@ -933,7 +933,7 @@ export default function Expenses() {
         {activeTab === 'income' && (
           <>
             {/* 3 stat pills */}
-            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0"><ArrowUpCircle size={16} className="text-white"/></div>
                 <div><div className="text-base font-black text-emerald-600">+{rupee(incGain)}</div><div className="text-[11px] text-slate-400">{periodLabel} · {filteredInc.filter(e=>e.type!=='loss').length} income</div></div>
@@ -950,7 +950,7 @@ export default function Expenses() {
 
             {/* Chart + Category breakdown */}
             {incomes.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
                   <MiniChart data={incomes} categories={incCats} mode="income" />
                 </div>

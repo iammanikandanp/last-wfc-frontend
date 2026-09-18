@@ -334,7 +334,7 @@ Tuesday,"Poha + milk","Dal + roti","Apple","Grilled fish","Dates","Protein shake
 
                 {/* Expanded content */}
                 {isExpanded && !isEditing && (
-                  <div className="px-4 pb-4 grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <div className="px-4 pb-4 grid grid-cols-2 lg:grid-cols-3 gap-2">
                     {[
                       { icon: "🌅", label: "Morning",      val: entry.morning     },
                       { icon: "☀️", label: "Afternoon",    val: entry.afternoon   },
@@ -696,7 +696,7 @@ Tuesday,"Yoga","Back & Biceps","","Pull-ups,Rows","Barbell Curl","","","","Cycli
                       </div>
                     )}
                     {/* Muscle groups */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                       {MUSCLE_GROUPS.map(mg => {
                         if (!entry[mg.key]?.trim()) return null;
                         return (
