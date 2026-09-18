@@ -126,6 +126,12 @@ export default function Cafeteria() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [globalTxDate, setGlobalTxDate] = useState(() => {
+    // Get local date in YYYY-MM-DD
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().split('T')[0];
+  });
 
   const selectedItem = stockItems.find((item) => item._id === recordForm.itemId);
   const selectedMember = members.find((member) => member._id === recordForm.memberId);
@@ -404,6 +410,7 @@ export default function Cafeteria() {
         })),
         paidAmount: isSelfMode ? 0 : Number(recordForm.paidAmount || 0),
         paymentMode: isSelfMode ? undefined : recordForm.paymentMode,
+        transactionDate: globalTxDate,
       });
 
       toast.success('Transaction saved successfully');
@@ -722,6 +729,16 @@ export default function Cafeteria() {
               className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 transition">
               <Plus size={16} /> New Record
             </button>
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+              <span className="text-slate-500 whitespace-nowrap">Date:</span>
+              <input
+                aria-label="Transaction Date"
+                type="date"
+                value={globalTxDate}
+                onChange={e => setGlobalTxDate(e.target.value)}
+                className="border-none outline-none bg-transparent cursor-pointer text-slate-900 font-bold"
+              />
+            </div>
             <button onClick={async () => { setShowStockModal(true); await fetchStockItems(); }}
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
               <Box size={16} /> Stock Management
