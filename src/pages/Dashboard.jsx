@@ -304,7 +304,7 @@ const AddReminderModal = ({ onSave, onClose }) => {
         <div className="p-5 space-y-4">
           <div>
             <p className="text-xs font-semibold text-slate-500 mb-2">Type</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {TYPES.map((t) => (
                 <button
                   key={t.id}
@@ -787,7 +787,7 @@ const MemberDashboard = ({ user }) => {
         {loading ? (
           <div className="space-y-4">
             <div className="h-36 bg-white rounded-2xl animate-pulse border border-slate-100 " />
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
@@ -795,7 +795,7 @@ const MemberDashboard = ({ user }) => {
                 />
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-3 gap-4">
               {[...Array(3)].map((_, i) => (
                 <div
                   key={i}
@@ -803,7 +803,7 @@ const MemberDashboard = ({ user }) => {
                 />
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-3 gap-4">
               {[...Array(3)].map((_, i) => (
                 <div
                   key={i}
@@ -860,7 +860,7 @@ const MemberDashboard = ({ user }) => {
                 </div>
               </div>
               <div className="px-5 pb-5 pt-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-slate-50 rounded-xl p-3">
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
                       Membership
@@ -922,7 +922,7 @@ const MemberDashboard = ({ user }) => {
             </div>
 
             {/* ═══ QUICK STATS ═══ */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               {[
                 {
                   label: "Days Remaining",
@@ -1093,7 +1093,7 @@ const MemberDashboard = ({ user }) => {
             })()}
 
             {/* ═══ MAIN 3 CARDS ═══ */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               {/* Attendance Scoreboard */}
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-4">
@@ -1164,7 +1164,7 @@ const MemberDashboard = ({ user }) => {
                             )}
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-1.5 mb-2">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5 mb-2">
                           {[
                             {
                               l: "Present",
@@ -1239,7 +1239,7 @@ const MemberDashboard = ({ user }) => {
                         {dietPlan.calorieTarget || 0} kcal
                       </span>
                     </div>
-                    <div className="grid grid-cols-4 gap-1">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
                       {[
                         {
                           l: "Protein",
@@ -1420,7 +1420,7 @@ const MemberDashboard = ({ user }) => {
             </div>
 
             {/* ═══ BOTTOM ROW ═══ */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-3 gap-4">
               {/* Body Stats */}
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-4">
@@ -1451,7 +1451,7 @@ const MemberDashboard = ({ user }) => {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
                     ["Height", member?.height, "cm"],
                     ["Weight", member?.weight, "kg"],
@@ -1507,7 +1507,7 @@ const MemberDashboard = ({ user }) => {
                     >
                       {workoutPlan.goal}
                     </span>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       {[
                         {
                           l: "Weekly Cal",
@@ -1932,7 +1932,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* LINE CHART + REMINDERS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           {/* Line Chart */}
           <div className="md:col-span-2 bg-white rounded-xl border border-slate-100 shadow-sm p-4">
             {chartReady && members.length > 0 ? (
@@ -1943,7 +1943,7 @@ const AdminDashboard = () => {
               </div>
             )}
             {/* Summary stats row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t border-slate-50 ">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 mt-4 pt-3 border-t border-slate-50 ">
               {[
                 {
                   label: "New Joined",
@@ -2094,7 +2094,7 @@ const AdminDashboard = () => {
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-4 sm:flex sm:items-center gap-2 sm:gap-6 flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+          <div className="grid grid-cols-2 md:grid-cols-4 sm:flex sm:items-center gap-2 sm:gap-6 flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
             {[
               { label: "Total", val: leadStats.total, c: "text-white" },
               { label: "New", val: leadStats.new || 0, c: "text-blue-200" },
@@ -2131,7 +2131,7 @@ const AdminDashboard = () => {
           <h2 className="font-bold text-slate-900 text-sm mb-4">
             Quick Actions
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-2 md:grid-cols-4 gap-3">
             {[
               {
                 label: "Add Member",

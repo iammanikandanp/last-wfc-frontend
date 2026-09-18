@@ -441,7 +441,7 @@ export default function Reports() {
         )}
 
         {/* ── KPI Cards: 8 across ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-2.5">
+        <div className="grid grid-cols-2 md:grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-2.5">
           <KpiCard label="Total Revenue"   curVal={curRevenue}       prvVal={prvRevenue}        color="green"  />
           <KpiCard label="Transactions"    curVal={curPay.length}    prvVal={prvPay.length}     color="blue"   isMoney={false} />
           <KpiCard label="Avg Payment"     curVal={curAvg}           prvVal={prvAvg}            color="amber"  />
@@ -453,13 +453,13 @@ export default function Reports() {
         </div>
 
         {/* ── Renewal KPI row ── */}
-        <div className="grid grid-cols-2 gap-2.5 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-5">
           <KpiCard label="🔄 Renewal Revenue"      curVal={curRenewAmt}      prvVal={prvRenewAmt}      color="teal"   />
           <KpiCard label="🔄 Renewal Transactions"  curVal={curRenew.length}  prvVal={prvRenew.length}  color="violet" isMoney={false} />
         </div>
 
         {/* ── Expense & Net Profit KPI row ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-3 gap-2.5 mb-5">
           <KpiCard label="💸 Total Expenses"  curVal={curExpTotal}   prvVal={prvExpTotal}   color="red"    />
           <KpiCard label="💰 Net Profit"       curVal={curNetProfit}  prvVal={prvNetProfit}  color="green"  />
           <KpiCard label="📊 Expense Count"   curVal={curExpenses.length} prvVal={prvExpenses.length} color="slate" isMoney={false} />
@@ -555,7 +555,7 @@ export default function Reports() {
         )}
 
         {/* ── Revenue Trend + Transaction Count ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <Panel title={`Revenue Trend — ${periodLabel}`} icon="📈">
             {chartReady ? (
               <>
@@ -646,7 +646,7 @@ export default function Reports() {
                 { label: periodLabel, color: C.blue  },
                 { label: prevLabel,   color: C.gray  },
               ]} />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-6">
                 {/* Comparison bar chart */}
                 <ChartBox
                   id={`cmp-bar-${period}`}
@@ -703,7 +703,7 @@ export default function Reports() {
         </Panel>
 
         {/* ── Payment Mode + Collected vs Pending ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4 mt-4 mb-4">
 
           <Panel title={`Payment Mode — ${periodLabel} vs ${prevLabel}`} icon="💳">
             {chartReady ? (
@@ -732,7 +732,7 @@ export default function Reports() {
                     },
                   ]}
                 />
-                <div className="grid grid-cols-3 gap-2 mt-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
                   {modeStats.map(({ mode, cur, prv, cnt }) => (
                     <div key={mode} className="bg-slate-50 rounded-xl p-2.5 text-center">
                       <p className="text-xs font-black text-slate-800">{rupee(cur)}</p>
@@ -767,7 +767,7 @@ export default function Reports() {
                     hoverOffset: 8,
                   }]}
                 />
-                <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                   {[
                     { label: 'Collected', val: curCollected, bg: 'bg-emerald-50', text: 'text-emerald-700' },
                     { label: 'Pending',   val: curPending,   bg: 'bg-red-50',     text: 'text-red-600'    },
@@ -789,7 +789,7 @@ export default function Reports() {
         </div>
 
         {/* ── Member Status + Top Members ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
 
           <Panel title="Member Status" icon="👥">
             {chartReady ? (
@@ -812,7 +812,7 @@ export default function Reports() {
                     hoverOffset: 8,
                   }]}
                 />
-                <div className="grid grid-cols-3 gap-2 mt-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
                   {[
                     { label: 'Total',       val: members.length,   cl: 'text-slate-800' },
                     { label: 'Active',      val: activeNow,        cl: 'text-emerald-600' },
@@ -892,7 +892,7 @@ export default function Reports() {
         {/* ── Package Breakdown ── */}
         {pkgList.length > 0 && (
           <Panel title={`Package Revenue — ${periodLabel}`} icon="📦">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-6">
               {chartReady && (
                 <ChartBox
                   id={`pkg-${period}`}

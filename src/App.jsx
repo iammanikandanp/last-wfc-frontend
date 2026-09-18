@@ -14,6 +14,8 @@ import AddPayment from "./pages/AddPayment";
 import Attendance from "./pages/Attendance";
 import DietPlans from "./pages/DietPlans";
 import AddDietPlan from "./pages/AddDietPlan";
+
+import RecycleBin from "./pages/RecycleBin";
 import Training from "./pages/Training";
 import AddTrainer from "./pages/AddTrainer";
 import Reports from "./pages/Reports";
@@ -115,6 +117,7 @@ function App() {
         <Route path="/leads"         element={<ProtectedRoute allowedRoles={["admin","trainer"]}><Leads /></ProtectedRoute>} />
 
         {/* Reports, Expenses & About */}
+        <Route path="/recycle-bin"   element={<ProtectedRoute allowedRoles={["admin"]}><RecycleBin /></ProtectedRoute>} />
         <Route path="/reports"       element={<ProtectedRoute allowedRoles={["admin"]}><Reports /></ProtectedRoute>} />
         <Route path="/expenses"      element={<ProtectedRoute allowedRoles={["admin"]}><Expenses /></ProtectedRoute>} />
         <Route path="/cafeteria"     element={<ProtectedRoute allowedRoles={["admin"]}><Cafeteria /></ProtectedRoute>} />

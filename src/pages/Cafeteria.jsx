@@ -461,7 +461,7 @@ export default function Cafeteria() {
       finally { setLoading(false); }
     };
     return (
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-1 md:grid-cols-3">
         <input aria-label="Item Name" name="itemName" value={form.itemName} onChange={e => setForm(f => ({ ...f, itemName: e.target.value }))} placeholder="Item name (Egg, Bread)" className="rounded-2xl border border-slate-200 bg-white px-4 py-2" />
         <select aria-label="Unit" name="unit" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-2">
           {['Piece', 'Gram', 'Kilogram', 'Milliliter', 'Liter', 'Scoop'].map(u => (<option key={u} value={u}>{u}</option>))}
@@ -519,7 +519,7 @@ export default function Cafeteria() {
               <label htmlFor="modItemName" className="text-sm text-slate-600">Item Name</label>
               <input id="modItemName" name="itemName" value={form.itemName} onChange={e => setForm(f => ({ ...f, itemName: e.target.value }))} className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="modUnit" className="text-sm text-slate-600">Unit</label>
                 <select id="modUnit" name="unit" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2">
@@ -531,7 +531,7 @@ export default function Cafeteria() {
                 <input id="modMinStock" name="lowStockThreshold" type="number" value={form.lowStockThreshold} onChange={e => setForm(f => ({ ...f, lowStockThreshold: e.target.value }))} className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="modQuantity" className="text-sm text-slate-600">Set Quantity (current: {stock.quantity})</label>
                 <input id="modQuantity" name="quantity" type="number" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
@@ -541,7 +541,7 @@ export default function Cafeteria() {
                 <input id="modCost" name="costPerUnit" type="number" value={form.costPerUnit} onChange={e => setForm(f => ({ ...f, costPerUnit: e.target.value }))} className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="modRefill" className="text-sm text-slate-600">Refill Quantity (add)</label>
                 <input id="modRefill" name="refillQty" type="number" value={refillQty} onChange={e => setRefillQty(e.target.value)} placeholder="Qty to add" className="w-full mt-2 rounded-2xl border border-slate-200 px-4 py-2" />
@@ -772,7 +772,7 @@ export default function Cafeteria() {
           )}
         </div>
 
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-2 md:grid-cols-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400 mb-3">Total Transactions</p>
             <p className="text-3xl font-black text-slate-900">{summary.totalTransactions}</p>
@@ -1138,7 +1138,7 @@ export default function Cafeteria() {
                       <span>{rupee(currentBillTotal)}</span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label htmlFor="paidAmount" className="text-sm font-semibold text-slate-700">Amount Paid</label>
                         <input id="paidAmount" name="paidAmount" type="number" min="0" value={recordForm.paidAmount} onChange={(e) => setRecordForm((prev) => ({ ...prev, paidAmount: e.target.value }))}
@@ -1154,7 +1154,7 @@ export default function Cafeteria() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="rounded-xl border border-slate-200 bg-white p-2.5 flex flex-col justify-center">
                         <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">
                           {resultingBalance > 0 ? 'Extra Credit' : resultingBalance < 0 ? 'Remaining Due' : 'Balance'}
@@ -1215,7 +1215,7 @@ export default function Cafeteria() {
               </div>
             </div>
 
-            <div className="p-6 overflow-y-auto">
+            <div className="p-6 overflow-auto">
               <table className="w-full text-sm text-left min-w-[800px] border-separate border-spacing-y-2">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-[0.24em] text-slate-400">

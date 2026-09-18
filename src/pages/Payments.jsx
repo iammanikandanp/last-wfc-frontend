@@ -442,7 +442,7 @@ const ExportModal = ({ allRows, onClose }) => {
                 {columns.length === EXPORT_COLUMNS.length ? 'Uncheck all' : 'Check all'}
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
               {EXPORT_COLUMNS.map(c => (
                 <label key={c.key} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
                   <input type="checkbox" checked={columns.includes(c.key)} onChange={() => toggleColumn(c.key)}
@@ -795,15 +795,15 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
           <button onClick={onClose}><X size={16} className="opacity-60 hover:opacity-100"/></button>
         </div>
         <div className="p-5 overflow-y-auto space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <PaymentField label="Payment Mode" name="paymentMode" form={form} onChange={handleChange} options={[{val:'cash',label:'Cash'},{val:'upi',label:'UPI'},{val:'card',label:'Card'}]}/>
             <PaymentField label="Payment Type" name="paymentType" form={form} onChange={handleChange} options={[{val:'full',label:'Full'},{val:'partly',label:'Partly'}]}/>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <PaymentField label="Total Amount (₹)" name="amount" type="number" form={form} onChange={handleChange}/>
             <PaymentField label="Discount (₹)" name="discount" type="number" form={form} onChange={handleChange}/>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <PaymentField label="Final Amount (₹)" name="finalAmount" type="number" form={form} onChange={handleChange}/>
             <PaymentField label="Advance Paid (₹)" name="advanceAmount" type="number" form={form} onChange={handleChange}/>
           </div>
@@ -811,7 +811,7 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
             <span className="text-sm font-semibold text-slate-600">Balance Due</span>
             <span className={`text-xl font-black ${form.balanceAmount > 0 ? 'text-red-600' : 'text-emerald-600'}`}>₹{Number(form.balanceAmount||0).toLocaleString('en-IN')}</span>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <PaymentField label="Start Date" name="startDate" type="date" form={form} onChange={handleChange}/>
             <PaymentField label="End Date" name="endDate" type="date" form={form} onChange={handleChange}/>
           </div>
@@ -1125,7 +1125,7 @@ const Payments = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-2 gap-3 mb-5 max-w-2xl">
+        <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 gap-3 mb-5 max-w-2xl">
           {[
             { label:'Pending Members', val:pendingMembersCount,                                              icon:Users,       c:'text-amber-600 bg-amber-50' },
             { label:'Total Pending Amount',   val:`₹${totalPending.toLocaleString('en-IN')}`,                icon:AlertCircle, c:'text-red-600 bg-red-50' },

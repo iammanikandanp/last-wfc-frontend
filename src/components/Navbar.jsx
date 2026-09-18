@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Home, Users, Megaphone, Coffee, Info, ChevronDown, UserPlus, Calendar, Apple, Zap } from 'lucide-react';
+import { Menu, X, Home, Users, Megaphone, Coffee, Info, ChevronDown, UserPlus, Calendar, Apple, Zap, Trash2 } from 'lucide-react';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -65,6 +65,7 @@ const Navbar = () => {
     { name: 'Diet Plan',  path: '/diet-plans', icon: Apple,    roles: ['admin','trainer','member'], desc: 'Manage nutrition & meal plans' },
     { name: 'Attendance', path: '/attendance', icon: Calendar, roles: ['admin','trainer','member'], desc: 'Track daily member attendance' },
     { name: 'Add User',   path: '/signup',     icon: UserPlus, roles: ['admin'],                   desc: 'Register new admin or trainer' },
+    { name: 'Recycle Bin',path: '/recycle-bin',icon: Trash2,   roles: ['admin'],                   desc: 'Recover deleted records' },
   ];
 
   const navItems = allNavItems.filter(item => item.roles.includes(user?.role));
