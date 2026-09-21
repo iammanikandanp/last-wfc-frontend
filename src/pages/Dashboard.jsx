@@ -56,10 +56,22 @@ const MemberModal = ({ title, members, color, onClose }) => {
         <div
           className={`px-5 py-4 flex items-center justify-between ${color.hBg}`}
         >
-          <p className={`font-bold text-sm ${color.hTxt}`}>
-            {title}{" "}
-            <span className="opacity-60 font-normal">({members.length})</span>
-          </p>
+          <div>
+            <p className={`font-bold text-sm ${color.hTxt}`}>
+              {title}{" "}
+              <span className="opacity-60 font-normal">({members.length})</span>
+            </p>
+            {members.length > 0 && members[0]?.pendingAmount !== undefined && (
+              <p className={`text-[11px] opacity-80 ${color.hTxt} font-medium mt-0.5`}>
+                Total Pending: ₹{members.reduce((s, m) => s + (m.pendingAmount || 0), 0).toLocaleString("en-IN")}
+              </p>
+            )}
+            {members.length > 0 && members[0]?.balanceAmount !== undefined && (
+              <p className={`text-[11px] opacity-80 ${color.hTxt} font-medium mt-0.5`}>
+                Total Pending: ₹{members.reduce((s, m) => s + (m.balanceAmount || 0), 0).toLocaleString("en-IN")}
+              </p>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="p-1 rounded-full hover:bg-black/10"
@@ -84,7 +96,11 @@ const MemberModal = ({ title, members, color, onClose }) => {
                   className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition"
                 >
                   <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                    {m.name?.[0]?.toUpperCase() || "?"}
+                    {m.profileImage ? (
+                      <img src={m.profileImage} alt="" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      m.name?.[0]?.toUpperCase() || "?"
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-800 truncate">
@@ -92,7 +108,17 @@ const MemberModal = ({ title, members, color, onClose }) => {
                     </p>
                     <p className="text-[11px] text-slate-400">{m.phone}</p>
                   </div>
-                  {diff !== null && (
+                  {m.pendingAmount !== undefined && (
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs font-bold text-rose-600">₹{m.pendingAmount.toLocaleString("en-IN")}</p>
+                    </div>
+                  )}
+                  {m.balanceAmount !== undefined && m.pendingAmount === undefined && (
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs font-bold text-rose-600">₹{m.balanceAmount.toLocaleString("en-IN")}</p>
+                    </div>
+                  )}
+                  {diff !== null && m.pendingAmount === undefined && m.balanceAmount === undefined && (
                     <span
                       className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${diff < 0 ? "bg-red-100 text-red-600" : diff <= 7 ? "bg-amber-100 text-amber-600" : "bg-green-100 text-green-600"}`}
                     >
@@ -1652,6 +1678,7 @@ const AdminDashboard = () => {
   const [actionModal, setActionModal] = useState(null);
   const [showAddReminder, setShowAddReminder] = useState(false);
   const [chartReady, setChartReady] = useState(false);
+  const [cafeteriaPending, setCafeteriaPending] = useState([]);
 
   const [manualNotes, setManualNotes] = useState(() => {
     try {
@@ -1684,11 +1711,12 @@ const AdminDashboard = () => {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [mR, pR, dR, lR] = await Promise.allSettled([
+      const [mR, pR, dR, lR, cR] = await Promise.allSettled([
         CustomBaseUrl.get(`/fetch`),
         CustomBaseUrl.get(`/reg-payments`),
         CustomBaseUrl.get(`/reg-diet-plans`),
         CustomBaseUrl.get(`/leads/stats`),
+        CustomBaseUrl.get(`/cafeteria/pending-members`),
       ]);
       if (mR.status === "fulfilled") setMembers(mR.value.data?.data || []);
       if (pR.status === "fulfilled") setPayments(pR.value.data?.payments || []);
@@ -1702,6 +1730,7 @@ const AdminDashboard = () => {
             interested: 0,
           },
         );
+      if (cR.status === "fulfilled") setCafeteriaPending(cR.value.data?.data || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1856,6 +1885,18 @@ const AdminDashboard = () => {
       list: balanceM,
       lc: { hBg: "bg-violet-600 text-white", hTxt: "text-white" },
     },
+    {
+      emoji: "🍔",
+      title: "Cafeteria Pending",
+      value: cafeteriaPending.length,
+      sub:
+        cafeteriaPending.length > 0
+          ? `₹${cafeteriaPending.reduce((s, m) => s + m.pendingAmount, 0).toLocaleString("en-IN")}`
+          : "All clear",
+      gradient: "from-sky-500 to-blue-700",
+      list: cafeteriaPending,
+      lc: { hBg: "bg-blue-600 text-white", hTxt: "text-white" },
+    },
   ];
 
   return (
@@ -1899,7 +1940,7 @@ const AdminDashboard = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 mb-4">
           {loading
             ? [...Array(5)].map((_, i) => (
                 <div

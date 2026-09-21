@@ -1226,7 +1226,8 @@ export default function Cafeteria() {
                     <th className="pb-2 pr-3">Paid</th>
                     <th className="pb-2 pr-3">Balance</th>
                     <th className="pb-2 pr-3">Extra Generated</th>
-                    <th className="pb-2">Status</th>
+                    <th className="pb-2 pr-3">Status</th>
+                    <th className="pb-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1251,8 +1252,17 @@ export default function Cafeteria() {
                       <td className={`py-3 pr-3 font-medium align-top ${(tx.resultingBalance ?? ((tx.paidAmount || 0) - (tx.totalAmount || 0))) > 0 ? 'text-emerald-600' : 'text-slate-600'}`}>
                         {(tx.resultingBalance ?? ((tx.paidAmount || 0) - (tx.totalAmount || 0))) > 0 ? `+ ${rupee(tx.resultingBalance ?? 0)}` : '₹0'}
                       </td>
-                      <td className="py-3 rounded-r-xl align-top">
+                      <td className="py-3 align-top">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${tx.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{tx.paymentStatus}</span>
+                      </td>
+                      <td className="py-3 rounded-r-xl align-top">
+                        <button 
+                          onClick={() => { setSelectedHistoryMember(null); setEditingRecord(tx); }} 
+                          className="text-slate-400 hover:text-slate-900 transition p-1" 
+                          title="Edit Record"
+                        >
+                          <Edit size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))}
