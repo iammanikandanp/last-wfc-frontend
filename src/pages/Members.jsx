@@ -749,7 +749,9 @@ const Members = () => {
       ? true
       : filter === 'blocked'
         ? isBlocked
-        : (!isBlocked && getStatus(m) === filter);
+        : filter === 'top10'
+          ? (!isBlocked && m.isTop10)
+          : (!isBlocked && getStatus(m) === filter);
     return matchSearch && matchFilter;
   });
 
@@ -760,13 +762,14 @@ const Members = () => {
   const counts = {
     all:      members.length,
     active:   members.filter(m => m.status !== 'blocked' && getStatus(m) === 'active').length,
+    top10:    members.filter(m => m.status !== 'blocked' && m.isTop10).length,
     expiring: members.filter(m => m.status !== 'blocked' && getStatus(m) === 'expiring').length,
     expired:  members.filter(m => m.status !== 'blocked' && getStatus(m) === 'expired').length,
     blocked:  blockedCount,
   };
 
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="min-h-screen bg-slate-300 ">
       <Navbar />
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-8">
 
@@ -803,6 +806,7 @@ const Members = () => {
           {[
             { key:'all',      label:'All',      color:'text-slate-700'  },
             { key:'active',   label:'Active',   color:'text-emerald-600'},
+            { key:'top10',    label:'Top 10',   color:'text-amber-500'  },
             { key:'expiring', label:'Expiring', color:'text-amber-600'  },
             { key:'expired',  label:'Expired',  color:'text-red-600'    },
             { key:'blocked',  label:'Blocked',  color:'text-red-600'    },

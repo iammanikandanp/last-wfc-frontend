@@ -240,7 +240,7 @@ const MemberDietPage = ({ userObj }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="min-h-screen bg-slate-300 ">
       <Navbar />
       <div className="max-w-4xl mx-auto px-4 py-8">
 
@@ -488,7 +488,7 @@ const AdminDietPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="min-h-screen bg-slate-300 ">
       <Navbar />
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-7 gap-4">

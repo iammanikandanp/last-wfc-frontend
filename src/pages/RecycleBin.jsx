@@ -76,7 +76,7 @@ const RecycleBin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-300  flex flex-col font-sans">
       <Navbar />
       
       <main className="flex-1 mx-auto max-w-5xl w-full px-4 py-8">

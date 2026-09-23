@@ -940,7 +940,7 @@ const AddPayment = () => {
     : PRESET_PACKAGES.find(p => p.id === selectedPkg)?.label || '';
 
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="min-h-screen bg-slate-300 ">
       <Navbar />
 
       <div className="max-w-2xl mx-auto px-4 py-8">

@@ -71,7 +71,7 @@ const Register = () => {
   return (
     <div>
       <Navbar />
-      <div className="min-h-screen bg-slate-200 py-8 px-4">
+      <div className="min-h-screen bg-slate-300  py-8 px-4">
         <div className="max-w-lg mx-auto">
 
           <button onClick={() => navigate(-1)}

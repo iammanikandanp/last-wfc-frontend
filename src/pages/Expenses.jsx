@@ -666,7 +666,7 @@ export default function Expenses() {
   const changeCustEnd   = v => { setCustEnd(v);   setExpPage(1); setIncPage(1); };
 
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="min-h-screen bg-slate-300 ">
       <Navbar />
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5 space-y-4">
 

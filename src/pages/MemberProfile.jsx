@@ -7,7 +7,7 @@ import {
   Apple, Upload, X, Check, Scale, Plus,
   Phone, Mail, MapPin, User, RefreshCw, Download,
   Flame, Droplets, Target, Dumbbell, Sun, Moon,
-  ChevronDown, ChevronUp, Trash2, ExternalLink, ShieldOff,
+  ChevronDown, ChevronUp, Trash2, ExternalLink, ShieldOff, Star,
 } from 'lucide-react';
 
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday'];
@@ -1273,6 +1273,7 @@ const MemberProfile = () => {
   const [payments,    setPayments]    = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [activeMonth, setActiveMonth] = useState(null);
+  const [activeTab, setActiveTab] = useState('Overview');
 
   const [showPhoto,     setShowPhoto]     = useState(false);
   const [showDiet,      setShowDiet]      = useState(false);
@@ -1384,7 +1385,11 @@ const MemberProfile = () => {
       chest:  form.chest   || undefined,
       bodyFat: form.bodyFat || undefined,
     });
-    setBmiHistory(prev => [...prev, res.data.data]);
+    setBmiHistory(prev => {
+      const exists = prev.some(r => r._id === res.data.data._id);
+      const updated = exists ? prev : [...prev, res.data.data];
+      return updated.sort((a, b) => new Date(a.date || a.createdAt) - new Date(b.date || b.createdAt));
+    });
   };
 
   const pushWeightHistory = async (form) => {
@@ -1398,7 +1403,11 @@ const MemberProfile = () => {
       recordType: 'update',
     };
     const res = await CustomBaseUrl.post('/weight-history', payload);
-    setWeightHistory(prev => sortWeightEntries([...prev, res.data.entry]));
+    setWeightHistory(prev => {
+      const exists = prev.some(r => r._id === res.data.entry._id);
+      const updated = exists ? prev : [...prev, res.data.entry];
+      return sortWeightEntries(updated);
+    });
     return res.data.entry;
   };
 
@@ -1516,7 +1525,11 @@ const MemberProfile = () => {
       const payload = { registrationId: id, bloodPressure: bloodPressure || undefined, sugarLevel: sugarLevel !== undefined && sugarLevel !== '' ? Number(sugarLevel) : undefined, date };
       const res = await CustomBaseUrl.post('/health-records', payload);
       if (res.data && res.data.data && res.data.success) {
-        setHealthRecords(prev => [...prev, res.data.data]);
+        setHealthRecords(prev => {
+          const exists = prev.some(r => r._id === res.data.data._id);
+          const updated = exists ? prev : [...prev, res.data.data];
+          return updated.sort((a,b) => new Date(a.date || a.createdAt) - new Date(b.date || b.createdAt));
+        });
         const updatedMemberRes = await CustomBaseUrl.get(`/fetchone/${id}`);
         if (updatedMemberRes.data && updatedMemberRes.data.data) {
            setMember(updatedMemberRes.data.data);
@@ -1563,8 +1576,8 @@ const MemberProfile = () => {
   };
 
   // ── Loading / not found ─────────────────────────────────────────────────────
-  if(loading) return <div className="min-h-screen bg-slate-200"><Navbar/><div className="flex items-center justify-center py-24"><RefreshCw size={24} className="animate-spin text-slate-300"/></div></div>;
-  if(!member) return <div className="min-h-screen bg-slate-200"><Navbar/><div className="text-center py-24 text-slate-400"><User size={40} className="mx-auto mb-3 opacity-30"/><p>Member not found</p><button onClick={()=>navigate('/members')} className="mt-4 text-red-600 underline text-sm">← Back</button></div></div>;
+  if(loading) return <div className="min-h-screen bg-slate-300 "><Navbar/><div className="flex items-center justify-center py-24"><RefreshCw size={24} className="animate-spin text-slate-300"/></div></div>;
+  if(!member) return <div className="min-h-screen bg-slate-300 "><Navbar/><div className="text-center py-24 text-slate-400"><User size={40} className="mx-auto mb-3 opacity-30"/><p>Member not found</p><button onClick={()=>navigate('/members')} className="mt-4 text-red-600 underline text-sm">← Back</button></div></div>;
 
   const status = getStatus(member.endDate);
   const bmi    = parseFloat(member.bmi)||0;
@@ -1605,13 +1618,41 @@ const MemberProfile = () => {
     try {
       formData.append('registrationId', id);
       const res = await CustomBaseUrl.post(`/progress-photo-session`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      if (res.data && res.data.data) { setProgressPhotoSessions(prev => [res.data.data, ...prev].sort((a,b)=>new Date(b.date)-new Date(a.date))); }
+      if (res.data && res.data.data) { 
+        setProgressPhotoSessions(prev => {
+          const exists = prev.some(r => r._id === res.data.data._id);
+          const updated = exists ? prev : [res.data.data, ...prev];
+          return updated.sort((a,b)=>new Date(b.date || b.createdAt)-new Date(a.date || a.createdAt));
+        }); 
+      }
       setShowProgressPhotoUpload(false);
     } catch (err) { console.error(err); }
   };
 
+  const handleToggleTop10 = async () => {
+    try {
+      const newStatus = !member.isTop10;
+      const res = await CustomBaseUrl.post(`/update/${id}`, {
+        ...member,
+        isTop10: newStatus,
+        name: member.name, age: member.age, gender: member.gender,
+        emails: member.emails, phone: member.phone, address: member.address,
+        pincode: member.pincode, packages: member.packages, duration: member.duration,
+        services: member.services,
+        startDate: member.startDate?.split?.('T')[0],
+        endDate:   member.endDate?.split?.('T')[0],
+      });
+      if (res.data && res.data.data) {
+        setMember(res.data.data);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update Top 10 status');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="min-h-screen bg-slate-300 ">
       <Navbar/>
       <div className="max-w-7xl mx-auto px-4 py-6">
 
@@ -1626,432 +1667,598 @@ const MemberProfile = () => {
           </button>
         </div>
 
-        {/* 4-column grid on large screens */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-
-          {/* ═══ COL 1: Profile + Health + Payments ═══ */}
-          <div className="space-y-4">
-
-            {/* Profile card */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="h-20 bg-gradient-to-br from-slate-800 to-slate-900 relative">
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2">
-                  <div className="w-20 h-20 rounded-full ring-4 ring-white overflow-hidden bg-slate-200 flex items-center justify-center shadow-lg relative group">
-                    {member.images?.profileImage
-                      ? <img src={member.images.profileImage} alt={member.name} className="w-full h-full object-cover cursor-pointer" onError={e=>e.target.style.display='none'} onClick={() => setShowPhoto(true)} />
-                      : <span className="text-2xl font-black text-slate-600">{member.name?.[0]?.toUpperCase()}</span>
-                    }
-                    <label className="absolute bottom-0 inset-x-0 h-6 bg-black/50 text-white flex justify-center items-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-[9px] font-bold uppercase tracking-wider">
-                      Edit
-                      <input type="file" className="hidden" accept="image/*" onChange={handleProfileImageEdit} />
-                    </label>
+        {/* ── Member Profile Header ── */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mb-5">
+          <div className="h-28 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 relative"></div>
+          <div className="px-6 pb-6 relative">
+            <div className="flex flex-col md:flex-row gap-6 items-start md:items-end -mt-12 mb-4">
+              <div className="w-28 h-28 rounded-2xl ring-4 ring-white overflow-hidden bg-slate-200 flex items-center justify-center shadow-lg relative group shrink-0">
+                {member.images?.profileImage
+                  ? <img src={member.images.profileImage} alt={member.name} className="w-full h-full object-cover cursor-pointer" onError={e=>e.target.style.display='none'} onClick={() => setShowPhoto(true)} />
+                  : <span className="text-4xl font-black text-slate-400">{member.name?.[0]?.toUpperCase()}</span>
+                }
+                <label className="absolute bottom-0 inset-x-0 h-8 bg-black/60 text-white flex justify-center items-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-[10px] font-bold uppercase tracking-wider">
+                  Edit
+                  <input type="file" className="hidden" accept="image/*" onChange={handleProfileImageEdit} />
+                </label>
+              </div>
+              <div className="flex-1 pb-1 w-full">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-black text-slate-900">{member.name}</h1>
+                    <button 
+                      onClick={handleToggleTop10} 
+                      title={member.isTop10 ? "Remove from Top 10" : "Add to Top 10"}
+                      className={`p-1.5 rounded-xl transition ${member.isTop10 ? 'bg-amber-100 text-amber-500 hover:bg-amber-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-amber-500'}`}
+                    >
+                      <Star size={20} fill={member.isTop10 ? "currentColor" : "none"} />
+                    </button>
                   </div>
-                </div>
-              </div>
-              <div className="pt-12 pb-5 px-5 text-center">
-                <h1 className="text-xl font-bold text-slate-900">{member.name}</h1>
-                <p className="text-slate-400 text-sm mt-0.5">{member.gender} · {member.age} yrs · {member.bloodGroup||'—'}</p>
-                <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${status.color}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`}/>{status.label}
-                  </span>
-                  {member.attendanceId&&<span className="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">ID:{member.attendanceId}</span>}
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{member.packages || 'No package'}</span>
-                </div>
-                <div className="mt-4 space-y-2 text-left">
-                  {member.phone  &&<div className="flex items-center gap-2 text-xs text-slate-600"><Phone  size={11} className="text-slate-400"/>{member.phone}</div>}
-                  {member.emails &&<div className="flex items-center gap-2 text-xs text-slate-600"><Mail   size={11} className="text-slate-400"/>{member.emails}</div>}
-                  {member.address&&<div className="flex items-center gap-2 text-xs text-slate-600"><MapPin size={11} className="text-slate-400"/>{member.address}</div>}
-                </div>
-              </div>
-              <div className="border-t border-slate-100 px-5 py-4">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Membership</p>
-                <div className="space-y-1.5">
-                  {[['Package',member.packages],['Goal',member.goal],['Duration',(() => {
-                    if (member.startDate && member.endDate) {
-                      const months = Math.round((new Date(member.endDate) - new Date(member.startDate)) / (1000 * 60 * 60 * 24 * 30));
-                      return months > 0 ? `${months} month(s)` : '—';
-                    }
-                    return member.duration ? `${member.duration} month(s)` : '—';
-                  })()],
-                    ['Start',member.startDate?new Date(member.startDate).toLocaleDateString('en-IN'):'—'],
-                    ['End',member.endDate?new Date(member.endDate).toLocaleDateString('en-IN'):'—'],
-                    ['Services',member.services]
-                  ].map(([l,v])=>(
-                    <div key={l} className="flex justify-between text-xs">
-                      <span className="text-slate-400">{l}</span>
-                      <span className="font-semibold text-slate-700">{v||'—'}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-3 rounded-xl bg-slate-50 p-3">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Current Active Package</p>
-                  <p className="mt-1 text-sm font-bold text-slate-800">{member.packages || '—'}</p>
-                  <p className="mt-1 text-[10px] text-slate-500">{member.startDate ? `Started ${new Date(member.startDate).toLocaleDateString('en-IN')}` : 'Start date not set'}</p>
-                </div>
-
-                <div className="mt-3">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Package Renewal History</p>
-                  {payments.length === 0 ? (
-                    <p className="text-[11px] text-slate-400">No renewals recorded yet.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {payments.slice().sort((a, b) => new Date(b.issuedDate || b.createdAt || b.startDate || 0) - new Date(a.issuedDate || a.createdAt || a.startDate || 0)).map((payment) => (
-                        <div key={payment._id} className="rounded-xl border border-slate-100 bg-white p-2.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs font-semibold text-slate-800">{payment.package || 'Package'}</p>
-                            {payment.isRenewal && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[9px] font-bold text-violet-700">Renewal</span>}
-                          </div>
-                          <p className="mt-1 text-[10px] text-slate-500">{payment.startDate ? `From ${new Date(payment.startDate).toLocaleDateString('en-IN')}` : '—'} · {payment.endDate ? `To ${new Date(payment.endDate).toLocaleDateString('en-IN')}` : '—'}</p>
-                          <p className="mt-1 text-[10px] text-slate-500">Amount: ₹{(payment.finalAmount || payment.amount || 0).toLocaleString('en-IN')} · {payment.paymentStatus || 'completed'}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Health Records */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2"><Heart size={13} className="text-red-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Health Records</p></div>
-                <div className="flex items-center gap-2">
-                  <button onClick={()=>setShowHealthModal(true)} className="flex items-center gap-1.5 bg-emerald-600 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-emerald-700 transition">+ New Record</button>
-                  <button onClick={()=>setShowHealthRecords(true)} className="text-[10px] font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition">View Records</button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                {(() => {
-                  const latest = healthRecords && healthRecords.length ? healthRecords[healthRecords.length - 1] : null;
-                  return [
-                    ['Latest BP', latest?.bloodPressure || member.bloodPressure || '—', 'bg-amber-50 text-amber-700'],
-                    ['Latest Sugar', latest?.sugarLevel ? `${latest.sugarLevel} mg/dL` : (member.sugarLevel ? `${member.sugarLevel} mg/dL` : '—'), 'bg-violet-50 text-violet-700'],
-                  ].map(([label, value, classes]) => (
-                    <div key={label} className={`rounded-xl p-3 ${classes}`}>
-                      <p className="text-[9px] font-bold uppercase opacity-70">{label}</p>
-                      <p className="text-sm font-black mt-0.5">{value}</p>
-                    </div>
-                  ));
-                })()}
-              </div>
-              <div className="mt-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl p-3 bg-slate-50">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">BP Trend</p>
-                    {healthRecords.length < 2 ? <p className="text-xs text-slate-400">Not enough data</p> : (
-                      <MiniLineChart points={healthRecords.map(r => ({ x: new Date(r.date), y: r.systolic || null }))} color="#f59e0b" unit="" />
-                    )}
+                  <div>
+                    <p className="text-slate-500 font-medium mt-1">{member.gender} · {member.age} yrs · {member.bloodGroup||'—'}</p>
                   </div>
-                  <div className="rounded-xl p-3 bg-slate-50">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Sugar Trend</p>
-                    {healthRecords.length < 2 ? <p className="text-xs text-slate-400">Not enough data</p> : (
-                      <MiniLineChart points={healthRecords.map(r => ({ x: new Date(r.date), y: r.sugarLevel != null ? Number(r.sugarLevel) : null }))} color="#7c3aed" unit="mg/dL" />
-                    )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold ${status.color}`}>
+                      <span className={`w-2 h-2 rounded-full ${status.dot}`}/>{status.label}
+                    </span>
+                    {member.attendanceId&&<span className="text-xs font-mono font-bold bg-blue-50 text-blue-700 px-3 py-1.5 rounded-xl border border-blue-100">ID: {member.attendanceId}</span>}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Payments */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2"><CreditCard size={13} className="text-slate-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Payments</p></div>
-                <button onClick={()=>navigate('/payments/new')} className="flex items-center gap-1 text-xs text-red-600 font-semibold"><Plus size={11}/>New</button>
-              </div>
-              {payments.length===0
-                ?<p className="text-xs text-slate-400 text-center py-3">No payments yet</p>
-                :<div className="space-y-2">{payments.slice(0,4).map(p=>(
-                  <div key={p._id} className="flex items-center justify-between">
-                    <div><p className="text-xs font-semibold text-slate-800">{p.package}</p><p className="text-[10px] text-slate-400">{p.startDate?new Date(p.startDate).toLocaleDateString('en-IN'):'—'}</p></div>
-                    <div className="text-right"><p className="text-xs font-bold text-emerald-600">₹{(p.finalAmount||p.amount||0).toLocaleString('en-IN')}</p>{p.balanceAmount>0&&<p className="text-[10px] text-red-500 font-semibold">-₹{p.balanceAmount.toLocaleString('en-IN')} due</p>}</div>
-                  </div>
-                ))}</div>
-              }
-            </div>
-
-            {/* ═══ Progress Photos Sessions List ═══ */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Activity size={13} className="text-slate-500"/>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progress Photos</p>
-                </div>
-                <button onClick={() => setShowProgressPhotoUpload(true)} className="flex items-center gap-1 text-xs text-blue-600 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition"><Plus size={11}/>New</button>
-              </div>
-              
-              {progressPhotoSessions.length === 0 ? (
-                <div className="text-center py-6 border border-dashed border-slate-200 rounded-xl bg-slate-50">
-                  <p className="text-xs text-slate-400 font-medium">No sessions uploaded</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {progressPhotoSessions.map((session, i) => (
-                    <div key={i} onClick={() => setInspectProgressPhoto(session)} className="aspect-square rounded-xl overflow-hidden relative cursor-pointer group bg-slate-100 border border-slate-200">
-                      <img src={session.frontImage || session.sideImage || session.backImage} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" onError={e=>e.target.style.display='none'} />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-2 opacity-90">
-                        <div>
-                          <p className="text-[10px] font-bold text-white">{new Date(session.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="flex flex-wrap gap-x-6 gap-y-3 pt-4 border-t border-slate-100">
+              {member.phone  &&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><Phone  size={14} className="text-slate-400"/>{member.phone}</div>}
+              {member.emails &&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><Mail   size={14} className="text-slate-400"/>{member.emails}</div>}
+              {member.address&&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><MapPin size={14} className="text-slate-400"/>{member.address}</div>}
             </div>
           </div>
+        </div>
 
-          {/* ═══ COL 2: Measurements + Attendance ═══ */}
-          <div className="space-y-4">
+        {/* ── Tab Navigation ── */}
+        <div className="flex overflow-x-auto gap-2 mb-6 hide-scrollbar pb-1">
+          {['Overview', 'Health Records', 'Progress Photos', 'Attendance', 'Workout & Diet', 'Add-ons', 'Payments', 'Cafeteria'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                activeTab === tab
+                  ? 'bg-slate-800 text-white shadow-md'
+                  : 'bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 border border-slate-200'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
 
-            {/* Measurements */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2"><Scale size={13} className="text-slate-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Measurements</p></div>
-                <div className="flex items-center gap-2">
-                  <button onClick={()=>setShowBmiHistory(true)} className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition">
-                    <Activity size={10}/> History
-                  </button>
-                  <button onClick={()=>setShowMeasure(true)} className="flex items-center gap-1 text-xs text-red-600 font-semibold"><Plus size={11}/>New Record</button>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl mb-3">
-                <div className="relative shrink-0" style={{width:56,height:56}}>
-                  <Ring pct={bmiPct} size={56}/>
-                  <div className="absolute inset-0 flex items-center justify-center"><span className={`text-xs font-black ${bmiClr}`}>{bmi||'—'}</span></div>
+        {/* ── Tab Content ── */}
+        <div className="space-y-6">
+          
+          {/* OVERVIEW TAB (BENTO GRID) */}
+          {activeTab === 'Overview' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 auto-rows-fr">
+              
+              {/* Tile: Membership Status (1x1) */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Package</p>
+                  <p className="font-black text-slate-800 text-lg leading-tight">{member.packages || 'None'}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-400 uppercase">BMI</p>
-                  <p className={`font-bold text-sm ${bmiClr}`}>{bmiCat}</p>
-                  {member.bodyFat&&<p className="text-[10px] text-slate-400">Body fat: {member.bodyFat}%</p>}
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">End Date</p>
+                  <p className="font-bold text-slate-800 text-sm">{member.endDate ? new Date(member.endDate).toLocaleDateString('en-IN') : '—'}</p>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {[['Height',member.height,'cm'],['Weight',member.weight,'kg'],
-                  ['Waist',member.waist,'cm'],['Hip',member.hip,'cm'],
-                  ['Neck',member.neck,'cm'],['Chest',member.chest,'cm'],
-                  ['Arm',member.arm,'cm'],['Thigh',member.thigh,'cm']
-                ].filter(([,v])=>v).map(([l,v,u])=>(
-                  <div key={l} className="bg-slate-50 rounded-xl px-3 py-2">
-                    <p className="text-[9px] text-slate-400 uppercase">{l}</p>
-                    <p className="text-sm font-bold text-slate-800">{v} <span className="text-[10px] font-normal text-slate-400">{u}</span></p>
-                  </div>
-                ))}
               </div>
 
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Measurement History</p>
-                    <p className="text-xs text-slate-500">Historical records of body measurements</p>
-                  </div>
-                  <span className="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-red-600">{bmiHistory.length} record{bmiHistory.length === 1 ? '' : 's'}</span>
+              {/* Tile: Financials (1x1) */}
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+                 <div className="flex-1 bg-orange-50 p-4 cursor-pointer hover:bg-orange-100 transition flex flex-col justify-center" onClick={() => setActiveTab('Cafeteria')}>
+                   <p className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Apple size={10}/> Cafeteria</p>
+                   {cafeteriaData ? (
+                     <p className={`font-black text-lg ${cafeteriaData.balance > 0 ? 'text-emerald-600' : cafeteriaData.balance < 0 ? 'text-red-600' : 'text-slate-800'}`}>
+                       ₹{Math.abs(cafeteriaData.balance || 0).toLocaleString('en-IN')}{cafeteriaData.balance < 0 ? ' Due' : ''}
+                     </p>
+                   ) : <p className="font-bold text-slate-400 text-sm">...</p>}
+                 </div>
+                 <div className="flex-1 bg-emerald-50 p-4 border-t border-white cursor-pointer hover:bg-emerald-100 transition flex flex-col justify-center" onClick={() => setActiveTab('Payments')}>
+                   <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1"><CreditCard size={10}/> Membership Balance</p>
+                   {payments.length > 0 ? (
+                     <p className={`font-black text-lg ${payments[0].balanceAmount > 0 ? 'text-red-500' : 'text-emerald-700'}`}>
+                       {payments[0].balanceAmount > 0 ? `₹${payments[0].balanceAmount.toLocaleString('en-IN')} Due` : 'All Paid'}
+                     </p>
+                   ) : <p className="font-bold text-slate-400 text-sm">No records</p>}
+                 </div>
+              </div>
+
+              {/* Tile: Health Snapshot (2x1) */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm md:col-span-2 cursor-pointer hover:border-slate-300 transition flex flex-col" onClick={() => setActiveTab('Health Records')}>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-bold text-slate-800 flex items-center gap-2"><Heart size={16} className="text-red-500"/> Health Snapshot</h2>
+                  <span className="text-xs font-bold text-slate-400 hover:text-slate-600 transition">View All →</span>
                 </div>
-                
-                {bmiHistory.length === 0 ? (
-                  <div className="text-center py-6 border border-dashed border-slate-200 rounded-xl bg-slate-50">
-                    <p className="text-xs text-slate-400 font-medium">No measurements yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {[...bmiHistory].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0, 5).map((record, i) => (
-                      <div key={i} onClick={() => setInspectMeasurement(record)} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 cursor-pointer transition">
-                        <div>
-                          <p className="text-xs font-bold text-slate-700">{new Date(record.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                          {record.notes && <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[150px]">{record.notes}</p>}
-                        </div>
-                        <div className="flex gap-3 text-right">
-                          <div>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase">Height</p>
-                            <p className="text-xs font-bold text-slate-700">{record.height ? `${record.height}cm` : '—'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase">Weight</p>
-                            <p className="text-xs font-bold text-slate-700">{record.weight ? `${record.weight}kg` : '—'}</p>
-                          </div>
-                        </div>
+                <div className="grid grid-cols-4 gap-2 flex-1">
+                  {(() => {
+                    const latest = healthRecords && healthRecords.length ? healthRecords[healthRecords.length - 1] : null;
+                    return [
+                      { label: 'Weight', value: member.weight ? `${member.weight}kg` : '—', color: 'bg-slate-50 text-slate-800' },
+                      { label: 'Height', value: member.height ? `${member.height}cm` : '—', color: 'bg-slate-50 text-slate-800' },
+                      { label: 'BP', value: latest?.bloodPressure || member.bloodPressure || '—', color: 'bg-amber-50 text-amber-700' },
+                      { label: 'Sugar', value: latest?.sugarLevel ? `${latest.sugarLevel}` : (member.sugarLevel ? `${member.sugarLevel}` : '—'), color: 'bg-violet-50 text-violet-700' },
+                    ].map((stat, i) => (
+                      <div key={i} className={`rounded-2xl p-2 flex flex-col justify-center items-center text-center ${stat.color}`}>
+                        <p className="text-[9px] font-bold uppercase opacity-60 mb-1">{stat.label}</p>
+                        <p className="text-sm font-black">{stat.value}</p>
                       </div>
-                    ))}
-                    {bmiHistory.length > 5 && (
-                      <button onClick={() => setShowBmiHistory(true)} className="w-full py-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">View all records & charts</button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Cafeteria Details */}
-            <div 
-              className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 cursor-pointer hover:border-orange-200 hover:bg-orange-50 transition-colors"
-              onClick={() => {
-                if (cafeteriaData) setShowCafeteriaHistory(true);
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Apple size={13} className="text-orange-500"/>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cafeteria</p>
+                    ));
+                  })()}
                 </div>
               </div>
-              {!cafeteriaData ? (
-                 <p className="text-xs text-slate-400 text-center py-3">Loading...</p>
-              ) : (
-                <>
-                  <div className="bg-slate-50 rounded-xl p-3 mb-3">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Balance Available</p>
-                    <p className={`text-xl font-black mt-1 ${cafeteriaData.balance > 0 ? 'text-emerald-600' : cafeteriaData.balance < 0 ? 'text-red-600' : 'text-slate-700'}`}>
-                      ₹{Math.abs(cafeteriaData.balance || 0).toLocaleString('en-IN')}
-                      {cafeteriaData.balance < 0 ? ' (Due)' : ''}
-                    </p>
-                  </div>
-                  {cafeteriaData.transactions?.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-3">No cafeteria transactions yet</p>
+
+              {/* Tile: Attendance (1x2) */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm cursor-pointer hover:border-slate-300 transition flex flex-col items-center text-center lg:row-span-2" onClick={() => setActiveTab('Attendance')}>
+                <h2 className="font-bold text-slate-800 flex items-center justify-center gap-2 mb-6 w-full"><Calendar size={16} className="text-indigo-500"/> Attendance</h2>
+                <div className="flex-1 flex flex-col items-center justify-center w-full">
+                  {selAtt ? (
+                    <>
+                      <div className="relative mb-4" style={{width: 100, height: 100}}>
+                        <Ring pct={attPct} size={100}/>
+                        <div className="absolute inset-0 flex items-center justify-center"><span className="text-xl font-black text-slate-700">{attPct}%</span></div>
+                      </div>
+                      <p className="text-base font-black text-slate-800">{selAtt.attendDays} / {selAtt.workDays} days</p>
+                      <p className="text-xs text-slate-400 font-bold tracking-widest uppercase mt-1">{MONTH_LABELS[activeMonth] || activeMonth}</p>
+                    </>
                   ) : (
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Recent Transactions</p>
-                      {cafeteriaData.transactions.slice(0, 4).map(t => (
-                        <div key={t._id} className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs font-semibold text-slate-800">{t.itemName || t.item?.itemName || 'Item'} {t.quantity > 1 ? `x${t.quantity}` : ''}</p>
-                            <p className="text-[10px] text-slate-400">{new Date(t.transactionDate).toLocaleDateString('en-IN')}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs font-bold text-slate-700">₹{(t.totalAmount || 0).toLocaleString('en-IN')}</p>
-                            <p className={`text-[9px] font-bold ${t.paymentStatus === 'Paid' ? 'text-emerald-500' : 'text-red-500'}`}>{t.paymentStatus}</p>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="py-8">
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center">No data for current month</p>
                     </div>
                   )}
-                </>
+                </div>
+              </div>
+
+              {/* Tile: Active Plans (1x2) */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm cursor-pointer hover:border-slate-300 transition flex flex-col lg:row-span-2" onClick={() => setActiveTab('Workout & Diet')}>
+                <h2 className="font-bold text-slate-800 flex items-center justify-center gap-2 mb-6"><Dumbbell size={16} className="text-emerald-500"/> Current Plans</h2>
+                <div className="space-y-4 flex-1 flex flex-col justify-center w-full">
+                  <div className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center text-center">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Workout</span>
+                    <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${workoutPlan ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
+                      {workoutPlan ? workoutPlan.goal || 'Active' : 'None'}
+                    </span>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center text-center">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Diet</span>
+                    <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${dietPlan ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
+                      {dietPlan ? dietPlan.goal || 'Active' : 'None'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tile: Progress Photos (2x2) */}
+              <div className="bg-slate-900 rounded-3xl p-5 shadow-lg md:col-span-2 lg:row-span-2 flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-bold text-white flex items-center gap-2"><Activity size={16} className="text-blue-400"/> Latest Progress</h2>
+                  <button onClick={() => setActiveTab('Progress Photos')} className="text-xs font-bold text-slate-400 hover:text-white transition">Gallery →</button>
+                </div>
+                <div className="flex-1 flex flex-col h-[200px] lg:h-auto">
+                  {progressPhotoSessions.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-700 rounded-2xl h-full">
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">No photos uploaded</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-3 h-full cursor-pointer" onClick={() => setInspectProgressPhoto(progressPhotoSessions[0])}>
+                      {['Front', 'Side', 'Back'].map(view => {
+                        const url = progressPhotoSessions[0][`${view.toLowerCase()}Image`];
+                        return (
+                          <div key={view} className="bg-slate-800 rounded-2xl overflow-hidden relative group h-full flex flex-col justify-end">
+                            {url ? (
+                              <img src={url} alt={view} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                            ) : (
+                              <div className="absolute inset-0 w-full h-full flex items-center justify-center text-slate-600 text-[10px] font-bold uppercase tracking-widest">{view}</div>
+                            )}
+                            {url && <div className="relative bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 pt-8 text-white text-[9px] font-bold uppercase tracking-widest text-center">{view}</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* HEALTH RECORDS TAB */}
+          {activeTab === 'Health Records' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* Measurements Column */}
+              <div className="space-y-6">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Scale size={20} className="text-blue-500"/> Body Measurements</h2>
+                    <div className="flex gap-2">
+                      <button onClick={()=>setShowBmiHistory(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition">History</button>
+                      <button onClick={()=>setShowMeasure(true)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition">+ New</button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl mb-6 border border-slate-100">
+                    <div className="relative shrink-0" style={{width:72,height:72}}>
+                      <Ring pct={bmiPct} size={72}/>
+                      <div className="absolute inset-0 flex items-center justify-center"><span className={`text-sm font-black ${bmiClr}`}>{bmi||'—'}</span></div>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-slate-400 uppercase font-bold tracking-widest">BMI Status</p>
+                      <p className={`font-black text-lg ${bmiClr}`}>{bmiCat}</p>
+                      {member.bodyFat&&<p className="text-xs font-semibold text-slate-500 mt-1">Body fat: {member.bodyFat}%</p>}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[['Height',member.height,'cm'],['Weight',member.weight,'kg'],
+                      ['Waist',member.waist,'cm'],['Hip',member.hip,'cm'],
+                      ['Neck',member.neck,'cm'],['Chest',member.chest,'cm'],
+                      ['Arm',member.arm,'cm'],['Thigh',member.thigh,'cm']
+                    ].filter(([,v])=>v).map(([l,v,u])=>(
+                      <div key={l} className="bg-white border border-slate-100 shadow-sm rounded-xl px-4 py-3 text-center">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{l}</p>
+                        <p className="text-lg font-black text-slate-800 mt-1">{v} <span className="text-xs font-semibold text-slate-400">{u}</span></p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Vitals Column */}
+              <div className="space-y-6">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Heart size={20} className="text-red-500"/> Vital Records</h2>
+                    <div className="flex gap-2">
+                      <button onClick={()=>setShowHealthRecords(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition">History</button>
+                      <button onClick={()=>setShowHealthModal(true)} className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition">+ New</button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    {(() => {
+                      const latest = healthRecords && healthRecords.length ? healthRecords[healthRecords.length - 1] : null;
+                      return [
+                        ['Blood Pressure', latest?.bloodPressure || member.bloodPressure || '—', 'bg-amber-50 border border-amber-100 text-amber-800'],
+                        ['Sugar Level', latest?.sugarLevel ? `${latest.sugarLevel} mg/dL` : (member.sugarLevel ? `${member.sugarLevel} mg/dL` : '—'), 'bg-violet-50 border border-violet-100 text-violet-800'],
+                      ].map(([label, value, classes]) => (
+                        <div key={label} className={`rounded-xl p-4 ${classes}`}>
+                          <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">{label}</p>
+                          <p className="text-xl font-black">{value}</p>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-2xl p-4 bg-slate-50 border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Blood Pressure Trend</p>
+                      {healthRecords.length < 2 ? <p className="text-sm text-slate-400 font-medium">Not enough data</p> : (
+                        <MiniLineChart points={healthRecords.map(r => ({ x: new Date(r.date), y: r.systolic || null }))} color="#f59e0b" unit="" />
+                      )}
+                    </div>
+                    <div className="rounded-2xl p-4 bg-slate-50 border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Sugar Level Trend</p>
+                      {healthRecords.length < 2 ? <p className="text-sm text-slate-400 font-medium">Not enough data</p> : (
+                        <MiniLineChart points={healthRecords.map(r => ({ x: new Date(r.date), y: r.sugarLevel != null ? Number(r.sugarLevel) : null }))} color="#7c3aed" unit="mg/dL" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* PROGRESS PHOTOS TAB */}
+          {activeTab === 'Progress Photos' && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Activity size={20} className="text-blue-500"/> Progress Photo Gallery</h2>
+                <button onClick={() => setShowProgressPhotoUpload(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition">+ New Session</button>
+              </div>
+
+              {progressPhotoSessions.length === 0 ? (
+                <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50">
+                  <Activity size={48} className="mx-auto mb-4 text-slate-300"/>
+                  <p className="text-lg font-bold text-slate-500">No progress photos yet</p>
+                  <p className="text-sm text-slate-400 mt-1">Upload front, side, and back photos to track physical changes.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {progressPhotoSessions.map((session, i) => (
+                    <div key={i} onClick={() => setInspectProgressPhoto(session)} className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden cursor-pointer group hover:border-blue-300 hover:shadow-md transition">
+                      <div className="aspect-square relative overflow-hidden bg-slate-200">
+                        <img src={session.frontImage || session.sideImage || session.backImage} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" onError={e=>e.target.style.display='none'} />
+                      </div>
+                      <div className="p-4">
+                        <p className="font-bold text-slate-800">{new Date(session.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        {session.notes && <p className="text-xs text-slate-500 mt-1 truncate">{session.notes}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
+          )}
 
-            {/* Attendance moved to Diet Plan column (see spec) */}
-          </div>
-
-          {/* ═══ COL 3: Diet Plan ═══ */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2"><Apple size={13} className="text-green-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Diet Plan</p></div>
-                <div className="flex items-center gap-2">
-                  <button onClick={()=>setShowDiet(true)}
-                    className="flex items-center gap-1.5 bg-green-600 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-green-700 transition">
-                    <Upload size={11}/> {dietPlan?'Re-import':'Import CSV'}
-                  </button>
-                  {!dietPlan&&<button onClick={()=>navigate('/diet-plans/new')} className="flex items-center gap-1 bg-slate-100 text-slate-700 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-slate-200"><Plus size={11}/>Create</button>}
+          {/* ATTENDANCE TAB */}
+          {activeTab === 'Attendance' && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 max-w-4xl mx-auto">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Calendar size={20} className="text-indigo-500"/> Attendance Tracker</h2>
+                  {member.attendanceId && <p className="text-sm text-slate-500 font-medium mt-1">Attendance ID: <span className="font-mono font-bold text-indigo-600">{member.attendanceId}</span></p>}
                 </div>
               </div>
-              {dietPlan
-                ?<DietCard plan={dietPlan} onEdit={()=>navigate('/diet-plans/new',{state:{editPlan:dietPlan}})} onDelete={handleDeleteDiet}/>
-                :<div className="text-center py-8 text-slate-400">
-                  <Apple size={32} className="mx-auto mb-2 opacity-20"/>
-                  <p className="text-sm font-medium">No diet plan yet</p>
-                  <p className="text-[11px] mt-1 mb-3">Import a CSV or create manually</p>
-                  <button onClick={downloadDietTemplate} className="flex items-center gap-1 text-[11px] text-green-600 font-semibold mx-auto hover:underline"><Download size={11}/>Download CSV template</button>
-                </div>
-              }
-              </div>
 
-              {/* Attendance (moved from Measurements column) */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2"><Calendar size={13} className="text-slate-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attendance</p></div>
-                  {member.attendanceId&&<span className="text-[10px] font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">ID:{member.attendanceId}</span>}
+              {attendance.length === 0 ? (
+                <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50">
+                  <Calendar size={48} className="mx-auto mb-4 text-slate-300"/>
+                  <p className="text-lg font-bold text-slate-500">No attendance records found</p>
+                  {!member.attendanceId && <p className="text-sm text-amber-600 font-medium mt-2">Please set an Attendance ID in Edit Member.</p>}
                 </div>
-                {attendance.length===0
-                  ?<div className="text-center py-5 text-slate-400"><Calendar size={24} className="mx-auto mb-2 opacity-20"/><p className="text-xs">No records found</p>{!member.attendanceId&&<p className="text-[10px] mt-1 text-amber-600">Set Attendance ID in Edit Member</p>}</div>
-                  :<>
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {attendance.map(r=>{
-                        const p=r.workDays>0?Math.round((r.attendDays/r.workDays)*100):0;
-                        const dot=p>=80?'bg-emerald-500':p>=50?'bg-amber-500':'bg-red-500';
-                        return(
-                          <button key={r.month} onClick={()=>setActiveMonth(r.month)}
-                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition ${activeMonth===r.month?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-500 border-slate-200'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeMonth===r.month?'bg-white':dot}`}/>
-                            {MONTH_LABELS[r.month]||r.month}
+              ) : (
+                <div className="grid md:grid-cols-2 gap-8 items-start">
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Select Month</p>
+                    <div className="flex flex-col gap-2">
+                      {attendance.map(r => {
+                        const p = r.workDays > 0 ? Math.round((r.attendDays / r.workDays) * 100) : 0;
+                        const dot = p >= 80 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                        const isActive = activeMonth === r.month;
+                        return (
+                          <button key={r.month} onClick={() => setActiveMonth(r.month)}
+                            className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all ${isActive ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-100 hover:border-slate-300'}`}>
+                            <span className="font-bold">{MONTH_LABELS[r.month] || r.month}</span>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-sm font-bold ${isActive ? 'text-slate-300' : 'text-slate-400'}`}>{p}%</span>
+                              <span className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-white' : dot}`}/>
+                            </div>
                           </button>
                         );
                       })}
                     </div>
-                    {selAtt&&(
-                      <div className="bg-slate-50 rounded-xl p-3">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="relative shrink-0" style={{width:56,height:56}}>
-                            <Ring pct={attPct} size={56}/>
-                            <div className="absolute inset-0 flex items-center justify-center"><span className="text-xs font-black text-slate-700">{attPct}%</span></div>
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-800">{selAtt.attendDays} of {selAtt.workDays} days</p>
-                            {selAtt.dept&&<p className="text-[10px] text-slate-400">{selAtt.dept} · {selAtt.shift}</p>}
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {[{l:'Present',v:selAtt.attendDays,c:'text-emerald-600',bg:'bg-emerald-50'},
-                            {l:'Absent',v:selAtt.absentDays,c:'text-red-500',bg:'bg-red-50'},
-                            {l:'Work',v:selAtt.workDays,c:'text-slate-700',bg:'bg-white'}
-                          ].map(s=>(
-                            <div key={s.l} className={`text-center rounded-lg py-2 ${s.bg}`}>
-                              <p className={`text-base font-black ${s.c}`}>{s.v}</p>
-                              <p className="text-[9px] text-slate-400">{s.l}</p>
-                            </div>
-                          ))}
-                        </div>
-                        {selAtt.lateTimes>0&&<p className="text-[10px] text-amber-600 font-semibold mt-2">⏰ Late {selAtt.lateTimes}× ({selAtt.lateMins} min)</p>}
-                      </div>
-                    )}
-                  </>
-                }
-              </div>
-          </div>
+                  </div>
 
-          {/* ═══ COL 4: Workout Plan ═══ */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2"><Dumbbell size={13} className="text-red-500"/><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Workout Plan</p></div>
-                <div className="flex items-center gap-2">
-                  <button onClick={()=>setShowWorkout(true)}
-                    className="flex items-center gap-1.5 bg-red-600 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-red-700 transition">
-                    <Upload size={11}/> {workoutPlan?'Re-import':'Import CSV'}
+                  {selAtt && (
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col justify-center h-full">
+                      <div className="flex flex-col items-center mb-8">
+                        <div className="relative" style={{width: 140, height: 140}}>
+                          <Ring pct={attPct} size={140}/>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-4xl font-black text-slate-800">{attPct}%</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Attendance</span>
+                          </div>
+                        </div>
+                        <p className="text-lg font-bold text-slate-800 mt-4">{MONTH_LABELS[activeMonth] || activeMonth}</p>
+                        {selAtt.dept && <p className="text-sm font-medium text-slate-500">{selAtt.dept} · {selAtt.shift}</p>}
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        {[{l:'Present',v:selAtt.attendDays,c:'text-emerald-700',bg:'bg-emerald-100'},
+                          {l:'Absent',v:selAtt.absentDays,c:'text-red-700',bg:'bg-red-100'},
+                          {l:'Total Work',v:selAtt.workDays,c:'text-slate-800',bg:'bg-slate-200'}
+                        ].map(s=>(
+                          <div key={s.l} className={`text-center rounded-xl p-3 ${s.bg}`}>
+                            <p className={`text-2xl font-black ${s.c}`}>{s.v}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest opacity-70 mt-1">{s.l}</p>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {selAtt.lateTimes > 0 && (
+                        <div className="mt-4 bg-amber-100 text-amber-800 p-3 rounded-xl flex items-center justify-center gap-2 font-bold text-sm">
+                          <span>⏰</span> Late {selAtt.lateTimes} times ({selAtt.lateMins} mins total)
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* WORKOUT & DIET TAB */}
+          {activeTab === 'Workout & Diet' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Workout Column */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-4">
+                  <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Dumbbell size={20} className="text-red-500"/> Workout Plan</h2>
+                  <button onClick={() => setShowWorkout(true)} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold transition flex items-center gap-2">
+                    <Upload size={14}/> {workoutPlan ? 'Re-import' : 'Import CSV'}
                   </button>
                 </div>
+                
+                {workoutPlan ? (
+                  <WorkoutDashboard plan={workoutPlan} onEdit={() => setShowWorkout(true)} onDelete={handleDeleteWorkout}/>
+                ) : (
+                  <div className="text-center py-16 bg-white border-2 border-dashed border-slate-200 rounded-2xl shadow-sm">
+                    <Dumbbell size={48} className="mx-auto mb-4 text-slate-300"/>
+                    <p className="text-lg font-bold text-slate-500">No workout plan</p>
+                    <p className="text-sm text-slate-400 mt-1 mb-4">Import a Mon-Sat exercise schedule.</p>
+                    <button onClick={downloadWorkoutTemplate} className="text-sm font-bold text-red-600 hover:underline flex items-center justify-center gap-1 mx-auto"><Download size={14}/> Download Template</button>
+                  </div>
+                )}
               </div>
-              {workoutPlan
-                ?<WorkoutDashboard plan={workoutPlan} onEdit={()=>setShowWorkout(true)} onDelete={handleDeleteWorkout}/>
-                :<div className="text-center py-8 text-slate-400">
-                  <Dumbbell size={32} className="mx-auto mb-2 opacity-20"/>
-                  <p className="text-sm font-medium">No workout plan yet</p>
-                  <p className="text-[11px] mt-1 mb-3">Import a CSV with Mon–Sat exercises</p>
-                  <button onClick={downloadWorkoutTemplate} className="flex items-center gap-1 text-[11px] text-red-600 font-semibold mx-auto hover:underline"><Download size={11}/>Download CSV template</button>
-                </div>
-              }
-            </div>
 
-            {/* Add-ons */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Add-on Services</p>
-                <button onClick={openAddons}
-                  className="flex items-center gap-1 text-[10px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg transition">
-                  <Edit3 size={10}/> Edit
+              {/* Diet Column */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-4">
+                  <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Apple size={20} className="text-green-500"/> Diet Plan</h2>
+                  <div className="flex gap-2">
+                    {!dietPlan && <button onClick={() => navigate('/diet-plans/new')} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition">Create</button>}
+                    <button onClick={() => setShowDiet(true)} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-bold transition flex items-center gap-2">
+                      <Upload size={14}/> {dietPlan ? 'Re-import' : 'Import CSV'}
+                    </button>
+                  </div>
+                </div>
+
+                {dietPlan ? (
+                  <DietCard plan={dietPlan} onEdit={() => navigate('/diet-plans/new', {state:{editPlan:dietPlan}})} onDelete={handleDeleteDiet}/>
+                ) : (
+                  <div className="text-center py-16 bg-white border-2 border-dashed border-slate-200 rounded-2xl shadow-sm">
+                    <Apple size={48} className="mx-auto mb-4 text-slate-300"/>
+                    <p className="text-lg font-bold text-slate-500">No diet plan</p>
+                    <p className="text-sm text-slate-400 mt-1 mb-4">Create manually or import from CSV.</p>
+                    <button onClick={downloadDietTemplate} className="text-sm font-bold text-green-600 hover:underline flex items-center justify-center gap-1 mx-auto"><Download size={14}/> Download Template</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ADD-ONS TAB */}
+          {activeTab === 'Add-ons' && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 max-w-2xl mx-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-bold text-lg text-slate-800">Add-on Services</h2>
+                <button onClick={openAddons} className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-bold transition flex items-center gap-2">
+                  <Edit3 size={14}/> Edit Services
                 </button>
               </div>
-              <div className="space-y-2">
-                {[['Personal Training',member.personalTraining],['Custom Workout',member.customWorkout],
-                  ['Custom Diet',member.customDiet],['Rehab Therapy',member.rehabTherapy]
-                ].map(([l,v])=>(
-                  <div key={l} className="flex items-center justify-between">
-                    <span className="text-xs text-slate-600">{l}</span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${v&&v!=='No'?'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-400'}`}>{(v&&v!=='No')?v:'No'}</span>
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[
+                  ['Personal Training', member.personalTraining],
+                  ['Custom Workout', member.customWorkout],
+                  ['Custom Diet', member.customDiet],
+                  ['Rehab Therapy', member.rehabTherapy]
+                ].map(([label, value]) => {
+                  const isActive = value && value !== 'No';
+                  return (
+                    <div key={label} className={`p-4 rounded-2xl border-2 ${isActive ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 bg-slate-50'}`}>
+                      <p className="text-sm font-bold text-slate-600">{label}</p>
+                      <p className={`text-lg font-black mt-1 ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>{isActive ? value : 'Not Active'}</p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          </div>
+          )}
+
+          {/* PAYMENTS TAB */}
+          {activeTab === 'Payments' && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><CreditCard size={20} className="text-emerald-500"/> Payment History</h2>
+                <button onClick={() => navigate('/payments/new')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition flex items-center gap-2">
+                  <Plus size={14}/> New Payment
+                </button>
+              </div>
+              
+              {payments.length === 0 ? (
+                <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50">
+                  <CreditCard size={48} className="mx-auto mb-4 text-slate-300"/>
+                  <p className="text-lg font-bold text-slate-500">No payments found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                        <th className="pb-3 px-4">Date</th>
+                        <th className="pb-3 px-4">Package</th>
+                        <th className="pb-3 px-4">Valid Period</th>
+                        <th className="pb-3 px-4 text-right">Amount</th>
+                        <th className="pb-3 px-4 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm font-medium">
+                      {payments.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)).map(p => (
+                        <tr key={p._id} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                          <td className="py-4 px-4 text-slate-600">{new Date(p.createdAt || p.issuedDate || p.startDate).toLocaleDateString('en-IN')}</td>
+                          <td className="py-4 px-4 text-slate-800 font-bold">
+                            {p.package}
+                            {p.isRenewal && <span className="ml-2 bg-violet-100 text-violet-700 text-[10px] px-2 py-0.5 rounded-full font-bold">Renewal</span>}
+                          </td>
+                          <td className="py-4 px-4 text-slate-500 text-xs">
+                            {p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '—'} <br/>
+                            to {p.endDate ? new Date(p.endDate).toLocaleDateString('en-IN') : '—'}
+                          </td>
+                          <td className="py-4 px-4 text-right font-black text-slate-800">₹{(p.finalAmount || p.amount || 0).toLocaleString('en-IN')}</td>
+                          <td className="py-4 px-4 text-right">
+                            {p.balanceAmount > 0 ? (
+                              <div>
+                                <span className="text-red-500 font-bold">Due</span>
+                                <p className="text-[10px] text-red-400">₹{p.balanceAmount.toLocaleString('en-IN')} left</p>
+                              </div>
+                            ) : (
+                              <span className="text-emerald-500 font-bold">Paid</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CAFETERIA TAB */}
+          {activeTab === 'Cafeteria' && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Apple size={20} className="text-orange-500"/> Cafeteria Account</h2>
+                <button onClick={() => { if(cafeteriaData) setShowCafeteriaHistory(true); }} className="px-4 py-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-xl text-sm font-bold transition">
+                  View Full Report
+                </button>
+              </div>
+
+              {!cafeteriaData ? (
+                <p className="text-center py-10 text-slate-400 font-medium">Loading...</p>
+              ) : (
+                <div className="grid lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-1">
+                    <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl text-center">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Available Balance</p>
+                      <p className={`text-4xl font-black ${cafeteriaData.balance > 0 ? 'text-emerald-600' : cafeteriaData.balance < 0 ? 'text-red-600' : 'text-slate-800'}`}>
+                        ₹{Math.abs(cafeteriaData.balance || 0).toLocaleString('en-IN')}
+                      </p>
+                      {cafeteriaData.balance < 0 && <p className="text-sm font-bold text-red-500 mt-2">Amount Due</p>}
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Recent Transactions</p>
+                    {cafeteriaData.transactions?.length === 0 ? (
+                      <div className="text-center py-10 border-2 border-dashed border-slate-100 rounded-xl">
+                        <p className="text-sm font-medium text-slate-400">No cafeteria transactions yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {cafeteriaData.transactions.map(t => (
+                          <div key={t._id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-xl shadow-sm hover:shadow-md transition">
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-lg flex items-center justify-center font-bold">
+                                <Apple size={20}/>
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-800">{t.itemName || t.item?.itemName || 'Item'} <span className="text-slate-400 text-sm font-medium ml-1">x{t.quantity || 1}</span></p>
+                                <p className="text-xs text-slate-400 font-medium">{new Date(t.transactionDate).toLocaleString('en-IN')}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-black text-slate-800 text-lg">₹{(t.totalAmount || 0).toLocaleString('en-IN')}</p>
+                              <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${t.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{t.paymentStatus}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </div>

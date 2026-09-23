@@ -1104,7 +1104,7 @@ const Payments = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="min-h-screen bg-slate-300 ">
       <Navbar/>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
         {/* Header */}

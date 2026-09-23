@@ -370,7 +370,7 @@ export default function Reports() {
 
   // ─── Loading / Error ────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="min-h-screen bg-slate-200"><Navbar />
+    <div className="min-h-screen bg-slate-300 "><Navbar />
       <div className="flex flex-col items-center justify-center py-36 gap-4 text-slate-400">
         <div className="w-10 h-10 border-4 border-slate-200 border-t-red-500 rounded-full animate-spin" />
         <p className="text-sm font-semibold">Loading report data…</p>
@@ -379,7 +379,7 @@ export default function Reports() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-200">
+    <div className="min-h-screen bg-slate-300 ">
       <Navbar />
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
 

@@ -6,7 +6,7 @@ const About = () => {
   return (
     <div>
       <Navbar />
-      <div className='min-h-screen bg-slate-200'>
+      <div className='min-h-screen bg-slate-300 '>
         <div className='max-w-4xl mx-auto px-4 py-8'>
           {/* Hero Section */}
           <div className='bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg shadow-lg p-8 mb-8 text-center'>

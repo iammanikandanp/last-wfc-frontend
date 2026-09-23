@@ -79,7 +79,7 @@ const AddMember = () => {
   return (
     <div>
       <Navbar />
-      <div className='min-h-screen bg-slate-200'>
+      <div className='min-h-screen bg-slate-300 '>
         <div className='max-w-4xl mx-auto px-4 py-8'>
           {/* Header */}
           <div className='flex items-center space-x-3 mb-8'>

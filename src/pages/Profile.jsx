@@ -28,7 +28,7 @@ const Profile = () => {
   if (!user) return <Navigate to="/login" />;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-300  flex flex-col">
       <Navbar />
       <main className="flex-1 overflow-y-auto">
         {user.role === 'admin' ? (

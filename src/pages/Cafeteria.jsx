@@ -713,7 +713,7 @@ export default function Cafeteria() {
   const paginatedList = listToPaginate.slice((page-1)*PER_PAGE, page*PER_PAGE);
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-slate-300 ">
       <Navbar />
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">

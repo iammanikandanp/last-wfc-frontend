@@ -777,7 +777,7 @@ const MemberDashboard = ({ user }) => {
   const displayName = member?.name || user.name || "Member";
 
   return (
-    <div className="w-full min-h-screen overflow-x-hidden bg-slate-200 ">
+    <div className="w-full min-h-screen overflow-x-hidden bg-slate-300   ">
       <Navbar />
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* ── Greeting bar ── */}
@@ -1900,7 +1900,7 @@ const AdminDashboard = () => {
   ];
 
   return (
-    <div className="w-full min-h-screen overflow-x-hidden bg-slate-200 ">
+    <div className="w-full min-h-screen overflow-x-hidden bg-slate-300   ">
       <Navbar />
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5">
         <div className="flex items-center justify-between mb-4">
