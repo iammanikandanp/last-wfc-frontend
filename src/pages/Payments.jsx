@@ -6,8 +6,10 @@ import {
   CreditCard, Plus, Search, X, Filter, Mail, CheckCircle,
   AlertCircle, Clock, ChevronLeft, ChevronRight, Download,
   Wallet, TrendingUp, Users, RefreshCw, Send, Check, Edit3, Trash2, Save,
-  FileText, Loader, Ban, DollarSign, UserX, ShieldOff, Unlock, FileSpreadsheet
+  FileText, Loader, Ban, DollarSign, UserX, ShieldOff, Unlock, FileSpreadsheet, MessageCircle
 } from 'lucide-react';
+
+import { getPaymentPendingWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from '../utils/whatsappUtils';
 
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
 
@@ -1248,6 +1250,26 @@ const Payments = () => {
                             <button onClick={() => setDeleteTarget(p)} title="Delete payment" className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition"><Trash2 size={13}/></button>
                             {isPending && (
                               <>
+                                {(() => {
+                                  const waMessage = getPaymentPendingWhatsAppMessage(p.memberName, p.balanceAmount, p.nextDueDate || p.dueDate);
+                                  const isValidPhone = !!formatPhoneNumber(p.memberPhone);
+                                  if (waMessage) {
+                                    return (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleWhatsAppClick(p.memberPhone, waMessage);
+                                        }}
+                                        disabled={!isValidPhone}
+                                        className={`p-1.5 rounded-lg transition ${isValidPhone ? 'bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700' : 'bg-slate-50 text-slate-300 cursor-not-allowed'}`}
+                                        title={isValidPhone ? "Send WhatsApp Message" : "No valid phone number"}
+                                      >
+                                        <MessageCircle size={13} />
+                                      </button>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                                 <button onClick={() => setEmailTarget(p)} title="Send reminder email" className="p-1.5 rounded-lg bg-amber-50 text-amber-500 hover:bg-amber-100 hover:text-amber-700 transition"><Mail size={13}/></button>
                                 <button onClick={() => setWriteOffTarget(p)} title="Write off — mark balance as never to be collected" className="p-1.5 rounded-lg bg-orange-50 text-orange-500 hover:bg-orange-100 hover:text-orange-700 transition"><Ban size={13}/></button>
                               </>

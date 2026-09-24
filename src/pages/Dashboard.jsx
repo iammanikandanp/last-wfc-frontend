@@ -25,7 +25,10 @@ import {
   Target,
   Dumbbell,
   Star,
+  MessageCircle
 } from "lucide-react";
+
+import { getMemberWhatsAppMessage, getPaymentPendingWhatsAppMessage, getCafeteriaPendingWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from '../utils/whatsappUtils';
 
 const getMemberStatus = (endDate) => {
   if (!endDate) return "expired";
@@ -90,6 +93,17 @@ const MemberModal = ({ title, members, color, onClose }) => {
               const diff = m.endDate
                 ? Math.ceil((new Date(m.endDate) - new Date()) / 86400000)
                 : null;
+                
+              let waMessage = null;
+              if (title === "Expiring" || title === "Expired") {
+                waMessage = getMemberWhatsAppMessage(m);
+              } else if (title === "Pending") {
+                waMessage = getPaymentPendingWhatsAppMessage(m.name, m.balanceAmount, m.nextDueDate || m.dueDate);
+              } else if (title === "Cafeteria Pending") {
+                waMessage = getCafeteriaPendingWhatsAppMessage(m.name, m.pendingAmount);
+              }
+              const isValidPhone = !!formatPhoneNumber(m.phone);
+
               return (
                 <div
                   key={m._id}
@@ -103,9 +117,24 @@ const MemberModal = ({ title, members, color, onClose }) => {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate">
-                      {m.name}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-slate-800 truncate">
+                        {m.name}
+                      </p>
+                      {waMessage && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWhatsAppClick(m.phone, waMessage);
+                          }}
+                          disabled={!isValidPhone}
+                          className={`p-1 rounded-lg transition ${isValidPhone ? 'text-green-500 hover:text-green-600 hover:bg-green-50' : 'text-slate-300 cursor-not-allowed'}`}
+                          title={isValidPhone ? "Send WhatsApp Message" : "No valid phone number"}
+                        >
+                          <MessageCircle size={13} />
+                        </button>
+                      )}
+                    </div>
                     <p className="text-[11px] text-slate-400">{m.phone}</p>
                   </div>
                   {m.pendingAmount !== undefined && (
@@ -1752,7 +1781,7 @@ const AdminDashboard = () => {
     .reduce((acc, p) => {
       if (!acc.find((x) => x._id === p.registrationId)) {
         const mb = members.find((m) => m._id === p.registrationId);
-        if (mb) acc.push({ ...mb, balanceAmount: p.balanceAmount });
+        if (mb) acc.push({ ...mb, balanceAmount: p.balanceAmount, dueDate: p.dueDate, nextDueDate: p.nextDueDate });
       }
       return acc;
     }, []);

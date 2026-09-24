@@ -7,8 +7,10 @@ import {
   Plus, Search, X, User,
   AlertCircle, CheckCircle, Clock, XCircle, Eye, Edit3, Trash2,
   ChevronLeft, ChevronRight, Upload, FileText, Loader2, RefreshCw, Phone,
-  Shield, ShieldOff, CreditCard
+  Shield, ShieldOff, CreditCard, MessageCircle
 } from 'lucide-react';
+
+import { getMemberWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from '../utils/whatsappUtils';
 
 const PER_PAGE = 10;
 
@@ -489,6 +491,9 @@ const MemberCard = ({ member, onEdit, onDelete, onRenew, isBlocked, onToggleBloc
   const [showPhoto, setShowPhoto] = useState(false);
   const hasPhoto = !!member.images?.profileImage;
 
+  const waMessage = getMemberWhatsAppMessage(member);
+  const isValidPhone = !!formatPhoneNumber(member.phone);
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-md hover:border-slate-200 transition-all duration-200 group">
       <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -526,6 +531,14 @@ const MemberCard = ({ member, onEdit, onDelete, onRenew, isBlocked, onToggleBloc
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">
             <ShieldOff size={10} /> Blocked
           </span>
+        )}
+        {waMessage && (
+          <button onClick={e => { e.stopPropagation(); handleWhatsAppClick(member.phone, waMessage); }}
+            disabled={!isValidPhone}
+            className={`p-1.5 rounded-lg transition ${isValidPhone ? 'text-green-500 hover:text-green-600 hover:bg-green-50' : 'text-slate-300 cursor-not-allowed'}`}
+            title={isValidPhone ? 'Send WhatsApp Message' : 'No valid phone number'}>
+            <MessageCircle size={14} />
+          </button>
         )}
         <button onClick={() => navigate(`/members/${member._id}`)}
           className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition" title="View profile">

@@ -20,7 +20,10 @@ import {
   ChevronRight,
   Camera,
   User,
+  MessageCircle,
 } from "lucide-react";
+
+import { getLeadWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from "../utils/whatsappUtils";
 
 const BASE_STATUS_CONFIG = {
   New: {
@@ -1036,6 +1039,26 @@ const Leads = () => {
                                 <Phone size={12} />
                               </a>
                             )}
+                            {(() => {
+                              const waMessage = getLeadWhatsAppMessage(l);
+                              const isValidPhone = !!formatPhoneNumber(l.phone);
+                              if (waMessage) {
+                                return (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleWhatsAppClick(l.phone, waMessage);
+                                    }}
+                                    disabled={!isValidPhone}
+                                    className={`p-1.5 rounded-lg transition ${isValidPhone ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-slate-50 text-slate-300 cursor-not-allowed'}`}
+                                    title={isValidPhone ? "Send WhatsApp Message" : "No valid phone number"}
+                                  >
+                                    <MessageCircle size={12} />
+                                  </button>
+                                );
+                              }
+                              return null;
+                            })()}
                             <button
                               onClick={() => {
                                 setEditLead(l);
