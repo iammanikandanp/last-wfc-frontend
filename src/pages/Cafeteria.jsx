@@ -96,7 +96,7 @@ const Pagination = ({ page, totalPages, filtered: filteredCount, onPage }) => {
 };
 
 export default function Cafeteria() {
-  const [dashboard, setDashboard] = useState(null);
+
   const [transactions, setTransactions] = useState([]);
   const [members, setMembers] = useState([]);
   const [activeTab, setActiveTab] = useState('All');
@@ -169,14 +169,7 @@ export default function Cafeteria() {
     return item.itemName?.toLowerCase().includes(term);
   });
 
-  const fetchDashboard = async () => {
-    try {
-      const res = await CustomBaseUrl.get('/cafeteria/dashboard');
-      setDashboard(res.data?.data || null);
-    } catch {
-      toast.error('Failed to load cafeteria dashboard');
-    }
-  };
+
 
   useEffect(() => {
     // ensure current stock is available for Add Record dropdown
@@ -208,7 +201,6 @@ export default function Cafeteria() {
       await CustomBaseUrl.delete(`/cafeteria/stock/${id}`);
       toast.success('Stock item deleted');
       fetchStockItems();
-      fetchDashboard();
     } catch (e) {
       toast.error('Failed to delete stock item');
     }
@@ -220,7 +212,6 @@ export default function Cafeteria() {
       await CustomBaseUrl.delete(`/cafeteria/transactions/${id}`);
       toast.success('Transaction deleted');
       fetchTransactions();
-      fetchDashboard();
       fetchStockItems();
       if (selectedHistoryMember) {
         setSelectedHistoryMember(prev => ({
@@ -239,7 +230,6 @@ export default function Cafeteria() {
       await CustomBaseUrl.delete(`/cafeteria/transactions`);
       toast.success('All transactions deleted');
       fetchTransactions();
-      fetchDashboard();
       fetchStockItems();
       setSelectedHistoryMember(null);
     } catch (e) {
@@ -279,7 +269,6 @@ export default function Cafeteria() {
   }, [recordForm.memberId]);
 
   useEffect(() => {
-    fetchDashboard();
     fetchMembers();
     fetchTransactions();
   }, []);
@@ -355,7 +344,7 @@ export default function Cafeteria() {
   };
 
   const refreshData = async () => {
-    await Promise.all([fetchDashboard(), fetchTransactions()]);
+    await fetchTransactions();
   };
 
 
@@ -961,7 +950,7 @@ export default function Cafeteria() {
             <div className="space-y-4">
               <div className="pb-4 border-b border-slate-100">
                 <p className="text-sm font-semibold mb-2">Add New Stock Item</p>
-                <AddStockItemForm defaultThreshold={stockDefaultThreshold} onSaved={async () => { await fetchStockItems(); await fetchDashboard(); toast.success('Item added'); }} />
+                <AddStockItemForm defaultThreshold={stockDefaultThreshold} onSaved={async () => { await fetchStockItems(); toast.success('Item added'); }} />
               </div>
 
               <div>
@@ -999,7 +988,7 @@ export default function Cafeteria() {
       )}
 
       {editingStock && (
-        <ModifyStockModal stock={editingStock} onClose={() => { setEditingStock(null); fetchStockItems(); fetchDashboard(); }} />
+        <ModifyStockModal stock={editingStock} onClose={() => { setEditingStock(null); fetchStockItems(); }} />
       )}
 
       {selectedHistoryStock && (
