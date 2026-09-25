@@ -54,7 +54,7 @@ const Navbar = () => {
   }, [location.pathname]);
 
   const allNavItems = [
-    { name: 'Dashboard', path: '/dashboard',  icon: Home,       roles: ['admin','trainer','member'] },
+    { name: 'Dashboard', path: user?.role === 'member' ? `/members/${user?.id || user?._id}` : '/dashboard',  icon: Home,       roles: ['admin','trainer','member'] },
     { name: 'Members',   path: '/members',    icon: Users,      roles: ['admin','trainer'] },
     { name: 'Leads',     path: '/leads',      icon: Megaphone,  roles: ['admin','trainer'] },
     { name: 'Cafeteria', path: '/cafeteria',  icon: Coffee,     roles: ['admin'] },
@@ -80,7 +80,7 @@ const Navbar = () => {
         <div className="flex h-20 items-center justify-between gap-4 py-2">
           
           {/* Logo */}
-          <Link to="/dashboard" className="flex flex-shrink-0 items-center gap-3 transition hover:opacity-90">
+          <Link to={user?.role === 'member' ? `/members/${user?.id || user?._id}` : '/dashboard'} className="flex flex-shrink-0 items-center gap-3 transition hover:opacity-90">
             <img src="/logo.jpeg" alt="WFC logo" className="h-12 w-12 rounded-full border-2 border-white/80 object-cover bg-white sm:h-14 sm:w-14" />
             <div className="hidden sm:block">
               <p className="text-xl font-black uppercase tracking-[0.18em] text-white leading-tight">WFC</p>

@@ -110,10 +110,20 @@ export const Register = () => {
     const city  = parts[1] || "";
     const state = parts[2] || "";
 
+    let dobForInput = "";
+    if (editData.dateOfBirth) {
+      if (editData.dateOfBirth.includes("/")) {
+        const p = editData.dateOfBirth.split("/");
+        if (p.length === 3) dobForInput = `${p[2]}-${p[1]}-${p[0]}`;
+      } else {
+        dobForInput = editData.dateOfBirth;
+      }
+    }
+
     setFormData({
       fullName:          editData.name        || "",
       age:               String(editData.age  || ""),
-      dateOfBirth:       "",
+      dateOfBirth:       dobForInput,
       phoneNumber:       editData.phone       || "",
       email:             editData.emails      || "",
       emergencyContact:  "",
@@ -248,6 +258,7 @@ export const Register = () => {
       const fd = new FormData();
       fd.append("name",          formData.fullName);
       fd.append("age",           formData.age);
+      fd.append("dateOfBirth",   formData.dateOfBirth);
       fd.append("gender",        formData.gender);
       fd.append("emails",        formData.email);
       fd.append("phone",         formData.phoneNumber);

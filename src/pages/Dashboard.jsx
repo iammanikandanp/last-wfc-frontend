@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import CustomBaseUrl from "../hooks/CustomBaseUrl";
 import Navbar from "../components/Navbar";
 import {
@@ -1781,7 +1781,9 @@ const AdminDashboard = () => {
     .reduce((acc, p) => {
       if (!acc.find((x) => x._id === p.registrationId)) {
         const mb = members.find((m) => m._id === p.registrationId);
-        if (mb) acc.push({ ...mb, balanceAmount: p.balanceAmount, dueDate: p.dueDate, nextDueDate: p.nextDueDate });
+        if (mb && mb.status !== 'blocked' && getMemberStatus(mb.endDate) === "active") {
+          acc.push({ ...mb, balanceAmount: p.balanceAmount, dueDate: p.dueDate, nextDueDate: p.nextDueDate });
+        }
       }
       return acc;
     }, []);
@@ -2276,7 +2278,9 @@ const Dashboard = () => {
       return {};
     }
   })();
-  if (userObj.role === "member") return <MemberDashboard user={userObj} />;
+  if (userObj.role === "member") {
+    return <Navigate to={`/members/${userObj.id || userObj._id}`} replace />;
+  }
   return <AdminDashboard />;
 };
 

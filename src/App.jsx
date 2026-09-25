@@ -54,9 +54,16 @@ const Unauthorized = () => (
       <div className="text-8xl font-bold text-red-500 mb-4">403</div>
       <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
       <p className="text-slate-500 mb-8">You don't have permission to view this page.</p>
-      <a href="/dashboard" className="bg-red-600 px-6 py-2.5 rounded-lg hover:bg-red-700 transition font-semibold text-white">
-        Back to Dashboard
-      </a>
+      <button 
+        onClick={() => {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "/login";
+        }}
+        className="bg-red-600 px-6 py-2.5 rounded-lg hover:bg-red-700 transition font-semibold text-white"
+      >
+        Back to Login
+      </button>
     </div>
   </div>
 );

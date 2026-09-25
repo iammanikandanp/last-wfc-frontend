@@ -1426,6 +1426,7 @@ const MemberProfile = () => {
     services: member.services,
     startDate: member.startDate?.split?.('T')[0],
     endDate: member.endDate?.split?.('T')[0],
+    dateOfBirth: member.dateOfBirth,
   });
 
   // ── Diet import handler ─────────────────────────────────────────────────────
@@ -1481,6 +1482,7 @@ const MemberProfile = () => {
         services: member.services,
         startDate: member.startDate?.split?.('T')[0],
         endDate:   member.endDate?.split?.('T')[0],
+        dateOfBirth: member.dateOfBirth,
       });
       setMember(m => ({ ...m, ...addonsForm }));
       setShowAddons(false);
@@ -1599,7 +1601,7 @@ const MemberProfile = () => {
       'issues', 'description', 'profession', 'phone', 'address', 'pincode',
       'packages', 'duration', 'services', 'startDate', 'endDate',
       'bodyFat', 'waist', 'neck', 'hip', 'sugarLevel', 'bloodPressure',
-      'attendanceId', 'personalTraining', 'customWorkout', 'customDiet', 'rehabTherapy', 'goal'
+      'attendanceId', 'personalTraining', 'customWorkout', 'customDiet', 'rehabTherapy', 'goal', 'dateOfBirth'
     ];
     fieldsToKeep.forEach(field => {
       if (member[field] !== undefined && member[field] !== null) {
@@ -1641,6 +1643,7 @@ const MemberProfile = () => {
         services: member.services,
         startDate: member.startDate?.split?.('T')[0],
         endDate:   member.endDate?.split?.('T')[0],
+        dateOfBirth: member.dateOfBirth,
       });
       if (res.data && res.data.data) {
         setMember(res.data.data);
@@ -1710,6 +1713,7 @@ const MemberProfile = () => {
             <div className="flex flex-wrap gap-x-6 gap-y-3 pt-4 border-t border-slate-100">
               {member.phone  &&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><Phone  size={14} className="text-slate-400"/>{member.phone}</div>}
               {member.emails &&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><Mail   size={14} className="text-slate-400"/>{member.emails}</div>}
+              {member.dateOfBirth &&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><Calendar size={14} className="text-slate-400"/>DOB: {member.dateOfBirth}</div>}
               {member.address&&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><MapPin size={14} className="text-slate-400"/>{member.address}</div>}
             </div>
           </div>
