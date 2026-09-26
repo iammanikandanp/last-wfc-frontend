@@ -1263,6 +1263,7 @@ const WeightTrendChart = ({ history }) => {
 };
 
 const MemberProfile = () => {
+  const isMemberUser = JSON.parse(localStorage.getItem('user') || '{}')?.role === 'member';
   const { id } = useParams();
   const navigate = useNavigate();
   const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -1662,7 +1663,7 @@ const MemberProfile = () => {
 
         {/* Top bar */}
         <div className="flex items-center justify-between mb-5">
-          {loggedInUser?.role !== 'member' ? (
+          {!isMemberUser ? (
             <button onClick={()=>navigate('/members')} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 text-sm font-medium transition">
               <ArrowLeft size={15}/> Members
             </button>
@@ -1692,7 +1693,7 @@ const MemberProfile = () => {
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mb-5">
           <div className="h-28 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 relative"></div>
           <div className="px-6 pb-6 relative">
-            <div className="flex flex-col md:flex-row gap-6 items-start md:items-end -mt-12 mb-4">
+            <div className="flex flex-col md:flex-row gap-4 items-center md:items-end -mt-12 mb-4">
               <div className="w-28 h-28 rounded-2xl ring-4 ring-white overflow-hidden bg-slate-200 flex items-center justify-center shadow-lg relative group shrink-0">
                 {member.images?.profileImage
                   ? <img src={member.images.profileImage} alt={member.name} className="w-full h-full object-cover cursor-pointer" onError={e=>e.target.style.display='none'} onClick={() => setShowPhoto(true)} />
@@ -1902,7 +1903,7 @@ const MemberProfile = () => {
                     <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Scale size={20} className="text-blue-500"/> Body Measurements</h2>
                     <div className="flex gap-2">
                       <button onClick={()=>setShowBmiHistory(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition">History</button>
-                      <button onClick={()=>setShowMeasure(true)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition">+ New</button>
+                      {!isMemberUser && <button onClick={()=>setShowMeasure(true)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition">+ New</button>}
                     </div>
                   </div>
                   
@@ -1940,7 +1941,7 @@ const MemberProfile = () => {
                     <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Heart size={20} className="text-red-500"/> Vital Records</h2>
                     <div className="flex gap-2">
                       <button onClick={()=>setShowHealthRecords(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition">History</button>
-                      <button onClick={()=>setShowHealthModal(true)} className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition">+ New</button>
+                      {!isMemberUser && <button onClick={()=>setShowHealthModal(true)} className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition">+ New</button>}
                     </div>
                   </div>
 
@@ -1984,7 +1985,7 @@ const MemberProfile = () => {
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Activity size={20} className="text-blue-500"/> Progress Photo Gallery</h2>
-                <button onClick={() => setShowProgressPhotoUpload(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition">+ New Session</button>
+                {!isMemberUser && <button onClick={() => setShowProgressPhotoUpload(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition">+ New Session</button>}
               </div>
 
               {progressPhotoSessions.length === 0 ? (
@@ -2107,7 +2108,7 @@ const MemberProfile = () => {
                     <Dumbbell size={48} className="mx-auto mb-4 text-slate-300"/>
                     <p className="text-lg font-bold text-slate-500">No workout plan</p>
                     <p className="text-sm text-slate-400 mt-1 mb-4">Import a Mon-Sat exercise schedule.</p>
-                    <button onClick={downloadWorkoutTemplate} className="text-sm font-bold text-red-600 hover:underline flex items-center justify-center gap-1 mx-auto"><Download size={14}/> Download Template</button>
+                    {!isMemberUser && <button onClick={downloadWorkoutTemplate} className="text-sm font-bold text-red-600 hover:underline flex items-center justify-center gap-1 mx-auto"><Download size={14}/> Download Template</button>}
                   </div>
                 )}
               </div>
@@ -2131,7 +2132,7 @@ const MemberProfile = () => {
                     <Apple size={48} className="mx-auto mb-4 text-slate-300"/>
                     <p className="text-lg font-bold text-slate-500">No diet plan</p>
                     <p className="text-sm text-slate-400 mt-1 mb-4">Create manually or import from CSV.</p>
-                    <button onClick={downloadDietTemplate} className="text-sm font-bold text-green-600 hover:underline flex items-center justify-center gap-1 mx-auto"><Download size={14}/> Download Template</button>
+                    {!isMemberUser && <button onClick={downloadDietTemplate} className="text-sm font-bold text-green-600 hover:underline flex items-center justify-center gap-1 mx-auto"><Download size={14}/> Download Template</button>}
                   </div>
                 )}
               </div>
