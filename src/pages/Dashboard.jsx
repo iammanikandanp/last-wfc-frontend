@@ -1776,17 +1776,42 @@ const AdminDashboard = () => {
   const expiredM = members.filter(
     (m) => getMemberStatus(m.endDate) === "expired",
   );
-  const balanceM = payments
-    .filter((p) => p.balanceAmount > 0)
-    .reduce((acc, p) => {
-      if (!acc.find((x) => x._id === p.registrationId)) {
-        const mb = members.find((m) => m._id === p.registrationId);
-        if (mb && mb.status !== 'blocked' && getMemberStatus(mb.endDate) === "active") {
-          acc.push({ ...mb, balanceAmount: p.balanceAmount, dueDate: p.dueDate, nextDueDate: p.nextDueDate });
-        }
+  const memberPendingMap = {};
+  payments.forEach(p => {
+    if (!p.writtenOff) {
+      if (!memberPendingMap[p.registrationId]) {
+        memberPendingMap[p.registrationId] = { amount: 0, dueDate: p.dueDate, nextDueDate: p.nextDueDate };
       }
-      return acc;
-    }, []);
+      memberPendingMap[p.registrationId].amount += (p.balanceAmount || 0);
+      if (p.balanceAmount > 0) {
+        memberPendingMap[p.registrationId].dueDate = p.dueDate;
+        memberPendingMap[p.registrationId].nextDueDate = p.nextDueDate;
+      }
+    }
+  });
+
+  const balanceM = [];
+  for (const regId in memberPendingMap) {
+    if (memberPendingMap[regId].amount > 0) {
+      const mb = members.find((m) => String(m._id) === String(regId));
+      if (mb) {
+        balanceM.push({
+          ...mb,
+          balanceAmount: memberPendingMap[regId].amount,
+          dueDate: memberPendingMap[regId].dueDate,
+          nextDueDate: memberPendingMap[regId].nextDueDate
+        });
+      } else {
+        balanceM.push({
+          _id: regId,
+          name: "Unknown Member",
+          balanceAmount: memberPendingMap[regId].amount,
+          dueDate: memberPendingMap[regId].dueDate,
+          nextDueDate: memberPendingMap[regId].nextDueDate
+        });
+      }
+    }
+  }
 
   const tMA = members.filter(
     (m) => isThisMonth(m.startDate) && getMemberStatus(m.endDate) === "active",
@@ -1906,12 +1931,9 @@ const AdminDashboard = () => {
     },
     {
       emoji: "💰",
-      title: "Pending",
+      title: "Pending Members",
       value: balanceM.length,
-      sub:
-        balanceM.length > 0
-          ? `₹${balanceM.reduce((s, m) => s + m.balanceAmount, 0).toLocaleString("en-IN")}`
-          : "All clear",
+      sub: `Total Pending Amount: ₹${balanceM.reduce((s, m) => s + m.balanceAmount, 0).toLocaleString("en-IN")}`,
       gradient: "from-violet-500 to-purple-700",
       list: balanceM,
       lc: { hBg: "bg-violet-600 text-white", hTxt: "text-white" },

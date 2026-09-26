@@ -1086,10 +1086,23 @@ const Payments = () => {
   useEffect(() => setPage(1), [filter, search, dateFrom, dateTo]);
 
   const totalRevenue = payments.reduce((s, p) => s + (p.finalAmount || p.amount || 0), 0);
-  const totalPending = payments.reduce((s, p) => s + (p.writtenOff ? 0 : (p.balanceAmount || 0)), 0);
-  const pendingMembersCount = new Set(
-    payments.filter(p => !p.writtenOff && p.balanceAmount > 0).map(p => p.registrationId)
-  ).size;
+  
+  const memberPendingMap = {};
+  payments.forEach(p => {
+    if (!p.writtenOff) {
+      memberPendingMap[p.registrationId] = (memberPendingMap[p.registrationId] || 0) + (p.balanceAmount || 0);
+    }
+  });
+  
+  let totalPending = 0;
+  let pendingMembersCount = 0;
+  for (const regId in memberPendingMap) {
+    if (memberPendingMap[regId] > 0) {
+      totalPending += memberPendingMap[regId];
+      pendingMembersCount++;
+    }
+  }
+
   const fullCount    = payments.filter(p => !p.balanceAmount || p.balanceAmount <= 0 || p.writtenOff).length;
 
   const modeColor = (m) => ({
@@ -1127,14 +1140,14 @@ const Payments = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 gap-3 mb-5 max-w-2xl">
+        <div className="flex gap-4 mb-5">
           {[
-            { label:'Pending Members', val:pendingMembersCount,                                              icon:Users,       c:'text-amber-600 bg-amber-50' },
-            { label:'Total Pending Amount',   val:`₹${totalPending.toLocaleString('en-IN')}`,                icon:AlertCircle, c:'text-red-600 bg-red-50' },
+            { label:'Pending Members', val:pendingMembersCount, c:'text-amber-600' },
+            { label:'Total Pending Amount', val:`₹${totalPending.toLocaleString('en-IN')}`, c:'text-red-600' },
           ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-3 flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${s.c}`}>{React.createElement(s.icon, {size: 16})}</div>
-              <div className="min-w-0"><p className="text-[10px] sm:text-xs text-slate-400 truncate">{s.label}</p><p className="text-sm sm:text-base font-black text-slate-900 truncate">{s.val}</p></div>
+            <div key={s.label} className="bg-white rounded-lg border border-slate-200 shadow-sm px-4 py-2 flex flex-col justify-center min-w-[140px]">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{s.label}</p>
+              <p className={`text-lg font-black ${s.c} mt-0.5`}>{s.val}</p>
             </div>
           ))}
         </div>
