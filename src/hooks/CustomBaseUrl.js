@@ -25,5 +25,19 @@ CustomBaseUrl.interceptors.request.use((config) => {
   return config;
 });
 
+CustomBaseUrl.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/"; // Redirect to login
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default CustomBaseUrl;
 
