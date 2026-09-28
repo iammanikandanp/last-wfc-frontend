@@ -951,23 +951,21 @@ const Payments = () => {
   const [fetchError, setFetchError] = useState('');
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom] = useState('');
+  const [dateTo] = useState('');
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [emailTarget, setEmailTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [editingDueDateId, setEditingDueDateId] = useState(null);
-  const [dueDateDraft, setDueDateDraft] = useState('');
-  const [savingDueDate, setSavingDueDate] = useState(false);
+
   const [invoiceTarget, setInvoiceTarget] = useState(null);
   const [sharingWa, setSharingWa] = useState(false);
-  const [waPayment, setWaPayment] = useState(null);
+
   const [writeOffTarget, setWriteOffTarget] = useState(null);
   const [payNowTarget, setPayNowTarget] = useState(null);
   const [blockList, setBlockList] = useState([]);
-  const invoiceShareRef = useRef(null);
+
   const PER_PAGE = 20;
 
   useEffect(() => { fetchAll(); fetchBlockList(); }, []);
@@ -981,24 +979,9 @@ const Payments = () => {
 
   const isBlocked = (p) => blockList.some(b => b.memberPhone === p.memberPhone);
 
-  const handleDropPayment = async (p) => {
-    if (isBlocked(p)) return;
-    try {
-      const res = await CustomBaseUrl.post('/block-list', {
-        registrationId: p.registrationId,
-        memberName: p.memberName,
-        memberPhone: p.memberPhone,
-      });
-      setBlockList(prev => [res.data.data, ...prev]);
-    } catch (e) { alert('Could not block member: ' + (e.response?.data?.message || e.message)); }
-  };
 
-  const handleUnblock = async (b) => {
-    try {
-      await CustomBaseUrl.delete(`/block-list/${b._id}`);
-      setBlockList(prev => prev.filter(x => x._id !== b._id));
-    } catch (e) { alert('Unblock failed: ' + (e.response?.data?.message || e.message)); }
-  };
+
+
 
   const handleShareAsPDF = async (p) => {
     await shareInvoiceAsPDF(p, setSharingWa);

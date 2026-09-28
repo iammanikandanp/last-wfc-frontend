@@ -125,7 +125,7 @@ export default function Cafeteria() {
   const [selectedHistoryStock, setSelectedHistoryStock] = useState(null);
   const [editingRecord, setEditingRecord] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentLoading, setPaymentLoading] = useState(false);
+
   const [globalTxDate, setGlobalTxDate] = useState(() => {
     // Get local date in YYYY-MM-DD
     const d = new Date();
@@ -135,27 +135,16 @@ export default function Cafeteria() {
 
   const selectedItem = stockItems.find((item) => item._id === recordForm.itemId);
   const selectedMember = members.find((member) => member._id === recordForm.memberId);
-  const itemAmount = selectedItem ? Number(selectedItem.costPerUnit || 0) * Number(recordForm.quantity || 0) : 0;
+
   
   // Calculate bill total dynamically from added items
   const currentBillTotal = billItems.reduce((sum, item) => sum + item.amount, 0);
   const paidAmount = Number(recordForm.paidAmount || 0);
   const resultingBalance = memberBalance + paidAmount - currentBillTotal;
 
-  const getStockStatus = (item) => {
-    if (!item) return { label: 'Unknown', color: 'bg-slate-100 text-slate-600' };
-    const thr = item.lowStockThreshold !== undefined ? Number(item.lowStockThreshold) : (item.minStockLevel !== undefined ? Number(item.minStockLevel) : 0);
-    if (item.quantity <= 0) return { label: 'Out of stock', color: 'bg-rose-100 text-rose-700' };
-    if (thr && item.quantity <= thr) return { label: 'Low', color: 'bg-amber-100 text-amber-700' };
-    return { label: 'Normal', color: 'bg-emerald-100 text-emerald-700' };
-  };
 
-  const getStockFill = (item) => {
-    if (!item) return 0;
-    const thr = item.lowStockThreshold !== undefined ? Number(item.lowStockThreshold) : (item.minStockLevel !== undefined ? Number(item.minStockLevel) : 1);
-    const baseline = Math.max(1, thr * 3);
-    return Math.min(100, Math.max(0, Math.round((item.quantity / baseline) * 100)));
-  };
+
+
 
   const filteredMembers = members.filter((member) => {
     const term = (memberSearch || '').trim().toLowerCase();
@@ -224,18 +213,7 @@ export default function Cafeteria() {
     }
   };
 
-  const handleDeleteAllTransactions = async () => {
-    if (!window.confirm('Are you sure you want to delete ALL cafeteria transactions? This cannot be undone and stock will be refunded.')) return;
-    try {
-      await CustomBaseUrl.delete(`/cafeteria/transactions`);
-      toast.success('All transactions deleted');
-      fetchTransactions();
-      fetchStockItems();
-      setSelectedHistoryMember(null);
-    } catch (e) {
-      toast.error('Failed to delete all transactions');
-    }
-  };
+
 
   const fetchMembers = async () => {
     try {
@@ -325,23 +303,7 @@ export default function Cafeteria() {
   const visibleExtra = extraMembers.filter(m => !termLower || m.memberName.toLowerCase().includes(termLower));
 
 
-  const handlePayBalance = async (memberId) => {
-    const amount = Number(paymentAmount);
-    if (!amount || amount <= 0) return toast.error('Enter a valid amount');
-    setPaymentLoading(true);
-    try {
-      await CustomBaseUrl.post(`/cafeteria/member-balance/${memberId}/pay`, { amount });
-      toast.success('Payment applied successfully');
-      setPaymentAmount('');
-      await refreshData();
-      // Optionally update selectedHistoryMember state if needed, or close popup
-      setSelectedHistoryMember(null);
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Payment failed');
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
+
 
   const refreshData = async () => {
     await fetchTransactions();
