@@ -1,9 +1,15 @@
+import { getCalendarDiffDays } from './dateUtils';
+
 export const getMembershipStatus = (endDate) => {
   if (!endDate) {
     return { key: 'unknown', label: 'Unknown', color: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' };
   }
 
-  const diffDays = Math.ceil((new Date(endDate) - new Date()) / (1000 * 60 * 60 * 24));
+  const diffDays = getCalendarDiffDays(endDate);
+
+  if (diffDays === null) {
+    return { key: 'unknown', label: 'Unknown', color: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' };
+  }
 
   if (diffDays < 0) {
     return { key: 'expired', label: 'Expired', color: 'bg-red-100 text-red-700', dot: 'bg-red-500' };

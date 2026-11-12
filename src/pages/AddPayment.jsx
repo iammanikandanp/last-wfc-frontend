@@ -4,29 +4,18 @@ import CustomBaseUrl, { PUBLIC_SERVER_URL } from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import { isMemberBlocked } from '../utils/memberStatus';
 import {
+  parseLocalDate,
+  toLocalDateStr,
+  formatDisplayDate,
+  addCalendarMonths,
+  getDayAfter,
+  getMemberRemainingMembership,
+} from '../utils/dateUtils';
+import {
   Search, X, ChevronDown, Calendar, CreditCard, Smartphone,
   Banknote, Tag, Check, FileText, MessageCircle, Download,
   ArrowLeft, User, Clock, Zap, Star, Gift, Plus, Loader, Mail, RefreshCw
 } from 'lucide-react';
-
-// Parses a 'YYYY-MM-DD' string as a local date instead of UTC (new Date('YYYY-MM-DD')
-// parses as UTC midnight, which can roll back to the previous day in local time).
-const parseLocalDate = (d) => {
-  if (!d) return null;
-  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
-    const [y, m, day] = d.split('-').map(Number);
-    return new Date(y, m - 1, day);
-  }
-  return new Date(d);
-};
-
-// Formats a Date as local 'YYYY-MM-DD' (avoids UTC roll-back from toISOString()).
-const toLocalDateStr = (dt) => {
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, '0');
-  const day = String(dt.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
 
 // ─── Preset packages ────────────────────────────────────────────────────────
 const PRESET_PACKAGES = [
@@ -738,6 +727,8 @@ const AddPayment = () => {
   const location  = useLocation();
   const renewal   = location.state || {};
 
+  const todayStr = toLocalDateStr(new Date());
+
   // Member search
   const [members, setMembers] = useState([]);
   const [blockEntries, setBlockEntries] = useState([]);
@@ -750,9 +741,18 @@ const AddPayment = () => {
   const [customPkgName, setCustomPkgName] = useState('');
   const [durationType, setDurationType] = useState('months'); // months | custom
   const [durationMonths, setDurationMonths] = useState(1);
+  const [startDate, setStartDate] = useState(todayStr);
+  const [endDate, setEndDate] = useState(addCalendarMonths(todayStr, 1));
+  const [isStartDateModified, setIsStartDateModified] = useState(false);
+  const [membershipInfo, setMembershipInfo] = useState({
+    hasActive: false,
+    remainingDays: 0,
+    endDate: null,
+    suggestedStart: todayStr,
+  });
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
-  const [issuedDate, setIssuedDate] = useState(toLocalDateStr(new Date()));
+  const [issuedDate, setIssuedDate] = useState(todayStr);
 
   // Payment
   const [amount, setAmount] = useState('');
@@ -773,25 +773,65 @@ const AddPayment = () => {
     fetchMembers();
   }, []);
 
+  const updateMembershipAndDates = async (member, months = durationMonths) => {
+    const effectiveMonths = Number(months) || 1;
+    if (!member) {
+      const fallbackInfo = {
+        hasActive: false,
+        remainingDays: 0,
+        endDate: null,
+        suggestedStart: todayStr,
+      };
+      setMembershipInfo(fallbackInfo);
+      setStartDate(todayStr);
+      setIsStartDateModified(false);
+      setEndDate(addCalendarMonths(todayStr, effectiveMonths));
+      setCustomStart(todayStr);
+      return;
+    }
+
+    let payments = [];
+    try {
+      const res = await CustomBaseUrl.get(`/reg-payments/member/${member._id}`);
+      payments = res.data?.payments || [];
+    } catch (e) {
+      // Fallback to member.endDate
+    }
+
+    const info = getMemberRemainingMembership(member, payments);
+    setMembershipInfo(info);
+
+    const targetStart = info.hasActive ? info.suggestedStart : todayStr;
+    setStartDate(targetStart);
+    setIsStartDateModified(false);
+    setEndDate(addCalendarMonths(targetStart, effectiveMonths));
+    setCustomStart(targetStart);
+  };
+
   // Pre-fill from renewal state after members list loads
   useEffect(() => {
     if (!renewal.renewMember) return;
     const m = renewal.renewMember;
     setSelectedMember(m);
     setSearch(m.name);
+    let initialMonths = 1;
     if (renewal.renewPackage) {
       setSelectedPkg(renewal.renewPackage);
       if (renewal.renewPackage === 'custom') {
+        setDurationType('custom');
         setCustomPkgName(renewal.renewPkgLabel || '');
+      } else {
+        setDurationType('months');
       }
     }
     if (renewal.renewMonths) {
-      setDurationType('months');
       setDurationMonths(renewal.renewMonths);
+      initialMonths = renewal.renewMonths;
     }
     if (renewal.renewAmount) {
       setAmount(String(renewal.renewAmount));
     }
+    updateMembershipAndDates(m, initialMonths);
   // eslint-disable-next-line
   }, []);
 
@@ -816,39 +856,67 @@ const AddPayment = () => {
     setSelectedMember(m);
     setSearch(m.name);
     setShowDropdown(false);
+    updateMembershipAndDates(m, durationMonths);
   };
 
   const clearMember = () => {
     setSelectedMember(null);
     setSearch('');
+    updateMembershipAndDates(null, durationMonths);
   };
 
-  // When package selected, auto-fill amount
+  // When package selected, auto-fill amount and recalculate end date
   const handlePkgSelect = (pkg) => {
     setSelectedPkg(pkg.id);
     if (pkg.id !== 'custom') {
+      setDurationType('months');
+      const months = pkg.months || 1;
+      setDurationMonths(months);
       setAmount(String(pkg.price));
-      if (pkg.months > 0) {
-        setDurationType('months');
-        setDurationMonths(pkg.months);
-      }
+      const activeStart = startDate || (membershipInfo.hasActive ? membershipInfo.suggestedStart : todayStr);
+      setEndDate(addCalendarMonths(activeStart, months));
     } else {
+      setDurationType('custom');
       setAmount('');
+      if (!customStart) {
+        setCustomStart(startDate || (membershipInfo.hasActive ? membershipInfo.suggestedStart : todayStr));
+      }
     }
+  };
+
+  const handleDurationChange = (m) => {
+    setDurationMonths(m);
+    const activeStart = startDate || (membershipInfo.hasActive ? membershipInfo.suggestedStart : todayStr);
+    setEndDate(addCalendarMonths(activeStart, m));
+  };
+
+  const handleStartDateChange = (newDateStr) => {
+    setStartDate(newDateStr);
+    setIsStartDateModified(true);
+    if (newDateStr) {
+      setEndDate(addCalendarMonths(newDateStr, durationMonths));
+    } else {
+      setEndDate('');
+    }
+  };
+
+  const resetToSuggestedDate = () => {
+    const suggested = membershipInfo.hasActive ? membershipInfo.suggestedStart : todayStr;
+    setStartDate(suggested);
+    setIsStartDateModified(false);
+    setEndDate(addCalendarMonths(suggested, durationMonths));
   };
 
   // Compute dates
   const getDateRange = () => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    if (durationType === 'custom') {
+    if (selectedPkg === 'custom') {
       return { startDate: customStart, endDate: customEnd };
     }
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + durationMonths);
+    const finalStart = startDate || (membershipInfo.hasActive ? membershipInfo.suggestedStart : todayStr);
+    const finalEnd   = endDate   || addCalendarMonths(finalStart, durationMonths);
     return {
-      startDate: toLocalDateStr(start),
-      endDate: toLocalDateStr(end),
+      startDate: finalStart,
+      endDate:   finalEnd,
     };
   };
 
@@ -862,12 +930,15 @@ const AddPayment = () => {
     if (!selectedPkg) return alert('Please select a package');
     if (!amount || parseFloat(amount) <= 0) return alert('Please enter amount');
     if (selectedPkg === 'custom' && !customPkgName) return alert('Enter custom package name');
-    if (durationType === 'custom' && (!customStart || !customEnd)) return alert('Select date range');
+    if (selectedPkg === 'custom' && (!customStart || !customEnd)) return alert('Select date range');
+    if (selectedPkg === 'custom' && new Date(customEnd) <= new Date(customStart)) return alert('End date must be after start date');
+    if (selectedPkg !== 'custom' && (!startDate || !endDate)) return alert('Start date and end date are required');
+    if (selectedPkg !== 'custom' && new Date(endDate) <= new Date(startDate)) return alert('End date must be after start date');
     if (paymentType === 'partly' && !nextDueDate) return alert('Please select the next due date');
 
     setLoading(true);
     try {
-      const { startDate, endDate } = getDateRange();
+      const { startDate: finalStartDate, endDate: finalEndDate } = getDateRange();
       const pkgLabel = selectedPkg === 'custom'
         ? customPkgName
         : PRESET_PACKAGES.find(p => p.id === selectedPkg)?.label;
@@ -884,18 +955,18 @@ const AddPayment = () => {
         discount:       parseFloat(discount) || 0,
         finalAmount:    totalAftDiscount,
         paymentType,                    // 'full' | 'partly'
-        isRenewal,
+        isRenewal:      isRenewal || membershipInfo.hasActive,
         advanceAmount:  advPaid,        // amount paid now
         balanceAmount:  balAmt,         // remaining due
         nextDueDate:    paymentType === 'partly' ? nextDueDate : null,
         paymentMode:    paymentMethod,
-        startDate,
-        endDate,
+        startDate:      finalStartDate,
+        endDate:        finalEndDate,
         issuedDate,
-        renewalDate: new Date().toISOString(),
-        duration: durationType === 'months' ? Number(durationMonths) : null,
-        paymentStatus: 'completed',
-        pdfUrl: '',
+        renewalDate:    new Date().toISOString(),
+        duration:       selectedPkg === 'custom' ? null : Number(durationMonths),
+        paymentStatus:  'completed',
+        pdfUrl:         '',
       };
 
       const res = await CustomBaseUrl.post(`/reg-payments`, payload);
@@ -921,8 +992,8 @@ const AddPayment = () => {
         advanceAmount: advPaid,
         balanceAmount: balAmt,
         paymentMethod,
-        startDate,
-        endDate,
+        startDate: finalStartDate,
+        endDate: finalEndDate,
         issuedDate,
         invoiceNo,
         savedPaymentId: res.data.payment._id,
@@ -1059,58 +1130,159 @@ const AddPayment = () => {
             />
           )}
 
-          {/* Duration */}
+          {/* Duration & Dates */}
           {selectedPkg && (
-            <div className="mt-4">
-              <p className="text-xs font-semibold text-slate-500 mb-2">Duration</p>
-              <div className="flex gap-2 mb-3">
-                <button
-                  onClick={() => setDurationType('months')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${durationType === 'months' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-600 border-slate-200'}`}
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setDurationType('custom')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${durationType === 'custom' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-600 border-slate-200'}`}
-                >
-                  Custom Range
-                </button>
-              </div>
+            <div className="mt-4 space-y-4">
+              {selectedPkg !== 'custom' ? (
+                <>
+                  {/* Duration (Months) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-slate-500">Duration (Months)</p>
+                      <span className="text-xs font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-md border border-red-100">
+                        {durationMonths} Month{durationMonths > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
+                      {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => handleDurationChange(m)}
+                          className={`py-2 rounded-lg text-xs font-bold border transition ${
+                            durationMonths === m
+                              ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-red-300 hover:bg-slate-100'
+                          }`}
+                        >
+                          {m}mo
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {durationType === 'months' ? (
-                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
-                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
-                    <button
-                      key={m}
-                      onClick={() => setDurationMonths(m)}
-                      className={`py-2 rounded-lg text-xs font-bold border transition ${
-                        durationMonths === m ? 'bg-red-600 text-white border-red-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-red-300'
-                      }`}
-                    >
-                      {m}mo
-                    </button>
-                  ))}
-                </div>
+                  {/* Start Date & Auto End Date */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {/* Start Date */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                          <Calendar size={13} className="text-red-500" /> Start Date
+                        </label>
+                        {isStartDateModified && (
+                          <span className="text-[10px] text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                            Modified
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={e => handleStartDateChange(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
+                      />
+                    </div>
+
+                    {/* Calculated End Date */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                          <Calendar size={13} className="text-emerald-500" /> End Date
+                        </label>
+                        <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Auto-calculated
+                        </span>
+                      </div>
+                      <div className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 bg-slate-50 flex items-center justify-between">
+                        <span>{endDate ? formatDisplayDate(endDate) : '—'}</span>
+                        <span className="text-xs font-medium text-slate-400">
+                          +{durationMonths}mo
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Distinguished notification when effective start date differs from today */}
+                  {membershipInfo.hasActive && membershipInfo.suggestedStart !== todayStr && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1.5">
+                      <div className="flex items-center justify-between flex-wrap gap-1 font-semibold">
+                        <span className="flex items-center gap-1.5 text-amber-800 font-bold">
+                          <Clock size={14} className="text-amber-600" />
+                          Existing Membership Active · {membershipInfo.remainingDays} day{membershipInfo.remainingDays === 1 ? '' : 's'} remaining
+                        </span>
+                        <span className="text-[11px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-medium">
+                          Today: {formatDisplayDate(todayStr)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        Package automatically starts on <strong>{formatDisplayDate(membershipInfo.suggestedStart)}</strong> (day after current plan ends on {formatDisplayDate(membershipInfo.endDate)}).
+                      </p>
+                      {isStartDateModified ? (
+                        <div className="pt-1 flex items-center gap-2">
+                          <span className="text-[11px] text-amber-700 font-medium">Start Date was manually adjusted.</span>
+                          <button
+                            type="button"
+                            onClick={resetToSuggestedDate}
+                            className="text-[11px] font-bold text-red-600 hover:text-red-700 underline"
+                          >
+                            Reset to suggested date ({formatDisplayDate(membershipInfo.suggestedStart)})
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-amber-600 italic">
+                          You can manually modify the Start Date above if you wish to begin on a different date.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {!membershipInfo.hasActive && (
+                    <p className="text-[11px] text-slate-400">
+                      Start Date defaults to today ({formatDisplayDate(todayStr)}). End Date is calculated automatically.
+                    </p>
+                  )}
+                </>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-slate-500 mb-1 block">From</label>
-                    <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+                /* Custom Package: manual From/To date range */
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-slate-500">Custom Date Range</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-500 mb-1 block">From Date</label>
+                      <input
+                        type="date"
+                        value={customStart}
+                        onChange={e => setCustomStart(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 mb-1 block">To Date</label>
+                      <input
+                        type="date"
+                        value={customEnd}
+                        onChange={e => setCustomEnd(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-slate-500 mb-1 block">To</label>
-                    <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
-                  </div>
+                  {membershipInfo.hasActive && (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                      Member has {membershipInfo.remainingDays} days remaining (expires {formatDisplayDate(membershipInfo.endDate)}). Suggested From Date: {formatDisplayDate(membershipInfo.suggestedStart)}.
+                    </p>
+                  )}
                 </div>
               )}
 
-              <div className="mt-4">
+              {/* Issued Date */}
+              <div className="pt-2 border-t border-slate-100">
                 <label className="text-xs text-slate-500 mb-1 block">Issued Date</label>
-                <input type="date" value={issuedDate} onChange={e => setIssuedDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+                <input
+                  type="date"
+                  value={issuedDate}
+                  onChange={e => setIssuedDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                />
               </div>
             </div>
           )}
