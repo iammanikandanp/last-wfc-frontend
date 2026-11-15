@@ -30,7 +30,8 @@ import {
 
 import { getMemberWhatsAppMessage, getPaymentPendingWhatsAppMessage, getCafeteriaPendingWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from '../utils/whatsappUtils';
 
-const getMemberStatus = (endDate) => {
+const getMemberStatus = (endDate, member = null) => {
+  if (member?.isOnHold || member?.status === "hold") return "hold";
   if (!endDate) return "expired";
   const diff = Math.ceil((new Date(endDate) - new Date()) / 86400000);
   if (diff < 0) return "expired";
@@ -1768,13 +1769,13 @@ const AdminDashboard = () => {
   };
 
   const activeM = members.filter(
-    (m) => getMemberStatus(m.endDate) === "active",
+    (m) => getMemberStatus(m.endDate, m) === "active",
   );
   const expiringM = members.filter(
-    (m) => getMemberStatus(m.endDate) === "expiring",
+    (m) => getMemberStatus(m.endDate, m) === "expiring",
   );
   const expiredM = members.filter(
-    (m) => getMemberStatus(m.endDate) === "expired",
+    (m) => getMemberStatus(m.endDate, m) === "expired",
   );
   const memberPendingMap = {};
   payments.forEach(p => {
@@ -1814,12 +1815,13 @@ const AdminDashboard = () => {
   }
 
   const tMA = members.filter(
-    (m) => isThisMonth(m.startDate) && getMemberStatus(m.endDate) === "active",
+    (m) => isThisMonth(m.startDate) && getMemberStatus(m.endDate, m) === "active",
   ).length;
   const newThisMonth = members.filter((m) => isThisMonth(m.createdAt)).length;
 
   const autoReminders = [];
   const crit = members.filter((m) => {
+    if (m.isOnHold || m.status === 'hold') return false;
     const d = Math.ceil((new Date(m.endDate) - new Date()) / 86400000);
     return d >= 0 && d <= 3;
   });

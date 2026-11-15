@@ -219,6 +219,7 @@ export default function Cafeteria() {
     try {
       const res = await CustomBaseUrl.get('/fetch');
       const active = (res.data?.data || []).filter((member) => {
+        if (member?.isOnHold || member?.status === 'hold') return false;
         if (!member?.endDate) return false;
         const diff = Math.ceil((new Date(member.endDate) - new Date()) / (1000 * 60 * 60 * 24));
         return member.status !== 'blocked' && diff > 0;

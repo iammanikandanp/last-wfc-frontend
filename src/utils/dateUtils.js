@@ -102,8 +102,19 @@ export const getMemberRemainingMembership = (member, payments = [], referenceDat
   if (!member) {
     return {
       hasActive: false,
+      isOnHold: false,
       remainingDays: 0,
       endDate: null,
+      suggestedStart: todayStr,
+    };
+  }
+
+  if (member.isOnHold || member.status === 'hold') {
+    return {
+      hasActive: false,
+      isOnHold: true,
+      remainingDays: member.frozenRemainingDays || 0,
+      endDate: member.endDate ? toLocalDateStr(member.endDate) : null,
       suggestedStart: todayStr,
     };
   }

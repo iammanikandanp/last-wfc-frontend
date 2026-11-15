@@ -14,7 +14,7 @@ import {
 import {
   Search, X, ChevronDown, Calendar, CreditCard, Smartphone,
   Banknote, Tag, Check, FileText, MessageCircle, Download,
-  ArrowLeft, User, Clock, Zap, Star, Gift, Plus, Loader, Mail, RefreshCw
+  ArrowLeft, User, Clock, Zap, Star, Gift, Plus, Loader, Mail, RefreshCw, Pause
 } from 'lucide-react';
 
 // ─── Preset packages ────────────────────────────────────────────────────────
@@ -1090,6 +1090,18 @@ const AddPayment = () => {
                 <p className="text-xs text-slate-500">{selectedMember.phone} · Age {selectedMember.age}</p>
               </div>
               <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full">Selected</span>
+            </div>
+          )}
+
+          {selectedMember && (selectedMember.isOnHold || selectedMember.status === 'hold') && (
+            <div className="mt-2.5 flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 text-xs text-blue-800">
+              <Pause size={14} className="text-blue-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-bold text-blue-900">Member package is currently ON HOLD</p>
+                <p className="text-[11px] text-blue-700 mt-0.5">
+                  Remaining membership days ({selectedMember.frozenRemainingDays ?? 0} days) are frozen. Auto-resume date: {selectedMember.scheduledResumeDate ? new Date(selectedMember.scheduledResumeDate).toLocaleDateString('en-IN') : 'within 30 days'}. Adding a package will schedule it after the current held package period.
+                </p>
+              </div>
             </div>
           )}
         </div>

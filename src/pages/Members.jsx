@@ -7,7 +7,7 @@ import {
   Plus, Search, X, User,
   AlertCircle, CheckCircle, Clock, XCircle, Eye, Edit3, Trash2,
   ChevronLeft, ChevronRight, Upload, FileText, Loader2, RefreshCw, Phone,
-  Shield, ShieldOff, CreditCard, MessageCircle
+  Shield, ShieldOff, CreditCard, MessageCircle, Pause
 } from 'lucide-react';
 
 import { getMemberWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from '../utils/whatsappUtils';
@@ -465,7 +465,16 @@ const RenewModal = ({ member, onClose }) => {
 
 // ── Member status helpers ─────────────────────────────────────────────────────
 
-const getMembershipStatus = (endDate) => {
+const getMembershipStatus = (endDate, member = null) => {
+  if (member?.isOnHold || member?.status === 'hold') {
+    const days = member.frozenRemainingDays ?? 0;
+    return {
+      label: `On Hold (${days}d frozen)`,
+      color: 'bg-blue-100 text-blue-700',
+      dot: 'bg-blue-500',
+      icon: Pause
+    };
+  }
   if (!endDate) return { label: 'Unknown', color: 'bg-slate-100 text-slate-500', dot: 'bg-slate-400', icon: AlertCircle };
   const diffDays = Math.ceil((new Date(endDate) - new Date()) / (1000 * 60 * 60 * 24));
   if (diffDays < 0)  return { label: 'Expired',             color: 'bg-red-100 text-red-700',     dot: 'bg-red-500',     icon: XCircle };
@@ -486,7 +495,7 @@ const Avatar = ({ src, name, size = 'md' }) => {
 
 const MemberCard = ({ member, onEdit, onDelete, onRenew, isBlocked, onToggleBlock }) => {
   const navigate = useNavigate();
-  const status = getMembershipStatus(member.endDate);
+  const status = getMembershipStatus(member.endDate, member);
   const StatusIcon = status.icon;
   const [showPhoto, setShowPhoto] = useState(false);
   const hasPhoto = !!member.images?.profileImage;
@@ -696,6 +705,7 @@ const Members = () => {
   };
 
   const getStatus = (m) => {
+    if (m?.isOnHold || m?.status === 'hold') return 'hold';
     const diff = Math.ceil((new Date(m.endDate) - new Date()) / 86400000);
     if (diff < 0)  return 'expired';
     if (diff <= 7) return 'expiring';
@@ -775,6 +785,7 @@ const Members = () => {
   const counts = {
     all:      members.length,
     active:   members.filter(m => m.status !== 'blocked' && getStatus(m) === 'active').length,
+    hold:     members.filter(m => m.status !== 'blocked' && getStatus(m) === 'hold').length,
     top10:    members.filter(m => m.status !== 'blocked' && m.isTop10).length,
     expiring: members.filter(m => m.status !== 'blocked' && getStatus(m) === 'expiring').length,
     expired:  members.filter(m => m.status !== 'blocked' && getStatus(m) === 'expired').length,
@@ -819,6 +830,7 @@ const Members = () => {
           {[
             { key:'all',      label:'All',      color:'text-slate-700'  },
             { key:'active',   label:'Active',   color:'text-emerald-600'},
+            { key:'hold',     label:'On Hold',  color:'text-blue-600'   },
             { key:'top10',    label:'Top 10',   color:'text-amber-500'  },
             { key:'expiring', label:'Expiring', color:'text-amber-600'  },
             { key:'expired',  label:'Expired',  color:'text-red-600'    },

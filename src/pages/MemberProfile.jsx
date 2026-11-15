@@ -8,6 +8,7 @@ import {
   Phone, Mail, MapPin, User, RefreshCw, Download,
   Flame, Droplets, Target, Dumbbell, Sun, Moon,
   ChevronDown, ChevronUp, Trash2, ExternalLink, ShieldOff, Star,
+  Pause, Play, AlertCircle, Clock, History
 } from 'lucide-react';
 
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday'];
@@ -128,12 +129,21 @@ const downloadWorkoutTemplate = () => downloadCSV(WORKOUT_HEADERS, [
 ], 'workout_plan_template.csv');
 
 // ── Status helper ─────────────────────────────────────────────────────────────
-const getStatus = (endDate) => {
-  if (!endDate) return { label:'Unknown', color:'bg-slate-100 text-slate-500', dot:'bg-slate-400' };
+const getStatus = (endDate, member = null) => {
+  if (member?.isOnHold || member?.status === 'hold') {
+    const days = member.frozenRemainingDays ?? 0;
+    return {
+      key: 'hold',
+      label: `On Hold (${days}d frozen)`,
+      color: 'bg-blue-100 text-blue-700 border border-blue-200',
+      dot: 'bg-blue-500'
+    };
+  }
+  if (!endDate) return { key:'unknown', label:'Unknown', color:'bg-slate-100 text-slate-500', dot:'bg-slate-400' };
   const diff = Math.ceil((new Date(endDate) - new Date()) / 86400000);
-  if (diff < 0)  return { label:'Expired',      color:'bg-red-100 text-red-700',     dot:'bg-red-500' };
-  if (diff <= 7) return { label:`${diff}d left`, color:'bg-amber-100 text-amber-700', dot:'bg-amber-500' };
-  return            { label:'Active',        color:'bg-emerald-100 text-emerald-700', dot:'bg-emerald-500' };
+  if (diff < 0)  return { key:'expired', label:'Expired',      color:'bg-red-100 text-red-700',     dot:'bg-red-500' };
+  if (diff <= 7) return { key:'expiring', label:`${diff}d left`, color:'bg-amber-100 text-amber-700', dot:'bg-amber-500' };
+  return            { key:'active', label:'Active',        color:'bg-emerald-100 text-emerald-700', dot:'bg-emerald-500' };
 };
 
 // ── Ring chart ────────────────────────────────────────────────────────────────
@@ -1301,6 +1311,13 @@ const MemberProfile = () => {
   const [cafeteriaData, setCafeteriaData] = useState(null);
   const [showCafeteriaHistory, setShowCafeteriaHistory] = useState(false);
 
+  // States for Membership Hold / Unhold
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [showUnholdModal, setShowUnholdModal] = useState(false);
+  const [showHoldHistoryModal, setShowHoldHistoryModal] = useState(false);
+  const [holdReason, setHoldReason] = useState('');
+  const [holdSubmitting, setHoldSubmitting] = useState(false);
+
   useEffect(()=>{ if(id) fetchAll(); },[id]);
 
   // ── Auto-sync a plan from its saved Google Sheet link ──────────────────────
@@ -1583,7 +1600,7 @@ const MemberProfile = () => {
   if(loading) return <div className="min-h-screen bg-slate-300 "><Navbar/><div className="flex items-center justify-center py-24"><RefreshCw size={24} className="animate-spin text-slate-300"/></div></div>;
   if(!member) return <div className="min-h-screen bg-slate-300 "><Navbar/><div className="text-center py-24 text-slate-400"><User size={40} className="mx-auto mb-3 opacity-30"/><p>Member not found</p><button onClick={()=>navigate('/members')} className="mt-4 text-red-600 underline text-sm">← Back</button></div></div>;
 
-  const status = getStatus(member.endDate);
+  const status = getStatus(member.endDate, member);
   const bmi    = parseFloat(member.bmi)||0;
   const bmiCat = bmi<18.5?'Underweight':bmi<25?'Normal':bmi<30?'Overweight':'Obese';
   const bmiClr = bmi<18.5?'text-blue-600':bmi<25?'text-emerald-600':bmi<30?'text-amber-600':'text-red-600';
@@ -1656,6 +1673,41 @@ const MemberProfile = () => {
     }
   };
 
+  const handleHoldConfirm = async () => {
+    try {
+      setHoldSubmitting(true);
+      const res = await CustomBaseUrl.post(`/members/${id}/hold`, { reason: holdReason });
+      if (res.data?.success) {
+        setShowHoldModal(false);
+        setHoldReason('');
+        await fetchAll();
+      } else {
+        alert(res.data?.message || 'Failed to place member on hold');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Error holding member');
+    } finally {
+      setHoldSubmitting(false);
+    }
+  };
+
+  const handleUnholdConfirm = async () => {
+    try {
+      setHoldSubmitting(true);
+      const res = await CustomBaseUrl.post(`/members/${id}/unhold`);
+      if (res.data?.success) {
+        setShowUnholdModal(false);
+        await fetchAll();
+      } else {
+        alert(res.data?.message || 'Failed to resume membership');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Error unholding member');
+    } finally {
+      setHoldSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-300 ">
       <Navbar/>
@@ -1671,22 +1723,49 @@ const MemberProfile = () => {
             <div />
           )}
 
-          {loggedInUser?.role !== 'member' ? (
-            <button onClick={()=>navigate('/register',{state:{editData:member}})}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition">
-              <Edit3 size={13}/> Edit Member
-            </button>
-          ) : (
-            <button onClick={() => {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                window.location.href = "/login";
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm font-bold hover:bg-red-100 hover:text-red-700 transition shadow-sm"
-            >
-              Logout
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {loggedInUser?.role === 'admin' && (
+              member.isOnHold ? (
+                <button
+                  onClick={() => setShowUnholdModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 active:scale-95 transition shadow-sm"
+                  title="Resume membership package"
+                >
+                  <Play size={13} className="fill-current" /> Unhold Member
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowHoldModal(true)}
+                  disabled={status.key === 'expired' || !member.endDate}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm active:scale-95 ${
+                    status.key === 'expired' || !member.endDate
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-amber-600 text-white hover:bg-amber-700'
+                  }`}
+                  title={status.key === 'expired' ? 'Cannot hold expired membership' : 'Put current package on hold'}
+                >
+                  <Pause size={13} className="fill-current" /> Hold Member
+                </button>
+              )
+            )}
+
+            {loggedInUser?.role !== 'member' ? (
+              <button onClick={()=>navigate('/register',{state:{editData:member}})}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition">
+                <Edit3 size={13}/> Edit Member
+              </button>
+            ) : (
+              <button onClick={() => {
+                  localStorage.removeItem("token");
+                  localStorage.removeItem("user");
+                  window.location.href = "/login";
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm font-bold hover:bg-red-100 hover:text-red-700 transition shadow-sm"
+              >
+                Logout
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── Member Profile Header ── */}
@@ -1738,6 +1817,53 @@ const MemberProfile = () => {
           </div>
         </div>
 
+        {/* ── Hold Alert Banner ── */}
+        {member.isOnHold && (
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 sm:p-5 text-white shadow-md mb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+                <Pause size={20} className="fill-current text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-base sm:text-lg">Membership Package is On Hold</h3>
+                  <span className="text-[10px] uppercase font-extrabold tracking-wider bg-white/20 px-2 py-0.5 rounded-full">Frozen</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-blue-100 mt-1">
+                  <span>Hold Start: <strong className="text-white">{member.holdStartDate ? new Date(member.holdStartDate).toLocaleDateString('en-IN') : '—'}</strong></span>
+                  <span>·</span>
+                  <span>Auto-Resume Date: <strong className="text-white">{member.scheduledResumeDate ? new Date(member.scheduledResumeDate).toLocaleDateString('en-IN') : '—'}</strong></span>
+                  <span>·</span>
+                  <span>Frozen Days: <strong className="text-white">{member.frozenRemainingDays ?? 0} days</strong></span>
+                </div>
+                {member.holdReason && (
+                  <p className="text-xs text-blue-100 mt-1 italic">
+                    Reason: "{member.holdReason}"
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+              {member.holdHistory && member.holdHistory.length > 0 && (
+                <button
+                  onClick={() => setShowHoldHistoryModal(true)}
+                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold backdrop-blur-sm transition flex items-center gap-1.5"
+                >
+                  <History size={12} /> Past Holds ({member.holdHistory.length})
+                </button>
+              )}
+              {loggedInUser?.role === 'admin' && (
+                <button
+                  onClick={() => setShowUnholdModal(true)}
+                  className="px-4 py-2 bg-white text-blue-700 hover:bg-blue-50 rounded-xl text-xs sm:text-sm font-bold shadow transition flex items-center gap-1.5"
+                >
+                  <Play size={13} className="fill-current" /> Unhold Now
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── Tab Navigation ── */}
         <div className="flex overflow-x-auto gap-2 mb-6 hide-scrollbar pb-1">
           {['Overview', 'Health Records', 'Progress Photos', 'Attendance', 'Workout & Diet', 'Add-ons', 'Payments', 'Cafeteria'].map(tab => (
@@ -1765,12 +1891,35 @@ const MemberProfile = () => {
               {/* Tile: Membership Status (1x1) */}
               <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
                 <div className="mb-4">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Package</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Package</p>
+                    {member.holdHistory?.length > 0 && (
+                      <button
+                        onClick={() => setShowHoldHistoryModal(true)}
+                        className="text-[10px] text-blue-600 hover:underline font-semibold flex items-center gap-1"
+                      >
+                        <History size={10} /> {member.holdHistory.length} hold{member.holdHistory.length > 1 ? 's' : ''}
+                      </button>
+                    )}
+                  </div>
                   <p className="font-black text-slate-800 text-lg leading-tight">{member.packages || 'None'}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">End Date</p>
-                  <p className="font-bold text-slate-800 text-sm">{member.endDate ? new Date(member.endDate).toLocaleDateString('en-IN') : '—'}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                    {member.isOnHold ? 'Status / End Date' : 'End Date'}
+                  </p>
+                  {member.isOnHold ? (
+                    <div>
+                      <p className="font-bold text-blue-600 text-sm flex items-center gap-1">
+                        <Pause size={12} className="fill-current"/> Frozen ({member.frozenRemainingDays ?? 0}d left)
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Resume by: {member.scheduledResumeDate ? new Date(member.scheduledResumeDate).toLocaleDateString('en-IN') : '—'}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="font-bold text-slate-800 text-sm">{member.endDate ? new Date(member.endDate).toLocaleDateString('en-IN') : '—'}</p>
+                  )}
                 </div>
               </div>
 
@@ -2444,6 +2593,34 @@ const MemberProfile = () => {
       {showProgressPhotoUpload && <ProgressPhotoUploadModal onClose={() => setShowProgressPhotoUpload(false)} onUpload={handleProgressPhotoSessionUpload} />}
       {inspectProgressPhoto && <ProgressPhotoInspectModal session={inspectProgressPhoto} onClose={() => setInspectProgressPhoto(null)} onDelete={handleDeleteProgressPhoto} />}
       {inspectMeasurement && <MeasurementDetailsModal record={inspectMeasurement} onClose={() => setInspectMeasurement(null)} />}
+
+      {/* ── Hold / Unhold Modals ── */}
+      {showHoldModal && (
+        <HoldConfirmModal
+          member={member}
+          reason={holdReason}
+          setReason={setHoldReason}
+          onConfirm={handleHoldConfirm}
+          onClose={() => { setShowHoldModal(false); setHoldReason(''); }}
+          loading={holdSubmitting}
+        />
+      )}
+
+      {showUnholdModal && (
+        <UnholdConfirmModal
+          member={member}
+          onConfirm={handleUnholdConfirm}
+          onClose={() => setShowUnholdModal(false)}
+          loading={holdSubmitting}
+        />
+      )}
+
+      {showHoldHistoryModal && (
+        <HoldHistoryModal
+          history={member?.holdHistory || []}
+          onClose={() => setShowHoldHistoryModal(false)}
+        />
+      )}
     </div>
   );
 };
@@ -2611,6 +2788,264 @@ const MeasurementDetailsModal = ({ record, onClose }) => {
         )}
         <div className="p-5 pt-4">
           <button onClick={onClose} className="w-full py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-200">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Hold Confirmation Modal
+// ══════════════════════════════════════════════════════════════════════════════
+const HoldConfirmModal = ({ member, reason, setReason, onConfirm, onClose, loading }) => {
+  const remaining = Math.max(0, Math.ceil((new Date(member?.endDate) - new Date()) / 86400000));
+  const autoResumeDate = new Date();
+  autoResumeDate.setDate(autoResumeDate.getDate() + 30);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={!loading ? onClose : undefined}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-5 py-4 bg-gradient-to-r from-amber-600 to-amber-700 text-white flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+              <Pause size={16} className="fill-current" />
+            </div>
+            <div>
+              <p className="font-bold text-sm">Hold Membership Package</p>
+              <p className="text-xs text-amber-100">{member?.name}</p>
+            </div>
+          </div>
+          {!loading && <button onClick={onClose}><X size={16}/></button>}
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 space-y-2">
+            <p className="font-semibold text-amber-950">Freezing Current Membership:</p>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <span className="text-amber-700">Package:</span>
+                <p className="font-bold text-slate-800">{member?.packages || 'Standard'}</p>
+              </div>
+              <div>
+                <span className="text-amber-700">Frozen Days Remaining:</span>
+                <p className="font-bold text-slate-800">{remaining} days</p>
+              </div>
+              <div>
+                <span className="text-amber-700">Hold Start:</span>
+                <p className="font-bold text-slate-800">{new Date().toLocaleDateString('en-IN')}</p>
+              </div>
+              <div>
+                <span className="text-amber-700">Auto-Resume Date:</span>
+                <p className="font-bold text-slate-800">{autoResumeDate.toLocaleDateString('en-IN')} (max 30d)</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-600 space-y-1">
+            <p className="font-semibold text-slate-700">Important Freeze Details:</p>
+            <ul className="list-disc list-inside space-y-0.5 text-slate-500 text-[11px]">
+              <li>The member's remaining <strong>{remaining} days</strong> will freeze immediately and will not decrement.</li>
+              <li>Maximum hold period is <strong>30 calendar days</strong>.</li>
+              <li>Membership will automatically resume on {autoResumeDate.toLocaleDateString('en-IN')} if not resumed manually before.</li>
+              <li>Upon resumption, the end date is extended by the exact days held.</li>
+            </ul>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
+              Reason for Hold (optional)
+            </label>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder="e.g. Medical recovery, travel, exam leave..."
+              rows="2"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={loading}
+              className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={13} className="animate-spin" /> Freezing...
+                </>
+              ) : (
+                <>
+                  <Pause size={13} className="fill-current" /> Confirm Hold
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Unhold Confirmation Modal
+// ══════════════════════════════════════════════════════════════════════════════
+const UnholdConfirmModal = ({ member, onConfirm, onClose, loading }) => {
+  const holdStart = member?.holdStartDate ? new Date(member.holdStartDate) : new Date();
+  const today = new Date();
+  const holdStartMidnight = new Date(holdStart.getFullYear(), holdStart.getMonth(), holdStart.getDate());
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const daysHeld = Math.max(0, Math.min(30, Math.round((todayMidnight - holdStartMidnight) / 86400000)));
+
+  const origEnd = member?.originalEndDateBeforeHold || member?.endDate;
+  let newEndDate = '—';
+  if (origEnd) {
+    const endD = new Date(origEnd);
+    endD.setDate(endD.getDate() + daysHeld);
+    newEndDate = endD.toLocaleDateString('en-IN');
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={!loading ? onClose : undefined}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-5 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+              <Play size={16} className="fill-current" />
+            </div>
+            <div>
+              <p className="font-bold text-sm">Resume Membership (Unhold)</p>
+              <p className="text-xs text-emerald-100">{member?.name}</p>
+            </div>
+          </div>
+          {!loading && <button onClick={onClose}><X size={16}/></button>}
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 text-xs text-emerald-950 space-y-2">
+            <p className="font-semibold">Resumption & Extension Calculation:</p>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <span className="text-emerald-700">Hold Start:</span>
+                <p className="font-bold text-slate-800">{member?.holdStartDate ? new Date(member.holdStartDate).toLocaleDateString('en-IN') : '—'}</p>
+              </div>
+              <div>
+                <span className="text-emerald-700">Unhold Date (Today):</span>
+                <p className="font-bold text-slate-800">{today.toLocaleDateString('en-IN')}</p>
+              </div>
+              <div>
+                <span className="text-emerald-700">Days Held:</span>
+                <p className="font-bold text-emerald-700">{daysHeld} day(s)</p>
+              </div>
+              <div>
+                <span className="text-emerald-700">Frozen Days Restored:</span>
+                <p className="font-bold text-emerald-700">{member?.frozenRemainingDays ?? 0} days</p>
+              </div>
+              <div>
+                <span className="text-emerald-700">Original End Date:</span>
+                <p className="font-bold text-slate-800">{origEnd ? new Date(origEnd).toLocaleDateString('en-IN') : '—'}</p>
+              </div>
+              <div>
+                <span className="text-emerald-700">New Extended End Date:</span>
+                <p className="font-bold text-emerald-800">{newEndDate}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-600 space-y-1">
+            <p className="font-semibold text-slate-700">What happens on unhold:</p>
+            <ul className="list-disc list-inside space-y-0.5 text-slate-500 text-[11px]">
+              <li>Membership status returns to Active/Expiring immediately.</li>
+              <li>The package end date is extended by exactly <strong>{daysHeld} day(s)</strong>.</li>
+              <li>No new payment or package is created. Existing payment history is untouched.</li>
+            </ul>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={loading}
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={13} className="animate-spin" /> Resuming...
+                </>
+              ) : (
+                <>
+                  <Play size={13} className="fill-current" /> Confirm Unhold
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Hold History Modal
+// ══════════════════════════════════════════════════════════════════════════════
+const HoldHistoryModal = ({ history = [], onClose }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 bg-gradient-to-r from-slate-700 to-slate-900 text-white flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <History size={16} />
+            <p className="font-bold text-sm">Membership Hold History</p>
+          </div>
+          <button onClick={onClose}><X size={16}/></button>
+        </div>
+        <div className="p-5 overflow-y-auto flex-1 space-y-3">
+          {history.length === 0 ? (
+            <p className="text-center text-xs text-slate-400 py-6">No previous hold records found.</p>
+          ) : (
+            history.map((h, i) => (
+              <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800">Hold #{history.length - i}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700">
+                    {h.daysHeld || 0} days held
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-500 pt-1">
+                  <div>Start: <strong className="text-slate-700">{h.holdStartDate ? new Date(h.holdStartDate).toLocaleDateString('en-IN') : '—'}</strong></div>
+                  <div>Ended: <strong className="text-slate-700">{h.actualHoldEndDate ? new Date(h.actualHoldEndDate).toLocaleDateString('en-IN') : '—'}</strong></div>
+                  <div>Resumed By: <span className="capitalize text-slate-700">{h.resumedBy || 'admin'}</span></div>
+                  <div>Days Frozen: <span className="text-slate-700">{h.frozenRemainingDays ?? '—'}</span></div>
+                </div>
+                {h.reason && (
+                  <p className="text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-100 mt-1">
+                    <span className="font-medium text-slate-400">Reason:</span> {h.reason}
+                  </p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+        <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+          <button onClick={onClose} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold hover:bg-slate-700">
+            Close
+          </button>
         </div>
       </div>
     </div>

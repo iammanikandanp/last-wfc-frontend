@@ -278,8 +278,9 @@ export default function Reports() {
   // Member metrics
   const curMembers = filterPeriod(members, 'createdAt', curRange);
   const prvMembers = filterPeriod(members, 'createdAt', prvRange);
-  const activeNow  = members.filter(m => new Date(m.endDate) > NOW).length;
-  const expiredNow = members.length - activeNow;
+  const onHoldNow  = members.filter(m => m.isOnHold || m.status === 'hold').length;
+  const activeNow  = members.filter(m => !m.isOnHold && m.status !== 'hold' && new Date(m.endDate) > NOW).length;
+  const expiredNow = members.filter(m => !m.isOnHold && m.status !== 'hold' && (!m.endDate || new Date(m.endDate) <= NOW)).length;
 
   // Renewal metrics (only isRenewal === true payments)
   const curRenew    = curPay.filter(p => p.isRenewal);
@@ -796,6 +797,7 @@ export default function Reports() {
               <>
                 <Legend items={[
                   { label: `Active (${activeNow})`,  color: C.green  },
+                  { label: `On Hold (${onHoldNow})`, color: '#3b82f6' },
                   { label: `Expired (${expiredNow})`, color: C.red   },
                 ]} />
                 <ChartBox
@@ -803,19 +805,20 @@ export default function Reports() {
                   type="doughnut"
                   height={190}
                   isDoughnut
-                  labels={['Active', 'Expired']}
+                  labels={['Active', 'On Hold', 'Expired']}
                   datasets={[{
-                    data: [activeNow, expiredNow],
-                    backgroundColor: [C.green, C.red],
+                    data: [activeNow, onHoldNow, expiredNow],
+                    backgroundColor: [C.green, '#3b82f6', C.red],
                     borderWidth: 3,
                     borderColor: '#fff',
                     hoverOffset: 8,
                   }]}
                 />
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mt-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
                   {[
                     { label: 'Total',       val: members.length,   cl: 'text-slate-800' },
                     { label: 'Active',      val: activeNow,        cl: 'text-emerald-600' },
+                    { label: 'On Hold',     val: onHoldNow,        cl: 'text-blue-600' },
                     { label: 'Expired',     val: expiredNow,       cl: 'text-red-500' },
                   ].map(({ label, val, cl }) => (
                     <div key={label} className="text-center bg-slate-50 rounded-xl py-2.5">
