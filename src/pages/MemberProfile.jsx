@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
+import { EditPaymentModal } from './Payments';
 import {
   ArrowLeft, Edit3, Heart, Activity, Calendar, CreditCard,
   Apple, Upload, X, Check, Scale, Plus,
@@ -1317,6 +1318,7 @@ const MemberProfile = () => {
   const [showHoldHistoryModal, setShowHoldHistoryModal] = useState(false);
   const [holdReason, setHoldReason] = useState('');
   const [holdSubmitting, setHoldSubmitting] = useState(false);
+  const [editPaymentTarget, setEditPaymentTarget] = useState(null);
 
   useEffect(()=>{ if(id) fetchAll(); },[id]);
 
@@ -1903,6 +1905,9 @@ const MemberProfile = () => {
                     )}
                   </div>
                   <p className="font-black text-slate-800 text-lg leading-tight">{member.packages || 'None'}</p>
+                  {member.duration && (
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">Duration: {member.duration}</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
@@ -2341,6 +2346,9 @@ const MemberProfile = () => {
                         <th className="pb-3 px-4">Valid Period</th>
                         <th className="pb-3 px-4 text-right">Amount</th>
                         <th className="pb-3 px-4 text-right">Status</th>
+                        {loggedInUser?.role === 'admin' && (
+                          <th className="pb-3 px-4 text-right">Actions</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="text-sm font-medium">
@@ -2366,6 +2374,17 @@ const MemberProfile = () => {
                               <span className="text-emerald-500 font-bold">Paid</span>
                             )}
                           </td>
+                          {loggedInUser?.role === 'admin' && (
+                            <td className="py-4 px-4 text-right">
+                              <button
+                                onClick={() => setEditPaymentTarget(p)}
+                                className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition inline-flex items-center gap-1 text-xs font-semibold"
+                                title="Edit payment & dates"
+                              >
+                                <Edit3 size={12} /> Edit
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -2619,6 +2638,14 @@ const MemberProfile = () => {
         <HoldHistoryModal
           history={member?.holdHistory || []}
           onClose={() => setShowHoldHistoryModal(false)}
+        />
+      )}
+
+      {editPaymentTarget && (
+        <EditPaymentModal
+          payment={editPaymentTarget}
+          onSave={fetchAll}
+          onClose={() => setEditPaymentTarget(null)}
         />
       )}
     </div>

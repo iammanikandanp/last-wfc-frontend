@@ -166,3 +166,111 @@ export const getMemberRemainingMembership = (member, payments = [], referenceDat
   };
 };
 
+/**
+ * Calculates effective membership duration from start and end dates.
+ */
+export const calculateDurationFromDates = (startDateInput, endDateInput) => {
+  const start = parseLocalDate(startDateInput);
+  const end = parseLocalDate(endDateInput);
+  if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+    return {
+      months: 0,
+      days: 0,
+      durationStr: "0 Months",
+      durationNumber: 0,
+    };
+  }
+
+  const startStr = toLocalDateStr(start);
+  const endStr = toLocalDateStr(end);
+
+  const diffMs = end.getTime() - start.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  // 1. Check exact calendar months match using addCalendarMonths
+  const rawMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  let matchedMonths = null;
+
+  for (let m = Math.max(1, rawMonths - 1); m <= rawMonths + 2; m++) {
+    if (addCalendarMonths(startStr, m) === endStr) {
+      matchedMonths = m;
+      break;
+    }
+  }
+
+  // 2. If not exact day match, check within 1 day (e.g. month-end variations or leap years)
+  if (matchedMonths === null) {
+    for (let m = Math.max(1, rawMonths - 1); m <= rawMonths + 2; m++) {
+      const targetStr = addCalendarMonths(startStr, m);
+      const target = parseLocalDate(targetStr);
+      if (target) {
+        const dDiff = Math.abs(Math.round((end.getTime() - target.getTime()) / (1000 * 60 * 60 * 24)));
+        if (dDiff <= 1) {
+          matchedMonths = m;
+          break;
+        }
+      }
+    }
+  }
+
+  // 3. Approximate based on average calendar month length (30.4375)
+  if (matchedMonths === null && diffDays >= 25) {
+    const approx = Math.round(diffDays / 30.4375);
+    if (approx >= 1 && Math.abs(diffDays - Math.round(approx * 30.4375)) <= 3) {
+      matchedMonths = approx;
+    }
+  }
+
+  if (matchedMonths !== null && matchedMonths > 0) {
+    return {
+      months: matchedMonths,
+      days: diffDays,
+      durationStr: `${matchedMonths} Month${matchedMonths !== 1 ? "s" : ""}`,
+      durationNumber: matchedMonths,
+    };
+  }
+
+  return {
+    months: 0,
+    days: diffDays,
+    durationStr: `${diffDays} Day${diffDays !== 1 ? "s" : ""}`,
+    durationNumber: Math.max(1, Math.round(diffDays / 30)),
+  };
+};
+
+/**
+ * Automatically adjusts package name when duration changes.
+ */
+export const recalculatePackageName = (existingPackage, newMonths, newDurationStr) => {
+  const pkg = (existingPackage || "").trim();
+  if (!pkg) return newDurationStr;
+
+  // If the package contains a pattern like "4 Months", "4 Month", "4months", "3 months", etc.
+  if (/\b\d+\s*months?\b/i.test(pkg)) {
+    return pkg.replace(/\b\d+\s*months?\b/i, newDurationStr);
+  }
+
+  // If the package is just a number e.g. "4"
+  if (/^\d+$/.test(pkg)) {
+    return newDurationStr;
+  }
+
+  // If it was a preset package label whose duration was changed:
+  const presetMonths = {
+    basic: 1,
+    standard: 3,
+    premium: 6,
+    offer: 12,
+  };
+  const lower = pkg.toLowerCase();
+  if (presetMonths[lower] !== undefined) {
+    if (newMonths === 1) return "Basic";
+    if (newMonths === 3) return "Standard";
+    if (newMonths === 6) return "Premium";
+    if (newMonths === 12) return "Offer";
+    return `${pkg} (${newDurationStr})`;
+  }
+
+  return pkg;
+};
+

@@ -9,6 +9,7 @@ import {
   FileText, Loader, Ban, DollarSign, UserX, ShieldOff, Unlock, FileSpreadsheet, MessageCircle
 } from 'lucide-react';
 
+import { calculateDurationFromDates, recalculatePackageName } from '../utils/dateUtils.js';
 import { getPaymentPendingWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from '../utils/whatsappUtils';
 
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
@@ -757,7 +758,7 @@ const PaymentField = ({ label, name, type = 'text', options, form, onChange }) =
 );
 
 // ── Edit Payment Modal ─────────────────────────────────────────────────────────
-const EditPaymentModal = ({ payment, onSave, onClose }) => {
+export const EditPaymentModal = ({ payment, onSave, onClose }) => {
   const [saving, setSaving] = useState(false);
   const [errMsg, setErrMsg] = useState('');
   const [form, setForm] = useState({
@@ -768,8 +769,12 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
     startDate: payment.startDate?.split('T')[0] || '', endDate: payment.endDate?.split('T')[0] || '',
     dueDate: payment.dueDate?.split('T')[0] || '',
     package: payment.package || '',
+    duration: payment.duration || null,
     nextDueDate: payment.nextDueDate?.split('T')[0] || '',
   });
+
+  // Calculate live duration from current form dates
+  const currentDuration = calculateDurationFromDates(form.startDate, form.endDate);
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -778,13 +783,41 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
       if (name === 'advanceAmount') upd.balanceAmount = Math.max(0, (upd.finalAmount || 0) - parseFloat(value || 0));
       if (name === 'finalAmount') upd.balanceAmount = Math.max(0, parseFloat(value||0) - (upd.advanceAmount||0));
       if (name === 'paymentType' && value === 'full') { upd.advanceAmount = upd.finalAmount; upd.balanceAmount = 0; upd.dueDate = ''; }
+
+      // Auto-recalculate duration and package name when End Date or Start Date changes
+      if (name === 'startDate' || name === 'endDate') {
+        const start = name === 'startDate' ? value : upd.startDate;
+        const end = name === 'endDate' ? value : upd.endDate;
+        if (start && end) {
+          const dur = calculateDurationFromDates(start, end);
+          if (dur.months > 0) {
+            upd.duration = dur.months;
+            upd.package = recalculatePackageName(upd.package || payment.package, dur.months, dur.durationStr);
+          } else if (dur.days > 0) {
+            upd.duration = dur.durationNumber;
+            upd.package = recalculatePackageName(upd.package || payment.package, 0, dur.durationStr);
+          }
+        }
+      }
       return upd;
     });
   };
 
   const handleSave = async () => {
     setSaving(true); setErrMsg('');
-    try { await CustomBaseUrl.put(`/reg-payments/${payment._id}`, form); onSave(); onClose(); }
+    try {
+      const dur = calculateDurationFromDates(form.startDate, form.endDate);
+      const payload = {
+        ...form,
+        duration: dur.durationNumber || form.duration,
+        package: dur.months > 0
+          ? recalculatePackageName(form.package, dur.months, dur.durationStr)
+          : form.package,
+      };
+      await CustomBaseUrl.put(`/reg-payments/${payment._id}`, payload);
+      onSave();
+      onClose();
+    }
     catch(e) { setErrMsg(e.response?.data?.message || e.message || 'Update failed'); }
     finally { setSaving(false); }
   };
@@ -817,6 +850,16 @@ const EditPaymentModal = ({ payment, onSave, onClose }) => {
             <PaymentField label="Start Date" name="startDate" type="date" form={form} onChange={handleChange}/>
             <PaymentField label="End Date" name="endDate" type="date" form={form} onChange={handleChange}/>
           </div>
+          {currentDuration && currentDuration.durationStr && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-3.5 py-2 flex items-center justify-between text-xs">
+              <span className="text-blue-700 font-semibold flex items-center gap-1.5">
+                <Clock size={13} /> Membership Duration:
+              </span>
+              <span className="font-bold text-blue-900 bg-white px-2.5 py-0.5 rounded-lg border border-blue-200 shadow-xs">
+                {currentDuration.durationStr}
+              </span>
+            </div>
+          )}
           <PaymentField label="Package" name="package" form={form} onChange={handleChange}/>
           {errMsg && <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-xs text-red-700">{errMsg}</div>}
         </div>
