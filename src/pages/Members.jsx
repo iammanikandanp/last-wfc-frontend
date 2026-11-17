@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { getMemberWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from '../utils/whatsappUtils';
+import { useImagePreview } from '../context/ImagePreviewContext';
 
 const PER_PAGE = 10;
 
@@ -495,30 +496,36 @@ const Avatar = ({ src, name, size = 'md' }) => {
 
 const MemberCard = ({ member, onEdit, onDelete, onRenew, isBlocked, onToggleBlock }) => {
   const navigate = useNavigate();
+  const { openImagePreview } = useImagePreview();
   const status = getMembershipStatus(member.endDate, member);
   const StatusIcon = status.icon;
-  const [showPhoto, setShowPhoto] = useState(false);
   const hasPhoto = !!member.images?.profileImage;
 
   const waMessage = getMemberWhatsAppMessage(member);
   const isValidPhone = !!formatPhoneNumber(member.phone);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-md hover:border-slate-200 transition-all duration-200 group">
+    <div
+      onClick={() => navigate(`/members/${member._id}`)}
+      className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-md hover:border-slate-200 transition-all duration-200 group cursor-pointer"
+    >
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <div
           className="relative flex-shrink-0 cursor-pointer"
-          onClick={e => { if (hasPhoto) { e.stopPropagation(); setShowPhoto(true); } else navigate(`/members/${member._id}`); }}
+          onClick={e => {
+            e.stopPropagation();
+            if (hasPhoto) {
+              openImagePreview(member.images.profileImage, member.name);
+            } else {
+              navigate(`/members/${member._id}`);
+            }
+          }}
+          title={hasPhoto ? "Click to view full photo" : "View profile"}
         >
           <Avatar src={member.images?.profileImage} name={member.name} />
           <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${status.dot}`} />
         </div>
-        {showPhoto && hasPhoto && (
-          <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={e => { e.stopPropagation(); setShowPhoto(false); }}>
-            <img src={member.images.profileImage} alt={member.name} className="max-w-full max-h-full rounded-2xl" />
-          </div>
-        )}
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/members/${member._id}`)}>
+        <div className="flex-1 min-w-0">
           <p className="font-semibold text-slate-900 truncate group-hover:text-red-600 transition-colors">{member.name}</p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-xs text-slate-500">{member.age} yrs</span>
@@ -549,10 +556,6 @@ const MemberCard = ({ member, onEdit, onDelete, onRenew, isBlocked, onToggleBloc
             <MessageCircle size={14} />
           </button>
         )}
-        <button onClick={() => navigate(`/members/${member._id}`)}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition" title="View profile">
-          <Eye size={14} />
-        </button>
         <button onClick={e => { e.stopPropagation(); onToggleBlock(member); }}
           className={`p-1.5 rounded-lg transition ${isBlocked ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'}`} title={isBlocked ? 'Unblock member' : 'Block member'}>
           {isBlocked ? <ShieldOff size={14} /> : <Shield size={14} />}

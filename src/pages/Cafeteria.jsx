@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
 import toast from 'react-hot-toast';
-import { Plus, Search, Box, Coffee, X, Filter, Calendar, Trash2, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Box, Coffee, X, Filter, Calendar, Trash2, Edit, ChevronLeft, ChevronRight, CreditCard, DollarSign, Wallet } from 'lucide-react';
+import { useImagePreview } from '../context/ImagePreviewContext';
 
 const rupee = (value) => '₹' + Number(value || 0).toLocaleString('en-IN');
 const fmtDate = (value) => value ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -124,6 +125,8 @@ export default function Cafeteria() {
   const [selectedHistoryMember, setSelectedHistoryMember] = useState(null);
   const [selectedHistoryStock, setSelectedHistoryStock] = useState(null);
   const [editingRecord, setEditingRecord] = useState(null);
+  const [quickUpdateCafeteriaTarget, setQuickUpdateCafeteriaTarget] = useState(null);
+  const { openImagePreview } = useImagePreview();
   const [paymentAmount, setPaymentAmount] = useState('');
 
   const [globalTxDate, setGlobalTxDate] = useState(() => {
@@ -280,15 +283,22 @@ export default function Cafeteria() {
   transactions.forEach(tx => {
     const memId = tx.member?._id || tx.member;
     if (!memId) return;
+    const memDoc = members.find(m => String(m._id) === String(memId));
+    const pImg = tx.member?.images?.profileImage || memDoc?.images?.profileImage || null;
+    const pPhone = tx.member?.phone || memDoc?.phone || '';
     if (!memberBalanceMap[memId]) {
       memberBalanceMap[memId] = {
         memberId: memId,
-        memberName: tx.memberName || tx.member?.name || 'Unknown',
+        memberName: tx.memberName || tx.member?.name || memDoc?.name || 'Unknown',
+        memberPhone: pPhone,
+        profileImage: pImg,
         balance: 0,
         unpaidBalance: 0,
         extraBalance: 0,
         history: []
       };
+    } else if (!memberBalanceMap[memId].profileImage && pImg) {
+      memberBalanceMap[memId].profileImage = pImg;
     }
     memberBalanceMap[memId].balance += (tx.paidAmount || 0) - (tx.previousBalanceUsed || 0) - (tx.totalAmount || 0);
     memberBalanceMap[memId].unpaidBalance = Math.max(0, -memberBalanceMap[memId].balance);
@@ -568,6 +578,198 @@ export default function Cafeteria() {
     );
   };
 
+  // ── Quick Cafeteria Payment Modal (collect member balance)
+  const QuickCafeteriaPaymentModal = ({ target, onSave, onClose }) => {
+    const memberName = target?.memberName || 'Member';
+    const currentBalance = Number(target?.unpaidBalance || 0);
+
+    const [amount, setAmount] = useState(currentBalance > 0 ? String(currentBalance) : '');
+    const [paymentMode, setPaymentMode] = useState('Cash');
+    const [paymentDate, setPaymentDate] = useState(() => {
+      const d = new Date();
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      return d.toISOString().split('T')[0];
+    });
+    const [loading, setLoading] = useState(false);
+    const [errMsg, setErrMsg] = useState('');
+
+    const numAmount = Number(amount || 0);
+    const newRemaining = Math.max(0, currentBalance - numAmount);
+
+    const handleUpdate = async (e) => {
+      e.preventDefault();
+      if (numAmount <= 0) {
+        setErrMsg('Please enter a valid payment amount greater than ₹0');
+        return;
+      }
+      if (currentBalance > 0 && numAmount > currentBalance) {
+        setErrMsg(`Amount cannot exceed the remaining balance of ₹${currentBalance.toLocaleString('en-IN')}`);
+        return;
+      }
+
+      setLoading(true);
+      setErrMsg('');
+      try {
+        await CustomBaseUrl.post(`/cafeteria/member-payment/${target.memberId}`, {
+          amount: numAmount,
+          paymentMode,
+          date: paymentDate,
+        });
+        toast.success(`₹${numAmount.toLocaleString('en-IN')} cafeteria payment recorded`);
+        await onSave();
+        onClose();
+      } catch (err) {
+        setErrMsg(err.response?.data?.message || err.message || 'Failed to record cafeteria payment');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()} style={{animation:'su .2s ease'}}>
+          <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-5 py-4 flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              <Wallet size={18} className="text-emerald-400" />
+              <div>
+                <p className="font-bold text-sm">Update Payment</p>
+                <p className="text-[10px] text-slate-300">Clear outstanding cafeteria bill</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/20 transition cursor-pointer">
+              <X size={16} className="opacity-80 hover:opacity-100" />
+            </button>
+          </div>
+
+          <form onSubmit={handleUpdate} className="p-5 space-y-4">
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+              <div className="flex justify-between items-center mb-1">
+                <div className="flex items-center gap-2.5">
+                  {target?.profileImage ? (
+                    <img
+                      src={target.profileImage}
+                      alt={memberName}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openImagePreview(target.profileImage, memberName);
+                      }}
+                      className="w-10 h-10 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-emerald-400 transition flex-shrink-0"
+                      title="Click to view full photo"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 flex-shrink-0">
+                      {memberName ? memberName.charAt(0).toUpperCase() : '?'}
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-bold text-slate-800 text-sm">{memberName}</p>
+                    <p className="text-[10px] text-slate-400">Cafeteria Member</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                  Cafeteria Balance
+                </span>
+              </div>
+              <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200/70">
+                <span className="text-xs text-slate-500 font-semibold">Current Outstanding:</span>
+                <span className="text-sm font-black text-rose-600">₹{currentBalance.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-bold text-slate-700">Amount Being Collected Now (₹)</label>
+                {currentBalance > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAmount(String(currentBalance))}
+                    className="text-[10px] text-emerald-600 hover:text-emerald-700 font-bold hover:underline"
+                  >
+                    Pay Full
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₹</span>
+                <input
+                  type="number"
+                  min="1"
+                  max={currentBalance > 0 ? currentBalance : undefined}
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                  placeholder="0"
+                  required
+                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                />
+              </div>
+            </div>
+
+            {numAmount > 0 && (
+              <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-2.5 text-xs space-y-1">
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Collecting Now:</span>
+                  <span className="font-bold text-emerald-700">₹{numAmount.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>New Remaining Balance:</span>
+                  <span className={`font-bold ${newRemaining === 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    {newRemaining === 0 ? '₹0 (All Cleared ✅)' : `₹${newRemaining.toLocaleString('en-IN')}`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Payment Mode</label>
+                <select
+                  value={paymentMode}
+                  onChange={e => setPaymentMode(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="GPay">GPay (UPI)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Payment Date</label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={e => setPaymentDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                />
+              </div>
+            </div>
+
+            {errMsg && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg p-2 font-medium">
+                {errMsg}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading || numAmount <= 0}
+                className="flex-1 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-40 flex items-center justify-center gap-1 shadow-sm"
+              >
+                {loading ? 'Saving...' : 'Save Payment'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   // ── Edit Record Modal
   const EditRecordModal = ({ record, onClose }) => {
     const [additionalPayment, setAdditionalPayment] = useState('');
@@ -788,12 +990,42 @@ export default function Cafeteria() {
                     <tr><td colSpan="3" className="py-12 text-center text-slate-400">No members found for this filter.</td></tr>
                   ) : paginatedList.map((m) => (
                     <tr key={m.memberId} className="bg-slate-50 cursor-pointer hover:bg-slate-100 transition shadow-sm" onClick={() => setSelectedHistoryMember(m)}>
-                      <td className="py-4 pr-3 pl-4 rounded-l-2xl font-semibold text-slate-900">{m.memberName}</td>
+                      <td className="py-4 pr-3 pl-4 rounded-l-2xl font-semibold text-slate-900">
+                        <div className="flex items-center gap-3">
+                          {m.profileImage ? (
+                            <img
+                              src={m.profileImage}
+                              alt={m.memberName}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openImagePreview(m.profileImage, m.memberName);
+                              }}
+                              className="w-9 h-9 rounded-full object-cover flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-emerald-400 transition"
+                              title="Click to view full photo"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 flex-shrink-0">
+                              {m.memberName ? m.memberName.charAt(0).toUpperCase() : '?'}
+                            </div>
+                          )}
+                          <span className="font-semibold text-slate-900">{m.memberName}</span>
+                        </div>
+                      </td>
                       <td className={`py-4 pr-3 text-right font-black ${activeTab === 'Unpaid' ? 'text-rose-600' : 'text-emerald-600'}`}>
                         {activeTab === 'Unpaid' ? `- ${rupee(m.unpaidBalance)}` : `+ ${rupee(m.extraBalance)}`}
                       </td>
                       <td className="py-4 pr-4 rounded-r-2xl text-right">
-                        <button className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm">View Details</button>
+                        <div className="flex items-center justify-end gap-2" onClick={e => e.stopPropagation()}>
+                          {activeTab === 'Unpaid' && m.unpaidBalance > 0 && (
+                            <button
+                              onClick={() => setQuickUpdateCafeteriaTarget(m)}
+                              title="Update Payment"
+                              className="p-2 text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl shadow-sm transition flex items-center justify-center cursor-pointer"
+                            >
+                              <Wallet size={15} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -835,7 +1067,16 @@ export default function Cafeteria() {
                         ) : (
                           <div className="flex items-center gap-2">
                             {tx.member?.images?.profileImage ? (
-                              <img src={tx.member.images.profileImage} alt={tx.memberName} className="w-8 h-8 rounded-full object-cover" />
+                              <img
+                                src={tx.member.images.profileImage}
+                                alt={tx.memberName}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openImagePreview(tx.member.images.profileImage, tx.memberName);
+                                }}
+                                className="w-8 h-8 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-emerald-400 transition"
+                                title="Click to view full photo"
+                              />
                             ) : (
                               <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">
                                 {tx.memberName ? tx.memberName.charAt(0).toUpperCase() : '?'}
@@ -1149,9 +1390,24 @@ export default function Cafeteria() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6 sm:p-6 overflow-y-auto">
           <div className="relative w-full max-w-4xl rounded-3xl bg-white border border-slate-200 shadow-2xl my-auto flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 rounded-t-3xl bg-slate-50/80 backdrop-blur-sm">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">{selectedHistoryMember.memberName}</h2>
-                <p className="text-sm text-slate-500 mt-0.5">Detailed cafeteria transaction history</p>
+              <div className="flex items-center gap-3">
+                {selectedHistoryMember.profileImage ? (
+                  <img
+                    src={selectedHistoryMember.profileImage}
+                    alt={selectedHistoryMember.memberName}
+                    onClick={() => openImagePreview(selectedHistoryMember.profileImage, selectedHistoryMember.memberName)}
+                    className="w-11 h-11 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-emerald-400 transition flex-shrink-0"
+                    title="Click to view full photo"
+                  />
+                ) : (
+                  <div className="w-11 h-11 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 flex-shrink-0">
+                    {selectedHistoryMember.memberName ? selectedHistoryMember.memberName.charAt(0).toUpperCase() : '?'}
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">{selectedHistoryMember.memberName}</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">Detailed cafeteria transaction history</p>
+                </div>
               </div>
               <div className="flex items-center gap-5">
                 <div className="text-right">
@@ -1160,6 +1416,22 @@ export default function Cafeteria() {
                     {selectedHistoryMember.balance < 0 ? `- ${rupee(Math.abs(selectedHistoryMember.balance))}` : selectedHistoryMember.balance > 0 ? `+ ${rupee(selectedHistoryMember.balance)}` : '₹0'}
                   </p>
                 </div>
+                {selectedHistoryMember.balance < 0 && (
+                  <button
+                    onClick={() => {
+                      setQuickUpdateCafeteriaTarget({
+                        memberId: selectedHistoryMember.memberId,
+                        memberName: selectedHistoryMember.memberName,
+                        unpaidBalance: Math.abs(selectedHistoryMember.balance),
+                        profileImage: selectedHistoryMember.profileImage,
+                      });
+                    }}
+                    className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition flex items-center justify-center shadow-sm cursor-pointer"
+                    title="Update Payment"
+                  >
+                    <Wallet size={16} />
+                  </button>
+                )}
                 <div className="h-10 w-px bg-slate-200"></div>
                 <button onClick={() => setSelectedHistoryMember(null)} className="text-slate-400 hover:text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-full p-2.5 transition">
                   <X size={20} />
@@ -1223,6 +1495,16 @@ export default function Cafeteria() {
             </div>
           </div>
         </div>
+      )}
+      {quickUpdateCafeteriaTarget && (
+        <QuickCafeteriaPaymentModal
+          target={quickUpdateCafeteriaTarget}
+          onSave={async () => {
+            await Promise.all([refreshData(), fetchStockItems()]);
+            setSelectedHistoryMember(null);
+          }}
+          onClose={() => setQuickUpdateCafeteriaTarget(null)}
+        />
       )}
     </div>
   );

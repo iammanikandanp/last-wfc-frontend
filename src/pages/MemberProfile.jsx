@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import CustomBaseUrl from '../hooks/CustomBaseUrl';
 import Navbar from '../components/Navbar';
-import { EditPaymentModal } from './Payments';
+import { EditPaymentModal, QuickPaymentUpdateModal } from './Payments';
+import { useImagePreview } from '../context/ImagePreviewContext';
 import {
   ArrowLeft, Edit3, Heart, Activity, Calendar, CreditCard,
   Apple, Upload, X, Check, Scale, Plus,
   Phone, Mail, MapPin, User, RefreshCw, Download,
   Flame, Droplets, Target, Dumbbell, Sun, Moon,
   ChevronDown, ChevronUp, Trash2, ExternalLink, ShieldOff, Star,
-  Pause, Play, AlertCircle, Clock, History
+  Pause, Play, AlertCircle, Clock, History, Wallet
 } from 'lucide-react';
 
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday'];
@@ -1319,6 +1320,8 @@ const MemberProfile = () => {
   const [holdReason, setHoldReason] = useState('');
   const [holdSubmitting, setHoldSubmitting] = useState(false);
   const [editPaymentTarget, setEditPaymentTarget] = useState(null);
+  const [quickUpdatePaymentTarget, setQuickUpdatePaymentTarget] = useState(null);
+  const { openImagePreview } = useImagePreview();
 
   useEffect(()=>{ if(id) fetchAll(); },[id]);
 
@@ -1777,7 +1780,7 @@ const MemberProfile = () => {
             <div className="flex flex-col md:flex-row gap-4 items-center md:items-end -mt-12 mb-4">
               <div className="w-28 h-28 rounded-2xl ring-4 ring-white overflow-hidden bg-slate-200 flex items-center justify-center shadow-lg relative group shrink-0">
                 {member.images?.profileImage
-                  ? <img src={member.images.profileImage} alt={member.name} className="w-full h-full object-cover cursor-pointer" onError={e=>e.target.style.display='none'} onClick={() => setShowPhoto(true)} />
+                  ? <img src={member.images.profileImage} alt={member.name} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition" onError={e=>e.target.style.display='none'} onClick={() => openImagePreview(member.images.profileImage, member.name)} title="Click to view full photo" />
                   : <span className="text-4xl font-black text-slate-400">{member.name?.[0]?.toUpperCase()}</span>
                 }
                 <label className="absolute bottom-0 inset-x-0 h-8 bg-black/60 text-white flex justify-center items-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-[10px] font-bold uppercase tracking-wider">
@@ -2376,13 +2379,22 @@ const MemberProfile = () => {
                           </td>
                           {loggedInUser?.role === 'admin' && (
                             <td className="py-4 px-4 text-right">
-                              <button
-                                onClick={() => setEditPaymentTarget(p)}
-                                className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition inline-flex items-center gap-1 text-xs font-semibold"
-                                title="Edit payment & dates"
-                              >
-                                <Edit3 size={12} /> Edit
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => setQuickUpdatePaymentTarget({ ...p, profileImage: p.profileImage || member?.images?.profileImage })}
+                                  className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition inline-flex items-center justify-center cursor-pointer"
+                                  title="Update Payment"
+                                >
+                                  <Wallet size={12} />
+                                </button>
+                                <button
+                                  onClick={() => setEditPaymentTarget(p)}
+                                  className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition inline-flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                                  title="Edit payment & dates"
+                                >
+                                  <Edit3 size={12} /> Edit
+                                </button>
+                              </div>
                             </td>
                           )}
                         </tr>
@@ -2646,6 +2658,14 @@ const MemberProfile = () => {
           payment={editPaymentTarget}
           onSave={fetchAll}
           onClose={() => setEditPaymentTarget(null)}
+        />
+      )}
+
+      {quickUpdatePaymentTarget && (
+        <QuickPaymentUpdateModal
+          payment={quickUpdatePaymentTarget}
+          onSave={fetchAll}
+          onClose={() => setQuickUpdatePaymentTarget(null)}
         />
       )}
     </div>

@@ -26,6 +26,7 @@ import Leads from "./pages/Leads";
 import ForgotPassword from "./pages/ForgotPassword";
 import DietLog from "./pages/DietLog";
 import Profile from "./pages/Profile";
+import { ImagePreviewProvider } from "./context/ImagePreviewContext";
 
 // Resets scroll position on every route change so navigating never
 // leaves the new page mid-scroll under the fixed navbar.
@@ -78,8 +79,9 @@ function App() {
 
   return (
     <Router>
-      <ScrollToTop />
-      <Routes>
+      <ImagePreviewProvider>
+        <ScrollToTop />
+        <Routes>
         {/* Auth Routes */}
         <Route path="/login"           element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -134,6 +136,7 @@ function App() {
         <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
         <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
       </Routes>
+      </ImagePreviewProvider>
     </Router>
   );
 }

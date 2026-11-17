@@ -11,6 +11,7 @@ import {
 
 import { calculateDurationFromDates, recalculatePackageName } from '../utils/dateUtils.js';
 import { getPaymentPendingWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from '../utils/whatsappUtils';
+import { useImagePreview } from '../context/ImagePreviewContext';
 
 const GYM_NAME = 'WFC – Wolverine Fitness Club';
 
@@ -556,12 +557,25 @@ const InvoiceListModal = ({ payment, allPayments, onClose }) => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()} style={{animation:'su .2s ease'}}>
         <div className="bg-gradient-to-r from-slate-900 to-slate-700 px-5 py-4 flex items-center justify-between text-white">
-          <div>
-            <div className="flex items-center gap-2">
-              <FileText size={16}/>
-              <p className="font-bold text-sm">Invoices</p>
+          <div className="flex items-center gap-3">
+            {payment.profileImage ? (
+              <img
+                src={payment.profileImage}
+                alt={payment.memberName}
+                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0">
+                {payment.memberName ? payment.memberName.charAt(0).toUpperCase() : '?'}
+              </div>
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <FileText size={16}/>
+                <p className="font-bold text-sm">Invoices</p>
+              </div>
+              <p className="text-xs opacity-60 mt-0.5">{payment.memberName} · {memberPayments.length} payment{memberPayments.length !== 1 ? 's' : ''}</p>
             </div>
-            <p className="text-xs opacity-60 mt-0.5">{payment.memberName} · {memberPayments.length} payment{memberPayments.length !== 1 ? 's' : ''}</p>
           </div>
           <div className="flex items-center gap-2">
             {memberPayments.length > 1 && (
@@ -826,7 +840,23 @@ export const EditPaymentModal = ({ payment, onSave, onClose }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()} style={{animation:'su .2s ease'}}>
         <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4 flex items-center justify-between text-white">
-          <div><p className="font-bold text-sm">Edit Payment</p><p className="text-xs opacity-60">{payment.memberName} · {payment.invoiceNo}</p></div>
+          <div className="flex items-center gap-2.5">
+            {payment.profileImage ? (
+              <img
+                src={payment.profileImage}
+                alt={payment.memberName}
+                className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0">
+                {payment.memberName ? payment.memberName.charAt(0).toUpperCase() : '?'}
+              </div>
+            )}
+            <div>
+              <p className="font-bold text-sm">Edit Payment</p>
+              <p className="text-xs opacity-60">{payment.memberName} · {payment.invoiceNo}</p>
+            </div>
+          </div>
           <button onClick={onClose}><X size={16} className="opacity-60 hover:opacity-100"/></button>
         </div>
         <div className="p-5 overflow-y-auto space-y-3">
@@ -921,6 +951,234 @@ const WriteOffModal = ({ payment, onConfirm, onClose }) => {
   );
 };
 
+// ── Quick Update / Collect Payment Modal ──────────────────────────────────────
+export const QuickPaymentUpdateModal = ({ payment, onSave, onClose }) => {
+  const total = Number(payment.finalAmount || payment.amount || 0);
+  const alreadyPaid = Number(payment.advanceAmount || 0);
+  const remaining = Math.max(0, total - alreadyPaid);
+
+  const [amount, setAmount] = useState(remaining > 0 ? String(remaining) : '');
+  const [mode, setMode] = useState(
+    payment.paymentMode === 'upi' ? 'GPay' : payment.paymentMode === 'card' ? 'Card' : 'Cash'
+  );
+  const [paymentDate, setPaymentDate] = useState(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  });
+  const [saving, setSaving] = useState(false);
+  const [errMsg, setErrMsg] = useState('');
+
+  const numAmount = Number(amount || 0);
+  const newAlreadyPaid = alreadyPaid + numAmount;
+  const newRemaining = Math.max(0, total - newAlreadyPaid);
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (numAmount <= 0) {
+      setErrMsg('Please enter a valid payment amount greater than ₹0');
+      return;
+    }
+    if (remaining > 0 && numAmount > remaining) {
+      setErrMsg(`Amount cannot exceed the remaining balance of ₹${remaining.toLocaleString('en-IN')}`);
+      return;
+    }
+
+    setSaving(true);
+    setErrMsg('');
+    try {
+      await CustomBaseUrl.post(`/reg-payments/${payment._id}/collect`, {
+        amount: numAmount,
+        paymentMode: mode.toLowerCase() === 'gpay' ? 'upi' : mode.toLowerCase(),
+        paymentDate,
+        note: `Quick payment update: ₹${numAmount.toLocaleString('en-IN')}`
+      });
+      await onSave();
+      onClose();
+    } catch (err) {
+      setErrMsg(err.response?.data?.message || err.message || 'Payment collection failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()} style={{animation:'su .2s ease'}}>
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-4 flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <Wallet size={18}/>
+            <div>
+              <p className="font-bold text-sm">Update Payment</p>
+              <p className="text-[10px] text-emerald-100">Collect member payment</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/20 transition cursor-pointer">
+            <X size={16} className="opacity-80 hover:opacity-100"/>
+          </button>
+        </div>
+
+        <form onSubmit={handleSave} className="p-5 space-y-4">
+          {/* Member & Package Info */}
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+            <div className="flex justify-between items-start mb-1">
+              <div className="flex items-center gap-2.5">
+                {payment.profileImage ? (
+                  <img
+                    src={payment.profileImage}
+                    alt={payment.memberName}
+                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
+                    {payment.memberName ? payment.memberName.charAt(0).toUpperCase() : '?'}
+                  </div>
+                )}
+                <div>
+                  <p className="font-bold text-slate-800 text-sm">{payment.memberName}</p>
+                  <p className="text-[11px] text-slate-400">{payment.memberPhone || payment.invoiceNo}</p>
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">
+                {payment.package || 'Membership'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-200/70 text-center">
+              <div>
+                <p className="text-[10px] text-slate-400 font-semibold uppercase">Total</p>
+                <p className="text-xs font-bold text-slate-700">₹{total.toLocaleString('en-IN')}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-semibold uppercase">Already Paid</p>
+                <p className="text-xs font-bold text-emerald-600">₹{alreadyPaid.toLocaleString('en-IN')}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-semibold uppercase">Remaining</p>
+                <p className={`text-xs font-bold ${remaining > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                  ₹{remaining.toLocaleString('en-IN')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {remaining === 0 ? (
+            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-center text-xs font-semibold text-emerald-700">
+              ✅ This membership is fully paid (₹0 balance remaining).
+            </div>
+          ) : (
+            <>
+              {/* Amount Being Paid Now */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold text-slate-700">Paying Now (₹)</label>
+                  {remaining > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAmount(String(remaining))}
+                      className="text-[10px] text-emerald-600 hover:text-emerald-700 font-bold hover:underline"
+                    >
+                      Pay Full Balance
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₹</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max={remaining > 0 ? remaining : undefined}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Enter amount"
+                    required
+                    className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              {/* Real-time Calculation Badge */}
+              {numAmount > 0 && (
+                <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-2.5 text-xs">
+                  <div className="flex justify-between items-center text-slate-600 mb-1">
+                    <span>New Total Paid:</span>
+                    <span className="font-bold text-emerald-700">₹{newAlreadyPaid.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span>New Remaining Balance:</span>
+                    <span className={`font-bold ${newRemaining === 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                      {newRemaining === 0 ? '₹0 (Fully Paid ✅)' : `₹${newRemaining.toLocaleString('en-IN')}`}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Mode & Date */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Payment Mode</label>
+                  <select
+                    value={mode}
+                    onChange={(e) => setMode(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="GPay">GPay (UPI)</option>
+                    <option value="Card">Card</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Payment Date</label>
+                  <input
+                    type="date"
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {errMsg && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg p-2 font-medium">
+              {errMsg}
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition"
+            >
+              Cancel
+            </button>
+            {remaining > 0 && (
+              <button
+                type="submit"
+                disabled={saving || numAmount <= 0}
+                className="flex-1 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-40 flex items-center justify-center gap-1 shadow-sm"
+              >
+                {saving ? (
+                  <>
+                    <Loader size={12} className="animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Payment</span>
+                )}
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // ── Pay Now Modal (collect written-off balance) ───────────────────────────────
 const PayNowModal = ({ payment, onSave, onClose }) => {
   const [saving, setSaving] = useState(false);
@@ -1003,7 +1261,9 @@ const Payments = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const [invoiceTarget, setInvoiceTarget] = useState(null);
+  const [quickUpdateTarget, setQuickUpdateTarget] = useState(null);
   const [sharingWa, setSharingWa] = useState(false);
+  const { openImagePreview } = useImagePreview();
 
   const [writeOffTarget, setWriteOffTarget] = useState(null);
   const [payNowTarget, setPayNowTarget] = useState(null);
@@ -1071,12 +1331,20 @@ const Payments = () => {
     } catch(e) { alert('Write-off failed: ' + (e.response?.data?.message || e.message)); }
   };
 
+  const cleanPhone = (p) => (p || '').toString().replace(/\D/g, '').slice(-10);
+
   const enriched = payments.map(p => {
-    const member = members.find(m => String(m._id) === String(p.registrationId));
+    const pRegId = p.registrationId?._id ? String(p.registrationId._id) : (p.registrationId ? String(p.registrationId) : null);
+    const pPhone = cleanPhone(p.memberPhone);
+    const member = members.find(m => 
+      (pRegId && String(m._id) === pRegId) ||
+      (pPhone && cleanPhone(m.phone) === pPhone) ||
+      (p.memberName && m.name && m.name.trim().toLowerCase() === p.memberName.trim().toLowerCase())
+    );
     return { 
       ...p, 
       memberEmail: member?.emails || p.memberEmail || '',
-      profileImage: member?.images?.profileImage || null
+      profileImage: member?.images?.profileImage || p.registrationId?.images?.profileImage || null
     };
   });
 
@@ -1242,7 +1510,16 @@ const Payments = () => {
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-2">
                             {p.profileImage ? (
-                              <img src={p.profileImage} alt={p.memberName} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                              <img
+                                src={p.profileImage}
+                                alt={p.memberName}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openImagePreview(p.profileImage, p.memberName);
+                                }}
+                                className="w-8 h-8 rounded-full object-cover flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-emerald-400 transition"
+                                title="Click to view full photo"
+                              />
                             ) : (
                               <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
                                 {p.memberName ? p.memberName.charAt(0).toUpperCase() : '?'}
@@ -1284,6 +1561,7 @@ const Payments = () => {
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
                             <button onClick={() => setInvoiceTarget(p)} title="View & download invoices" className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"><FileText size={13}/></button>
+                            <button onClick={() => setQuickUpdateTarget(p)} title="Update Payment" className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition"><Wallet size={13}/></button>
                             <button onClick={() => handleShareAsPDF(p)} disabled={sharingWa} title="Send invoice PDF via WhatsApp" className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 transition disabled:opacity-40">{sharingWa ? <Loader size={13} className="animate-spin"/> : <WhatsAppIcon size={13}/>}</button>
                             <button onClick={() => setEditTarget(p)} title="Edit payment" className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 hover:text-blue-700 transition"><Edit3 size={13}/></button>
                             <button onClick={() => setDeleteTarget(p)} title="Delete payment" className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition"><Trash2 size={13}/></button>
@@ -1347,6 +1625,7 @@ const Payments = () => {
       </div>
 
       {invoiceTarget && <InvoiceListModal payment={invoiceTarget} allPayments={enriched} onClose={() => setInvoiceTarget(null)}/>}
+      {quickUpdateTarget && <QuickPaymentUpdateModal payment={quickUpdateTarget} onSave={fetchAll} onClose={() => setQuickUpdateTarget(null)}/>}
       {emailTarget && <EmailModal payment={emailTarget} onClose={() => setEmailTarget(null)}/>}
       {editTarget && <EditPaymentModal payment={editTarget} onSave={fetchAll} onClose={() => setEditTarget(null)}/>}
       {deleteTarget && <DeletePaymentModal payment={deleteTarget} onConfirm={handleDeleteConfirm} onClose={() => setDeleteTarget(null)}/>}

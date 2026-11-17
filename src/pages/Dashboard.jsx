@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import CustomBaseUrl from "../hooks/CustomBaseUrl";
 import Navbar from "../components/Navbar";
+import { useImagePreview } from "../context/ImagePreviewContext";
 import {
   Users,
   TrendingUp,
@@ -47,6 +48,7 @@ const isThisMonth = (d) => {
 
 const MemberModal = ({ title, members, color, onClose }) => {
   const navigate = useNavigate();
+  const { openImagePreview } = useImagePreview();
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -112,7 +114,16 @@ const MemberModal = ({ title, members, color, onClose }) => {
                 >
                   <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                     {m.profileImage ? (
-                      <img src={m.profileImage} alt="" className="w-full h-full rounded-full object-cover" />
+                      <img
+                        src={m.profileImage}
+                        alt={m.name}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openImagePreview(m.profileImage, m.name);
+                        }}
+                        className="w-full h-full rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-red-400 transition"
+                        title="Click to view full photo"
+                      />
                     ) : (
                       m.name?.[0]?.toUpperCase() || "?"
                     )}
