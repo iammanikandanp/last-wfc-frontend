@@ -86,6 +86,8 @@ export const Register = () => {
   const location  = useLocation();
   const editData  = location.state?.editData;
   const isEdit    = !!editData;
+  const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isTrainer = loggedInUser?.role === 'trainer';
 
   const [step,        setStep]        = useState(1);
   const [bmiStatus,   setBmiStatus]   = useState("");
@@ -238,7 +240,7 @@ export const Register = () => {
   const handleNext = () => {
     if (step === 1) {
       if (!formData.fullName.trim()) return toast.error("Full name is required");
-      if (formData.phoneNumber && !isValidPhone(formData.phoneNumber))
+      if (!isTrainer && formData.phoneNumber && !isValidPhone(formData.phoneNumber))
         return toast.error("Invalid 10-digit phone number");
     }
     if (step === 2 && !formData.gender) return toast.error("Please select gender");
@@ -261,10 +263,12 @@ export const Register = () => {
       fd.append("dateOfBirth",   formData.dateOfBirth);
       fd.append("gender",        formData.gender);
       fd.append("emails",        formData.email);
-      fd.append("phone",         formData.phoneNumber);
+      if (!isTrainer) {
+        fd.append("phone",         formData.phoneNumber);
+        fd.append("address",       [formData.address, formData.city, formData.state].filter(Boolean).join(", "));
+        fd.append("pincode",       formData.pincode);
+      }
       fd.append("profession",    formData.profession);
-      fd.append("address",       [formData.address, formData.city, formData.state].filter(Boolean).join(", "));
-      fd.append("pincode",       formData.pincode);
       fd.append("height",        formData.height);
       fd.append("weight",        formData.weight);
       fd.append("bmi",           formData.bmi || "");
@@ -334,9 +338,9 @@ export const Register = () => {
         <Input label="Full Name"         name="fullName"        value={formData.fullName}        onChange={handleChange} placeholder="Full name" required />
         <Input label="Age"               name="age"             value={formData.age}             onChange={handleChange} type="number" placeholder="Age" />
         <Input label="Date of Birth"     name="dateOfBirth"     value={formData.dateOfBirth}     onChange={handleChange} type="date" />
-        <Input label="Phone Number"      name="phoneNumber"     value={formData.phoneNumber}     onChange={handleChange} type="tel" placeholder="10-digit phone" />
+        {!isTrainer && <Input label="Phone Number"      name="phoneNumber"     value={formData.phoneNumber}     onChange={handleChange} type="tel" placeholder="10-digit phone" />}
         <Input label="Email"             name="email"           value={formData.email}           onChange={handleChange} type="email" placeholder="Email address" />
-        <Input label="Emergency Contact" name="emergencyContact"value={formData.emergencyContact}onChange={handleChange} type="tel" placeholder="Emergency phone" />
+        {!isTrainer && <Input label="Emergency Contact" name="emergencyContact"value={formData.emergencyContact}onChange={handleChange} type="tel" placeholder="Emergency phone" />}
         <div className="mb-3">
           <label className="block mb-1.5 text-sm font-semibold text-gray-700">
             Attendance ID <span className="text-gray-400 font-normal text-xs">(from XLS machine)</span>
@@ -453,12 +457,20 @@ export const Register = () => {
       <h3 className="font-bold text-xl text-gray-800 mb-5">Address & Membership</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
         <Input label="Profession" name="profession" value={formData.profession} onChange={handleChange} placeholder="e.g. Engineer" />
-        <Input label="Pincode"    name="pincode"    value={formData.pincode}    onChange={handleChange} placeholder="6-digit pincode" />
-        <div className="md:col-span-2">
-          <Input label="Address" name="address" value={formData.address} onChange={handleChange} placeholder="Street address" isTextArea />
-        </div>
-        <Input label="City"  name="city"  value={formData.city}  onChange={handleChange} placeholder="City" />
-        <Input label="State" name="state" value={formData.state} onChange={handleChange} placeholder="State" />
+        {!isTrainer ? (
+          <>
+            <Input label="Pincode"    name="pincode"    value={formData.pincode}    onChange={handleChange} placeholder="6-digit pincode" />
+            <div className="md:col-span-2">
+              <Input label="Address" name="address" value={formData.address} onChange={handleChange} placeholder="Street address" isTextArea />
+            </div>
+            <Input label="City"  name="city"  value={formData.city}  onChange={handleChange} placeholder="City" />
+            <Input label="State" name="state" value={formData.state} onChange={handleChange} placeholder="State" />
+          </>
+        ) : (
+          <div className="md:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500">
+            Address and location details are restricted and managed by Admin.
+          </div>
+        )}
         {/* <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-1">
           <h4 className="font-bold text-gray-700 mb-3 text-sm">Membership Details</h4>
         </div>
@@ -488,12 +500,16 @@ export const Register = () => {
       <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
         <ImageUploadField label="Profile Photo 📸"  name="profileImage"
           onFileChange={handleFileChange} preview={imagePreviews.profileImage}   onRemove={handleRemove} />
-        <ImageUploadField label="Front View 🧍"     name="frontBodyImage"
-          onFileChange={handleFileChange} preview={imagePreviews.frontBodyImage} onRemove={handleRemove} />
-        <ImageUploadField label="Side View 👤"      name="sideBodyImage"
-          onFileChange={handleFileChange} preview={imagePreviews.sideBodyImage}  onRemove={handleRemove} />
-        <ImageUploadField label="Back View 🔙"      name="backBodyImage"
-          onFileChange={handleFileChange} preview={imagePreviews.backBodyImage}  onRemove={handleRemove} />
+        {!isTrainer && (
+          <>
+            <ImageUploadField label="Front View 🧍"     name="frontBodyImage"
+              onFileChange={handleFileChange} preview={imagePreviews.frontBodyImage} onRemove={handleRemove} />
+            <ImageUploadField label="Side View 👤"      name="sideBodyImage"
+              onFileChange={handleFileChange} preview={imagePreviews.sideBodyImage}  onRemove={handleRemove} />
+            <ImageUploadField label="Back View 🔙"      name="backBodyImage"
+              onFileChange={handleFileChange} preview={imagePreviews.backBodyImage}  onRemove={handleRemove} />
+          </>
+        )}
       </div>
 
       {/* Summary */}
@@ -501,7 +517,7 @@ export const Register = () => {
         <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Summary</p>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
           <span>Name: <strong>{formData.fullName}</strong></span>
-          <span>Phone: <strong>{formData.phoneNumber}</strong></span>
+          {!isTrainer && <span>Phone: <strong>{formData.phoneNumber}</strong></span>}
           <span>Package: <strong>{formData.packages}</strong></span>
           <span>Duration: <strong>{formData.duration} month(s)</strong></span>
           <span>Start: <strong>{formData.startDate}</strong></span>

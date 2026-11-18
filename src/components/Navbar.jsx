@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Home, Users, Megaphone, Coffee, Info, ChevronDown, UserPlus, Calendar, Apple, Zap, Trash2 } from 'lucide-react';
+import { Menu, X, Home, Users, Megaphone, Coffee, Info, ChevronDown, UserPlus, Calendar, Apple, Zap, Trash2, Wallet } from 'lucide-react';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -53,23 +53,35 @@ const Navbar = () => {
     setIsOpen(false);
   }, [location.pathname]);
 
-  const allNavItems = [
-    { name: 'Dashboard', path: user?.role === 'member' ? `/members/${user?.id || user?._id}` : '/dashboard',  icon: Home,       roles: ['admin','trainer','member'] },
-    { name: 'Members',   path: '/members',    icon: Users,      roles: ['admin','trainer'] },
-    { name: 'Leads',     path: '/leads',      icon: Megaphone,  roles: ['admin','trainer'] },
+  const allNavItems = user?.role === 'trainer' ? [
+    { name: 'Home',      path: '/dashboard',  icon: Home },
+    { name: 'Members',   path: '/members',    icon: Users },
+    { name: 'Payments',  path: '/payments',   icon: Wallet },
+    { name: 'Leads',     path: '/leads',      icon: Megaphone },
+    { name: 'Cafeteria', path: '/cafeteria',  icon: Coffee },
+    { name: 'About Us',  path: '/about',      icon: Info },
+  ] : [
+    { name: 'Dashboard', path: user?.role === 'member' ? `/members/${user?.id || user?._id}` : '/dashboard',  icon: Home,       roles: ['admin','member'] },
+    { name: 'Members',   path: '/members',    icon: Users,      roles: ['admin'] },
+    { name: 'Leads',     path: '/leads',      icon: Megaphone,  roles: ['admin'] },
     { name: 'Cafeteria', path: '/cafeteria',  icon: Coffee,     roles: ['admin'] },
-    { name: 'About Us',  path: '/about',      icon: Info,       roles: ['admin','trainer','member'] },
+    { name: 'About Us',  path: '/about',      icon: Info,       roles: ['admin','member'] },
   ];
 
   const featureItems = [
-    { name: 'Diet Plan',  path: '/diet-plans', icon: Apple,    roles: ['admin','trainer','member'], desc: 'Manage nutrition & meal plans' },
-    { name: 'Attendance', path: '/attendance', icon: Calendar, roles: ['admin','trainer','member'], desc: 'Track daily member attendance' },
+    { name: 'Diet Plan',  path: '/diet-plans', icon: Apple,    roles: ['admin','member'], desc: 'Manage nutrition & meal plans' },
+    { name: 'Attendance', path: '/attendance', icon: Calendar, roles: ['admin','member'], desc: 'Track daily member attendance' },
     { name: 'Add User',   path: '/signup',     icon: UserPlus, roles: ['admin'],                   desc: 'Register new admin or trainer' },
     { name: 'Recycle Bin',path: '/recycle-bin',icon: Trash2,   roles: ['admin'],                   desc: 'Recover deleted records' },
   ];
 
-  const navItems = allNavItems.filter(item => item.roles.includes(user?.role));
-  const allowedFeatures = featureItems.filter(item => item.roles.includes(user?.role));
+  const navItems = user?.role === 'trainer'
+    ? allNavItems
+    : allNavItems.filter(item => item.roles.includes(user?.role));
+
+  const allowedFeatures = user?.role === 'trainer'
+    ? []
+    : featureItems.filter(item => item.roles.includes(user?.role));
 
   const isActive = (path) => location.pathname === path;
   const isFeatureActive = allowedFeatures.some(f => isActive(f.path));

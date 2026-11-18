@@ -9,7 +9,7 @@ import {
   Apple, Upload, X, Check, Scale, Plus,
   Phone, Mail, MapPin, User, RefreshCw, Download,
   Flame, Droplets, Target, Dumbbell, Sun, Moon,
-  ChevronDown, ChevronUp, Trash2, ExternalLink, ShieldOff, Star,
+  ChevronDown, ChevronUp, Trash2, ExternalLink, ShieldOff, Star, Lock,
   Pause, Play, AlertCircle, Clock, History, Wallet
 } from 'lucide-react';
 
@@ -1279,6 +1279,7 @@ const MemberProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isTrainer = loggedInUser?.role === 'trainer';
 
   const [member,      setMember]      = useState(null);
   const [dietPlan,    setDietPlan]    = useState(null);
@@ -1656,6 +1657,7 @@ const MemberProfile = () => {
   };
 
   const handleToggleTop10 = async () => {
+    if (isTrainer) return;
     try {
       const newStatus = !member.isTop10;
       const res = await CustomBaseUrl.post(`/update/${id}`, {
@@ -1793,9 +1795,14 @@ const MemberProfile = () => {
                   <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-black text-slate-900">{member.name}</h1>
                     <button 
-                      onClick={handleToggleTop10} 
-                      title={member.isTop10 ? "Remove from Top 10" : "Add to Top 10"}
-                      className={`p-1.5 rounded-xl transition ${member.isTop10 ? 'bg-amber-100 text-amber-500 hover:bg-amber-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-amber-500'}`}
+                      onClick={isTrainer ? undefined : handleToggleTop10} 
+                      disabled={isTrainer}
+                      title={isTrainer ? "Top 10 status is managed by Admin" : (member.isTop10 ? "Remove from Top 10" : "Add to Top 10")}
+                      className={`p-1.5 rounded-xl transition ${
+                        isTrainer
+                          ? (member.isTop10 ? 'bg-amber-50 text-amber-500 opacity-60 cursor-not-allowed' : 'bg-slate-100 text-slate-300 opacity-60 cursor-not-allowed')
+                          : (member.isTop10 ? 'bg-amber-100 text-amber-500 hover:bg-amber-200 cursor-pointer' : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-amber-500 cursor-pointer')
+                      }`}
                     >
                       <Star size={20} fill={member.isTop10 ? "currentColor" : "none"} />
                     </button>
@@ -1814,10 +1821,10 @@ const MemberProfile = () => {
             </div>
 
             <div className="flex flex-wrap gap-x-6 gap-y-3 pt-4 border-t border-slate-100">
-              {member.phone  &&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><Phone  size={14} className="text-slate-400"/>{member.phone}</div>}
+              {!isTrainer && member.phone  &&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><Phone  size={14} className="text-slate-400"/>{member.phone}</div>}
               {member.emails &&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><Mail   size={14} className="text-slate-400"/>{member.emails}</div>}
               {member.dateOfBirth &&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><Calendar size={14} className="text-slate-400"/>DOB: {member.dateOfBirth}</div>}
-              {member.address&&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><MapPin size={14} className="text-slate-400"/>{member.address}</div>}
+              {!isTrainer && member.address&&<div className="flex items-center gap-2 text-sm text-slate-600 font-medium"><MapPin size={14} className="text-slate-400"/>{member.address}</div>}
             </div>
           </div>
         </div>
@@ -1871,7 +1878,7 @@ const MemberProfile = () => {
 
         {/* ── Tab Navigation ── */}
         <div className="flex overflow-x-auto gap-2 mb-6 hide-scrollbar pb-1">
-          {['Overview', 'Health Records', 'Progress Photos', 'Attendance', 'Workout & Diet', 'Add-ons', 'Payments', 'Cafeteria'].map(tab => (
+          {['Overview', 'Health Records', 'Progress Photos', 'Attendance', 'Workout & Diet', ...(isTrainer ? [] : ['Add-ons']), 'Payments', 'Cafeteria'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -2027,15 +2034,30 @@ const MemberProfile = () => {
                       <p className="text-xs font-bold uppercase tracking-widest text-slate-500">No photos uploaded</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 gap-3 h-full cursor-pointer" onClick={() => setInspectProgressPhoto(progressPhotoSessions[0])}>
+                    <div 
+                      className={`grid grid-cols-3 gap-3 h-full ${isTrainer ? 'cursor-default' : 'cursor-pointer'}`} 
+                      onClick={isTrainer ? undefined : () => setInspectProgressPhoto(progressPhotoSessions[0])}
+                    >
                       {['Front', 'Side', 'Back'].map(view => {
                         const url = progressPhotoSessions[0][`${view.toLowerCase()}Image`];
                         return (
                           <div key={view} className="bg-slate-800 rounded-2xl overflow-hidden relative group h-full flex flex-col justify-end">
                             {url ? (
-                              <img src={url} alt={view} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                              <img 
+                                src={url} 
+                                alt={view} 
+                                className={`absolute inset-0 w-full h-full object-cover transition duration-500 ${isTrainer ? 'filter blur-md brightness-60 scale-105 pointer-events-none select-none' : 'group-hover:scale-105'}`} 
+                              />
                             ) : (
                               <div className="absolute inset-0 w-full h-full flex items-center justify-center text-slate-600 text-[10px] font-bold uppercase tracking-widest">{view}</div>
+                            )}
+                            {url && isTrainer && (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 pointer-events-none">
+                                <div className="w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-amber-400 mb-1">
+                                  <Lock size={13} />
+                                </div>
+                                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-200">Locked</span>
+                              </div>
                             )}
                             {url && <div className="relative bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 pt-8 text-white text-[9px] font-bold uppercase tracking-widest text-center">{view}</div>}
                           </div>
@@ -2154,9 +2176,25 @@ const MemberProfile = () => {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {progressPhotoSessions.map((session, i) => (
-                    <div key={i} onClick={() => setInspectProgressPhoto(session)} className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden cursor-pointer group hover:border-blue-300 hover:shadow-md transition">
+                    <div 
+                      key={i} 
+                      onClick={isTrainer ? undefined : () => setInspectProgressPhoto(session)} 
+                      className={`bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden transition ${isTrainer ? 'cursor-default' : 'cursor-pointer group hover:border-blue-300 hover:shadow-md'}`}
+                    >
                       <div className="aspect-square relative overflow-hidden bg-slate-200">
-                        <img src={session.frontImage || session.sideImage || session.backImage} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" onError={e=>e.target.style.display='none'} />
+                        <img 
+                          src={session.frontImage || session.sideImage || session.backImage} 
+                          className={`w-full h-full object-cover transition duration-500 ${isTrainer ? 'filter blur-md brightness-75 scale-105 pointer-events-none select-none' : 'group-hover:scale-105'}`} 
+                          onError={e=>e.target.style.display='none'} 
+                        />
+                        {isTrainer && (
+                          <div className="absolute inset-0 bg-black/25 flex flex-col items-center justify-center gap-1.5 text-white pointer-events-none">
+                            <div className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-amber-400">
+                              <Lock size={15} />
+                            </div>
+                            <span className="text-[11px] font-bold tracking-wider uppercase text-slate-200 drop-shadow">Locked</span>
+                          </div>
+                        )}
                       </div>
                       <div className="p-4">
                         <p className="font-bold text-slate-800">{new Date(session.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
@@ -2622,7 +2660,7 @@ const MemberProfile = () => {
       )}
 
       {showProgressPhotoUpload && <ProgressPhotoUploadModal onClose={() => setShowProgressPhotoUpload(false)} onUpload={handleProgressPhotoSessionUpload} />}
-      {inspectProgressPhoto && <ProgressPhotoInspectModal session={inspectProgressPhoto} onClose={() => setInspectProgressPhoto(null)} onDelete={handleDeleteProgressPhoto} />}
+      {!isTrainer && inspectProgressPhoto && <ProgressPhotoInspectModal session={inspectProgressPhoto} onClose={() => setInspectProgressPhoto(null)} onDelete={handleDeleteProgressPhoto} />}
       {inspectMeasurement && <MeasurementDetailsModal record={inspectMeasurement} onClose={() => setInspectMeasurement(null)} />}
 
       {/* ── Hold / Unhold Modals ── */}

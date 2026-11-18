@@ -6,7 +6,7 @@ import { isMemberBlocked } from '../utils/memberStatus';
 import {
   Plus, Search, X, User,
   AlertCircle, CheckCircle, Clock, XCircle, Eye, Edit3, Trash2,
-  ChevronLeft, ChevronRight, Upload, FileText, Loader2, RefreshCw, Phone,
+  ChevronLeft, ChevronRight, RefreshCw, Phone,
   Shield, ShieldOff, CreditCard, MessageCircle, Pause
 } from 'lucide-react';
 
@@ -14,337 +14,6 @@ import { getMemberWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from
 import { useImagePreview } from '../context/ImagePreviewContext';
 
 const PER_PAGE = 10;
-
-// ── CSV helpers ───────────────────────────────────────────────────────────────
-
-// Handles quoted fields with commas inside (e.g. "7/24,street, city")
-const parseCSVLine = (line) => {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    if (line[i] === '"') { inQuotes = !inQuotes; }
-    else if (line[i] === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
-    else { current += line[i]; }
-  }
-  result.push(current.trim());
-  return result;
-};
-
-const parseCSV = (text) => {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-  const headers = parseCSVLine(lines[0]);
-  return lines.slice(1)
-    .map(line => {
-      const vals = parseCSVLine(line);
-      const obj = {};
-      headers.forEach((h, i) => { obj[h] = vals[i] !== undefined ? vals[i] : ''; });
-      return obj;
-    })
-    .filter(row => row.memberName || row.admissionNo);
-};
-
-// Extract duration in days from membership string e.g. "Premium 3 months" → 90
-const parseDurationDays = (membership) => {
-  const m = (membership || '').toLowerCase();
-  const match = m.match(/(\d+)\s*month/);
-  if (match) return parseInt(match[1]) * 30;
-  return 30; // default 1 month
-};
-
-const addDays = (dateStr, days) => {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
-};
-
-const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : '';
-
-// Map one CSV row → registration FormData payload
-const rowToMemberPayload = (row) => {
-  const startDate = row.joiningDate || new Date().toISOString().split('T')[0];
-  const duration  = parseDurationDays(row.membership);
-  const endDate   = addDays(startDate, duration);
-
-  const fd = new FormData();
-  fd.append('name',         row.memberName  || '');
-  fd.append('phone',        row.phone       || '');
-  fd.append('emails',       row.email && row.email !== '-' ? row.email : '');
-  fd.append('gender',       capitalize(row.gender) || 'Male');
-  fd.append('bloodGroup',   row.bloodGroup && row.bloodGroup !== '-' ? row.bloodGroup : 'O+');
-  fd.append('address',      [row.address, row.city, row.state].filter(v => v && v !== '-').join(', '));
-  fd.append('city',         row.city    && row.city    !== '-' ? row.city    : '');
-  fd.append('state',        row.state   && row.state   !== '-' ? row.state   : '');
-  fd.append('pincode',      row.pincode && row.pincode !== '-' ? row.pincode : '');
-  fd.append('attendanceId', row.admissionNo || '');
-  fd.append('packages',     row.membership  || 'Basic');
-  fd.append('duration',     String(Math.round(duration / 30)));
-  fd.append('startDate',    startDate);
-  fd.append('endDate',      endDate);
-  fd.append('services',     'No');
-  fd.append('issues',       'None');
-  return { fd, startDate, endDate, duration };
-};
-
-// Map one CSV row + registrationId → payment payload
-const rowToPaymentPayload = (row, registrationId, startDate, endDate) => {
-  const balance = parseFloat(row.balance) || 0;
-  return {
-    registrationId,
-    memberName:    row.memberName || '',
-    memberPhone:   row.phone      || '',
-    package:       row.membership || '',
-    amount:        0,
-    discount:      0,
-    finalAmount:   0,
-    advanceAmount: 0,
-    balanceAmount: balance,
-    paymentType:   balance > 0 ? 'partly' : 'full',
-    paymentMode:   'cash',
-    startDate,
-    endDate,
-    invoiceNo:     `WFC-IMP-${Date.now().toString().slice(-8)}-${Math.random().toString(36).slice(2,5).toUpperCase()}`,
-    pdfUrl:        '',
-  };
-};
-
-// ── CSV Import Modal ──────────────────────────────────────────────────────────
-const CSVImportModal = ({ onClose, onDone }) => {
-  const fileRef = useRef(null);
-  const [rows,     setRows]     = useState([]);
-  const [stage,    setStage]    = useState('idle'); // idle | preview | importing | done
-  const [results,  setResults]  = useState([]);     // { name, status, error }
-  const [progress, setProgress] = useState(0);
-
-  const handleFile = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const parsed = parseCSV(ev.target.result);
-      setRows(parsed);
-      setStage('preview');
-    };
-    reader.readAsText(file);
-  };
-
-  const handleImport = async () => {
-    setStage('importing');
-    const res = [];
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      try {
-        const { fd, startDate, endDate } = rowToMemberPayload(row);
-
-        // 1. Register the member
-        const regRes = await CustomBaseUrl.post(
-          '/register',
-          fd,
-          { headers: { 'Content-Type': 'multipart/form-data' } }
-        );
-
-        // Support various response shapes
-        const registrationId =
-          regRes.data?.data?._id ||
-          regRes.data?.member?._id ||
-          regRes.data?._id ||
-          null;
-
-        // 2. Create payment record (only if we got an id)
-        if (registrationId) {
-          const payloadPay = rowToPaymentPayload(row, registrationId, startDate, endDate);
-          await CustomBaseUrl.post('/reg-payments', payloadPay);
-        }
-
-        res.push({ name: row.memberName, admissionNo: row.admissionNo, status: 'ok' });
-      } catch (err) {
-        res.push({
-          name: row.memberName,
-          admissionNo: row.admissionNo,
-          status: 'error',
-          error: err.response?.data?.message || err.message || 'Failed',
-        });
-      }
-      setProgress(i + 1);
-    }
-    setResults(res);
-    setStage('done');
-    onDone(); // refresh member list
-  };
-
-  const succeeded = results.filter(r => r.status === 'ok').length;
-  const failed    = results.filter(r => r.status === 'error').length;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={stage === 'idle' ? onClose : undefined}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
-        onClick={e => e.stopPropagation()}>
-
-        {/* Header */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4 flex items-center justify-between text-white flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <FileText size={18} />
-            <div>
-              <p className="font-bold text-sm">Import Members from CSV</p>
-              <p className="text-xs opacity-60">Matches: admissionNo, memberName, phone, email, bloodGroup, gender, joiningDate, address, membership, balance</p>
-            </div>
-          </div>
-          {stage !== 'importing' && (
-            <button onClick={onClose}><X size={16} className="opacity-60 hover:opacity-100" /></button>
-          )}
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5">
-
-          {/* ── Stage: idle ── */}
-          {stage === 'idle' && (
-            <div className="flex flex-col items-center justify-center py-10">
-              <label className="cursor-pointer flex flex-col items-center gap-3">
-                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition">
-                  <Upload size={28} className="text-slate-400" />
-                </div>
-                <p className="font-semibold text-slate-700">Click to select CSV file</p>
-                <p className="text-xs text-slate-400">Expected columns: admissionNo, memberName, phone, email, bloodGroup, gender, joiningDate, status, balance, address, city, state, country, pincode, membership</p>
-                <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
-              </label>
-            </div>
-          )}
-
-          {/* ── Stage: preview ── */}
-          {stage === 'preview' && (
-            <>
-              <p className="text-sm font-semibold text-slate-700 mb-3">
-                {rows.length} members found — review before importing
-              </p>
-              <div className="overflow-x-auto rounded-xl border border-slate-100">
-                <table className="w-full text-xs min-w-[600px]">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      {['ID','Name','Phone','Package','Start','End Date','Balance'].map(h => (
-                        <th key={h} className="px-3 py-2 text-left text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {rows.map((row, i) => {
-                      const dur     = parseDurationDays(row.membership);
-                      const start   = row.joiningDate || '—';
-                      const end     = start !== '—' ? addDays(start, dur) : '—';
-                      const balance = parseFloat(row.balance) || 0;
-                      return (
-                        <tr key={i} className="hover:bg-slate-50">
-                          <td className="px-3 py-2 font-mono text-blue-600">{row.admissionNo}</td>
-                          <td className="px-3 py-2 font-semibold text-slate-800 whitespace-nowrap">{row.memberName}</td>
-                          <td className="px-3 py-2 text-slate-500">{row.phone}</td>
-                          <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{row.membership || '—'}</td>
-                          <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{start}</td>
-                          <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{end}</td>
-                          <td className="px-3 py-2">
-                            {balance > 0
-                              ? <span className="text-red-600 font-bold">₹{balance}</span>
-                              : <span className="text-emerald-600 font-semibold">Paid</span>}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-slate-400 mt-3">
-                Each member will be registered + a payment record created (balance linked from CSV).
-              </p>
-            </>
-          )}
-
-          {/* ── Stage: importing ── */}
-          {stage === 'importing' && (
-            <div className="flex flex-col items-center justify-center py-10 gap-4">
-              <Loader2 size={36} className="animate-spin text-red-600" />
-              <p className="font-semibold text-slate-700">Importing… {progress} / {rows.length}</p>
-              <div className="w-full bg-slate-100 rounded-full h-2 max-w-xs">
-                <div
-                  className="bg-red-600 h-2 rounded-full transition-all"
-                  style={{ width: `${(progress / rows.length) * 100}%` }}
-                />
-              </div>
-              <p className="text-xs text-slate-400">Please do not close this window</p>
-            </div>
-          )}
-
-          {/* ── Stage: done ── */}
-          {stage === 'done' && (
-            <>
-              <div className="flex gap-3 mb-4">
-                <div className="flex-1 bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-black text-emerald-600">{succeeded}</p>
-                  <p className="text-xs text-emerald-700 font-semibold mt-0.5">Imported</p>
-                </div>
-                <div className="flex-1 bg-red-50 border border-red-100 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-black text-red-600">{failed}</p>
-                  <p className="text-xs text-red-700 font-semibold mt-0.5">Failed</p>
-                </div>
-              </div>
-              <div className="overflow-x-auto rounded-xl border border-slate-100 max-h-60 overflow-y-auto">
-                <table className="w-full text-xs min-w-[600px]">
-                  <thead className="bg-slate-50 sticky top-0">
-                    <tr>
-                      {['ID','Name','Result'].map(h => (
-                        <th key={h} className="px-3 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {results.map((r, i) => (
-                      <tr key={i} className={r.status === 'ok' ? '' : 'bg-red-50/60'}>
-                        <td className="px-3 py-2 font-mono text-blue-600 text-[10px]">{r.admissionNo}</td>
-                        <td className="px-3 py-2 font-semibold text-slate-800">{r.name}</td>
-                        <td className="px-3 py-2">
-                          {r.status === 'ok'
-                            ? <span className="flex items-center gap-1 text-emerald-600 font-semibold"><CheckCircle size={11}/> Success</span>
-                            : <span className="text-red-600 font-semibold" title={r.error}>Failed: {r.error}</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 pb-5 flex gap-2 flex-shrink-0 border-t border-slate-100 pt-4">
-          {stage === 'idle' && (
-            <button onClick={onClose}
-              className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">
-              Cancel
-            </button>
-          )}
-          {stage === 'preview' && (
-            <>
-              <button onClick={() => setStage('idle')}
-                className="flex-1 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">
-                Back
-              </button>
-              <button onClick={handleImport}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition">
-                <Upload size={14} /> Import {rows.length} Members
-              </button>
-            </>
-          )}
-          {stage === 'done' && (
-            <button onClick={onClose}
-              className="flex-1 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition">
-              Close
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ── Renew Modal ───────────────────────────────────────────────────────────────
 
@@ -497,6 +166,8 @@ const Avatar = ({ src, name, size = 'md' }) => {
 const MemberCard = ({ member, onEdit, onDelete, onRenew, isBlocked, onToggleBlock }) => {
   const navigate = useNavigate();
   const { openImagePreview } = useImagePreview();
+  const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isTrainer = loggedInUser?.role === 'trainer';
   const status = getMembershipStatus(member.endDate, member);
   const StatusIcon = status.icon;
   const hasPhoto = !!member.images?.profileImage;
@@ -535,7 +206,7 @@ const MemberCard = ({ member, onEdit, onDelete, onRenew, isBlocked, onToggleBloc
             {member.startDate && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 truncate">Start: {new Date(member.startDate).toLocaleDateString('en-IN')}</span></>}
             {member.endDate && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 truncate">End: {new Date(member.endDate).toLocaleDateString('en-IN')}</span></>}
             {member.attendanceId && <><span className="text-slate-300">·</span><span className="text-xs text-blue-500 font-mono">ID:{member.attendanceId}</span></>}
-            {member.phone && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 flex items-center gap-1"><Phone size={11} className="text-slate-400" />{member.phone}</span></>}
+            {!isTrainer && member.phone && <><span className="text-slate-300">·</span><span className="text-xs text-slate-500 flex items-center gap-1"><Phone size={11} className="text-slate-400" />{member.phone}</span></>}
           </div>
         </div>
       </div>
@@ -548,7 +219,7 @@ const MemberCard = ({ member, onEdit, onDelete, onRenew, isBlocked, onToggleBloc
             <ShieldOff size={10} /> Blocked
           </span>
         )}
-        {waMessage && (
+        {!isTrainer && waMessage && (
           <button onClick={e => { e.stopPropagation(); handleWhatsAppClick(member.phone, waMessage); }}
             disabled={!isValidPhone}
             className={`p-1.5 rounded-lg transition ${isValidPhone ? 'text-green-500 hover:text-green-600 hover:bg-green-50' : 'text-slate-300 cursor-not-allowed'}`}
@@ -630,6 +301,8 @@ const Pagination = ({ page, totalPages, filtered: filteredCount, onPage }) => {
 
 const Members = () => {
   const navigate = useNavigate();
+  const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isTrainer = loggedInUser?.role === 'trainer';
   const [members,      setMembers]      = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [search,       setSearch]       = useState('');
@@ -638,7 +311,6 @@ const Members = () => {
   const [renewTarget,  setRenewTarget]  = useState(null);
   const [blockEntries, setBlockEntries] = useState([]);
   const [page,         setPage]         = useState(() => Number(sessionStorage.getItem('membersListPage')) || 1);
-  const [showImport,   setShowImport]   = useState(false);
 
   const isFirstRender = useRef(true);
   useEffect(() => { fetchMembers(); }, []);
@@ -769,7 +441,7 @@ const Members = () => {
     const isBlocked = isMemberBlocked(m, blockEntries);
     const matchSearch = !search ||
       m.name?.toLowerCase().includes(q) ||
-      m.phone?.includes(q) ||
+      (!isTrainer && m.phone?.includes(q)) ||
       m.emails?.toLowerCase().includes(q);
     const matchFilter = filter === 'all'
       ? true
@@ -810,10 +482,6 @@ const Members = () => {
               className="flex-1 sm:flex-none flex justify-center items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-700 active:scale-95 transition-all text-sm font-semibold shadow-sm">
               <CreditCard size={15} /> <span className="hidden sm:inline">Payments</span><span className="sm:hidden">Pay</span>
             </button>
-            <button onClick={() => setShowImport(true)}
-              className="flex-1 sm:flex-none flex justify-center items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl hover:bg-slate-50 active:scale-95 transition-all text-sm font-semibold shadow-sm">
-              <Upload size={15} /> <span className="hidden sm:inline">Import CSV</span><span className="sm:hidden">Import</span>
-            </button>
             <button onClick={() => navigate('/register')}
               className="flex-1 sm:flex-none flex justify-center items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl hover:bg-red-700 active:scale-95 transition-all text-sm font-semibold shadow-sm">
               <Plus size={16} /> <span className="hidden sm:inline">Add Member</span><span className="sm:hidden">Add</span>
@@ -824,7 +492,7 @@ const Members = () => {
         <div className="relative mb-4">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input name="search" aria-label="Search" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name, phone or email…"
+            placeholder={isTrainer ? "Search by name or email…" : "Search by name, phone or email…"}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-red-400 text-sm shadow-sm" />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={14} className="text-slate-400" /></button>}
         </div>
@@ -894,13 +562,6 @@ const Members = () => {
 
       {renewTarget && (
         <RenewModal member={renewTarget} onClose={() => setRenewTarget(null)} />
-      )}
-
-      {showImport && (
-        <CSVImportModal
-          onClose={() => setShowImport(false)}
-          onDone={() => { fetchMembers(); setShowImport(false); }}
-        />
       )}
     </div>
   );

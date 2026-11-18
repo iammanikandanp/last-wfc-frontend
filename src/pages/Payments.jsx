@@ -953,6 +953,8 @@ const WriteOffModal = ({ payment, onConfirm, onClose }) => {
 
 // ── Quick Update / Collect Payment Modal ──────────────────────────────────────
 export const QuickPaymentUpdateModal = ({ payment, onSave, onClose }) => {
+  const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isTrainer = loggedInUser?.role === 'trainer';
   const total = Number(payment.finalAmount || payment.amount || 0);
   const alreadyPaid = Number(payment.advanceAmount || 0);
   const remaining = Math.max(0, total - alreadyPaid);
@@ -1038,7 +1040,7 @@ export const QuickPaymentUpdateModal = ({ payment, onSave, onClose }) => {
                 )}
                 <div>
                   <p className="font-bold text-slate-800 text-sm">{payment.memberName}</p>
-                  <p className="text-[11px] text-slate-400">{payment.memberPhone || payment.invoiceNo}</p>
+                  <p className="text-[11px] text-slate-400">{(!isTrainer && payment.memberPhone) || payment.invoiceNo}</p>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">
@@ -1246,6 +1248,8 @@ const PayNowModal = ({ payment, onSave, onClose }) => {
 // ── Main Payments Page ────────────────────────────────────────────────────────
 const Payments = () => {
   const navigate = useNavigate();
+  const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isTrainer = loggedInUser?.role === 'trainer';
   const [payments, setPayments] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1362,7 +1366,7 @@ const Payments = () => {
     .filter(p => {
       if (!search) return true;
       const q = search.toLowerCase();
-      return p.memberName?.toLowerCase().includes(q) || p.memberPhone?.includes(q) ||
+      return p.memberName?.toLowerCase().includes(q) || (!isTrainer && p.memberPhone?.includes(q)) ||
              p.invoiceNo?.toLowerCase().includes(q) || p.package?.toLowerCase().includes(q);
     })
     .filter(p => {
@@ -1458,7 +1462,7 @@ const Payments = () => {
           </div>
           <div className="relative ml-auto">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
-            <input name="search" aria-label="Search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Name / phone / invoice…"
+            <input name="search" aria-label="Search" value={search} onChange={e => setSearch(e.target.value)} placeholder={isTrainer ? "Name / invoice…" : "Name / phone / invoice…"}
               className="w-full pl-7 pr-7 py-1.5 border border-slate-200 rounded-xl bg-white text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 sm:w-48 shadow-sm"/>
             {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X size={11} className="text-slate-400"/></button>}
           </div>
@@ -1527,7 +1531,7 @@ const Payments = () => {
                             )}
                             <div>
                               <p className="font-semibold text-slate-800 whitespace-nowrap">{p.memberName || '—'}</p>
-                              <p className="text-[10px] text-slate-400">{p.memberPhone}</p>
+                              {!isTrainer && p.memberPhone && <p className="text-[10px] text-slate-400">{p.memberPhone}</p>}
                             </div>
                           </div>
                         </td>
@@ -1562,12 +1566,14 @@ const Payments = () => {
                           <div className="flex items-center gap-1">
                             <button onClick={() => setInvoiceTarget(p)} title="View & download invoices" className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"><FileText size={13}/></button>
                             <button onClick={() => setQuickUpdateTarget(p)} title="Update Payment" className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition"><Wallet size={13}/></button>
-                            <button onClick={() => handleShareAsPDF(p)} disabled={sharingWa} title="Send invoice PDF via WhatsApp" className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 transition disabled:opacity-40">{sharingWa ? <Loader size={13} className="animate-spin"/> : <WhatsAppIcon size={13}/>}</button>
+                            {!isTrainer && (
+                              <button onClick={() => handleShareAsPDF(p)} disabled={sharingWa} title="Send invoice PDF via WhatsApp" className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 transition disabled:opacity-40">{sharingWa ? <Loader size={13} className="animate-spin"/> : <WhatsAppIcon size={13}/>}</button>
+                            )}
                             <button onClick={() => setEditTarget(p)} title="Edit payment" className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 hover:text-blue-700 transition"><Edit3 size={13}/></button>
                             <button onClick={() => setDeleteTarget(p)} title="Delete payment" className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition"><Trash2 size={13}/></button>
                             {isPending && (
                               <>
-                                {(() => {
+                                {!isTrainer && (() => {
                                   const waMessage = getPaymentPendingWhatsAppMessage(p.memberName, p.balanceAmount, p.nextDueDate || p.dueDate);
                                   const isValidPhone = !!formatPhoneNumber(p.memberPhone);
                                   if (waMessage) {

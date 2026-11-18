@@ -26,7 +26,11 @@ import {
   Target,
   Dumbbell,
   Star,
-  MessageCircle
+  MessageCircle,
+  Coffee,
+  Info,
+  ArrowRight,
+  Award
 } from "lucide-react";
 
 import { getMemberWhatsAppMessage, getPaymentPendingWhatsAppMessage, getCafeteriaPendingWhatsAppMessage, handleWhatsAppClick, formatPhoneNumber } from '../utils/whatsappUtils';
@@ -2305,6 +2309,207 @@ const AdminDashboard = () => {
   );
 };
 
+// ── Simple, attractive WFC Gym landing/home page for Trainers ─────────────────
+const TrainerLandingPage = ({ user }) => {
+  const navigate = useNavigate();
+  const trainerName = user?.name || "Trainer";
+
+  const portalSections = [
+    {
+      title: "Members Directory",
+      desc: "View enrolled members, check active packages, attendance records, and training profiles.",
+      path: "/members",
+      icon: Users,
+      badge: "Core",
+      color: "from-red-600 to-rose-700",
+      accent: "text-red-600",
+      btnText: "Open Members"
+    },
+    {
+      title: "Payments",
+      desc: "Track membership payment transactions, dues, and payment histories.",
+      path: "/payments",
+      icon: Wallet,
+      badge: "Billing",
+      color: "from-emerald-600 to-teal-700",
+      accent: "text-emerald-600",
+      btnText: "View Payments"
+    },
+    {
+      title: "Leads",
+      desc: "Manage prospective gym members, trial enquiries, and customer follow-ups.",
+      path: "/leads",
+      icon: Megaphone,
+      badge: "Enquiries",
+      color: "from-violet-600 to-purple-700",
+      accent: "text-violet-600",
+      btnText: "Manage Leads"
+    },
+    {
+      title: "Cafeteria",
+      desc: "Review refreshments, protein shakes, member cafeteria bills and orders.",
+      path: "/cafeteria",
+      icon: Coffee,
+      badge: "Refreshments",
+      color: "from-amber-600 to-orange-700",
+      accent: "text-amber-600",
+      btnText: "Open Cafeteria"
+    },
+    {
+      title: "About Us",
+      desc: "Club information, equipment facilities, training philosophy, and contact details.",
+      path: "/about",
+      icon: Info,
+      badge: "Overview",
+      color: "from-blue-600 to-cyan-700",
+      accent: "text-blue-600",
+      btnText: "About WFC"
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-100 flex flex-col">
+      <Navbar />
+
+      {/* Hero Section */}
+      <div className="relative bg-slate-950 text-white overflow-hidden">
+        {/* Fitness Background Image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-30 filter brightness-75 scale-105 transition-transform duration-1000"
+          style={{ backgroundImage: "url('/Gym_bg.png')" }}
+        />
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/75 to-red-950/80" />
+
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-12 md:py-16">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="max-w-2xl text-center md:text-left space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-600/30 border border-red-500/40 text-red-200 text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                <Dumbbell size={14} className="text-red-400" />
+                <span>Trainer Portal · WFC Gym</span>
+              </div>
+
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
+                Welcome, <span className="text-red-500">{trainerName}</span>
+              </h1>
+
+              <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-xl">
+                Wolverine Fitness Club & Enterprises. Guiding member transformations, promoting strength, discipline, and healthy living every day.
+              </p>
+
+              <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-4">
+                <button
+                  onClick={() => navigate('/members')}
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-sm rounded-xl shadow-lg shadow-red-900/40 transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Users size={16} /> Go to Members
+                </button>
+                <button
+                  onClick={() => navigate('/cafeteria')}
+                  className="px-5 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-sm rounded-xl border border-white/20 backdrop-blur-sm transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Coffee size={16} /> Cafeteria
+                </button>
+              </div>
+            </div>
+
+            {/* WFC Emblem Card */}
+            <div className="flex-shrink-0 bg-white/10 backdrop-blur-md border border-white/15 rounded-3xl p-6 sm:p-8 text-center max-w-xs w-full shadow-2xl">
+              <div className="w-24 h-24 rounded-full mx-auto p-1 bg-gradient-to-tr from-red-600 to-amber-500 shadow-xl mb-4">
+                <img
+                  src="/logo.jpeg"
+                  alt="WFC Logo"
+                  className="w-full h-full rounded-full object-cover bg-white"
+                />
+              </div>
+              <h2 className="text-xl font-black tracking-wider uppercase text-white">WFC Gym</h2>
+              <p className="text-xs text-red-300 font-semibold uppercase tracking-widest mt-0.5">WFC Enterprises</p>
+              <div className="mt-4 pt-4 border-t border-white/15">
+                <p className="text-xs text-slate-200 italic font-medium">"I'm a lifter not a fighter"</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Sections Grid */}
+      <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8 md:py-12">
+        <div className="mb-8 text-center md:text-left">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Portal Sections</h2>
+          <p className="text-slate-500 text-xs sm:text-sm mt-1">Quick access to all authorized trainer areas</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {portalSections.map((sec) => {
+            const IconComponent = sec.icon;
+            return (
+              <div
+                key={sec.path}
+                onClick={() => navigate(sec.path)}
+                className="group bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${sec.color} text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform`}>
+                      <IconComponent size={22} />
+                    </div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+                      {sec.badge}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 group-hover:text-red-600 transition-colors">
+                    {sec.title}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed">
+                    {sec.desc}
+                  </p>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <span className={`text-xs font-bold ${sec.accent}`}>
+                    {sec.btnText}
+                  </span>
+                  <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-red-600 group-hover:text-white text-slate-600 flex items-center justify-center transition-colors">
+                    <ArrowRight size={14} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Trainer Philosophy Banner */}
+        <div className="mt-10 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-lg border border-slate-800">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-400 flex-shrink-0">
+                <Award size={28} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Trainer Standards & Values</h3>
+                <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
+                  Consistent encouragement, safety first, and member-focused fitness coaching.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-1.5">
+                <CheckCircle size={13} className="text-emerald-400" /> Form & Safety
+              </div>
+              <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-1.5">
+                <CheckCircle size={13} className="text-emerald-400" /> Member Growth
+              </div>
+              <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-1.5">
+                <CheckCircle size={13} className="text-emerald-400" /> Professionalism
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const userObj = (() => {
     try {
@@ -2315,6 +2520,9 @@ const Dashboard = () => {
   })();
   if (userObj.role === "member") {
     return <Navigate to={`/members/${userObj.id || userObj._id}`} replace />;
+  }
+  if (userObj.role === "trainer") {
+    return <TrainerLandingPage user={userObj} />;
   }
   return <AdminDashboard />;
 };

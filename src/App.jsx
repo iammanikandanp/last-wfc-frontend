@@ -129,7 +129,7 @@ function App() {
         <Route path="/recycle-bin"   element={<ProtectedRoute allowedRoles={["admin"]}><RecycleBin /></ProtectedRoute>} />
         <Route path="/reports"       element={<ProtectedRoute allowedRoles={["admin"]}><Reports /></ProtectedRoute>} />
         <Route path="/expenses"      element={<ProtectedRoute allowedRoles={["admin"]}><Expenses /></ProtectedRoute>} />
-        <Route path="/cafeteria"     element={<ProtectedRoute allowedRoles={["admin"]}><Cafeteria /></ProtectedRoute>} />
+        <Route path="/cafeteria"     element={<ProtectedRoute allowedRoles={["admin","trainer"]}><Cafeteria /></ProtectedRoute>} />
         <Route path="/about"         element={<ProtectedRoute allowedRoles={["admin","trainer","member"]}><About /></ProtectedRoute>} />
 
         {/* Default Route */}
